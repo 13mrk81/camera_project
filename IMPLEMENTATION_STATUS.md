@@ -31,7 +31,7 @@ The current branch baseline and existing UART protocol sources were inspected be
 - [x] Corrected stale UART comments in the top-level source.
 
 ## Final review checkpoint
-The final source-level corrections are saved on `feature/matlab-line-stream`. The branch is 36 commits ahead of `main` and 0 behind. This is not a compile/simulation sign-off: all toolchain and board validation items below remain open.
+The final source-level corrections are saved on `feature/matlab-line-stream`. The branch is ahead of `main` and 0 commits behind. This is not a compile/simulation sign-off: all toolchain and board validation items below remain open.
 
 ## Remaining work
 - [ ] Run a VHDL compiler/elaboration pass and resolve any compile-time issues.
@@ -42,7 +42,7 @@ The final source-level corrections are saved on `feature/matlab-line-stream`. Th
 - [ ] Record board-level results and any timing/throughput adjustments.
 
 ## Known validation limitation
-No GHDL, NVC, Vivado, or Gowin command-line compiler is available in the current execution environment. A direct Git clone also failed because outbound DNS access to github.com is unavailable. GitHub connector reads/writes work. Therefore, current validation is static source/port-map checking only; no compile, synthesis, simulation, or hardware test is claimed.
+No GHDL, NVC, Vivado, or Gowin command-line compiler is available in the current execution environment. Reset behavior also remains unverified: the top-level has no external reset input and holds `rst_n` high internally, while the PLL-derived `ip_rst_n` is used across multiple clock domains. A direct Git clone also failed because outbound DNS access to github.com is unavailable. GitHub connector reads/writes work. Therefore, current validation is static source/port-map checking only; no compile, synthesis, simulation, or hardware test is claimed.
 
 ## Recovery procedure
 If work is interrupted, read this file first, then `DESIGN_NOTES.md` and `VALIDATION.md`. Fetch the latest files from `feature/matlab-line-stream` before editing; never apply an old patch blindly.
