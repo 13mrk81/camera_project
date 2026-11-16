@@ -6,7 +6,7 @@ Last updated: 2026-11-16
 - Working branch: `feature/matlab-line-stream`.
 - Base branch: `main`.
 - All implementation commits target this feature branch only.
-- The feature branch is 19 commits ahead of `main`, 0 behind (last checked 2026-11-16).
+- The feature branch is 27 commits ahead of `main`, 0 behind (last checked 2026-11-16).
 - No merge or changes to `main` have been made.
 
 ## Baseline inspected
@@ -25,7 +25,7 @@ The current branch baseline and existing UART protocol sources were inspected be
 - [x] Changed serializer accounting to checkpoint per-line CRC and counters, commit line count only on ACK, and restore counters on retry.
 - [x] Separated UART-domain ACK/NACK pulses from synchronized HyperRAM-domain ACK/NACK events.
 - [x] Added a bundled final-statistics CDC snapshot to the HyperRAM-domain integrity checker.
-- [x] Added `gowin_cameradrive/matlab/matlab_gc0308_hyperram_receiver.m` for the camera stream.
+- [x] Added `gowin_cameradrive/matlab/matlab_gc0308_hyperram_receiver.m` for the camera stream, including early ERROR packet handling.
 
 ## Remaining work
 - [ ] Run a VHDL compiler/elaboration pass and resolve any compile-time issues.
