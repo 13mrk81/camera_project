@@ -40,6 +40,7 @@ Two RGB565 pixels are packed into each 32-bit HyperRAM word. UART payload is RGB
 - On retry, reader restores:
   `G_BASE_ADDR + line_index * C_BURSTS_PER_LINE * G_BURST_ADDR_STRIDE`.
 - Reader deasserts line_ready, waits for FIFO #2 to become empty, then reads the same line again.
+- FIFO-drain wait is bounded by the configured read timeout; a stuck FIFO/CDC now raises reader error instead of hanging indefinitely.
 - Reader increments line_index only on host ACK.
 
 ## Timeout configuration in top
