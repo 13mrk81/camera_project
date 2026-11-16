@@ -33,6 +33,16 @@ fprintf("UART opened: %s @ %d baud, 8N1\n", char(portName), baudRate);
 fprintf("Sending START command...\n");
 write(sp, startByte, "uint8");
 
+%% Verify immediate START handshake before waiting for camera/HyperRAM
+% FPGA returns 0x06 as soon as the 0xC1 START command is decoded.
+startAck = readExact(sp, 1, readTimeout_s);
+if startAck(1) ~= ackByte
+    error("Expected START ACK 0x%02X, received 0x%02X.", ...
+        ackByte, startAck(1));
+end
+fprintf("START ACK received: 0x%02X (UART command path is working).\\n", ...
+    startAck(1));
+
 %% Receive READY packet (or an early FPGA ERROR packet)
 % READY: A5 01 widthLo widthHi heightLo heightHi BPP format
 % ERROR: A5 7F errorCode
