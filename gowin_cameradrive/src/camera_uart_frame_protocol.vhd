@@ -394,8 +394,8 @@ begin
                                 end if;
                                 ack_timer <= 0;
                             elsif rx_valid_i = '1' and rx_data_i = C_NACK then
-                                line_retry_reg <= '1';
                                 if retry_count < G_MAX_RETRIES then
+                                    line_retry_reg <= '1';
                                     retry_count <= retry_count + 1;
                                     line_header_index <= 0;
                                     payload_count <= 0;
@@ -410,8 +410,8 @@ begin
                             elsif ack_timer < G_ACK_TIMEOUT_CYCLES then
                                 ack_timer <= ack_timer + 1;
                             else
-                                line_retry_reg <= '1';
                                 if retry_count < G_MAX_RETRIES then
+                                    line_retry_reg <= '1';
                                     retry_count <= retry_count + 1;
                                     line_header_index <= 0;
                                     payload_count <= 0;
