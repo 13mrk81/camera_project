@@ -12,10 +12,13 @@ IO_LOC  "clk8" 35;
 IO_PORT "clk8" IO_TYPE=LVCMOS33 PULL_MODE=NONE;
 
 
-IO_LOC  "uart_rx_i" 39;
-IO_PORT "uart_rx_i" IO_TYPE=LVCMOS33 PULL_MODE=NONE;
-IO_LOC  "uart_tx_o" 40;
+// USB-to-UART adapter wiring:
+// FPGA TX (uart_tx_o) -> adapter RX -> FPGA pin 31
+// FPGA RX (uart_rx_i) <- adapter TX <- FPGA pin 32
+IO_LOC  "uart_tx_o" 31;
 IO_PORT "uart_tx_o" IO_TYPE=LVCMOS33 PULL_MODE=NONE;
+IO_LOC  "uart_rx_i" 32;
+IO_PORT "uart_rx_i" IO_TYPE=LVCMOS33 PULL_MODE=NONE;
 
 
 // ------------------------------------------------------------
