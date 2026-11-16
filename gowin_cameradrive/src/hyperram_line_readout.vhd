@@ -28,6 +28,8 @@ entity hyperram_line_readout is
         uart_clk               : in  std_logic;
         rst_n                  : in  std_logic;
         frame_written_i        : in  std_logic;
+        line_ack_i             : in  std_logic;
+        line_retry_i           : in  std_logic;
 
         -- Connect these to a verified HyperRAM read adapter.
         mem_rd_cmd_valid_o     : out std_logic;
@@ -127,7 +129,8 @@ begin
             fifo_wr_data_o      => fifo_wr_data,
             fifo_wr_full_i      => fifo_full,
             fifo_wr_level_i     => fifo_wr_level,
-            line_consumed_i     => line_consumed,
+            line_ack_i          => line_ack_i,
+            line_retry_i        => line_retry_i,
             line_read_req_o     => line_read_req_o,
             line_ready_o        => line_ready,
             line_complete_o     => line_complete_o,
@@ -148,6 +151,8 @@ begin
             uart_clk            => uart_clk,
             rst_n               => rst_n,
             line_ready_i        => line_ready,
+            line_ack_i          => line_ack_i,
+            line_retry_i        => line_retry_i,
             line_consumed_o     => line_consumed,
             frame_stream_done_o => serializer_done,
             error_o             => serializer_error,
