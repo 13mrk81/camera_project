@@ -210,6 +210,8 @@ architecture rtl of Camera_HyperRAM_OneFrame is
     signal frame_error_sync_8 : std_logic := '0';
     signal serializer_error_meta_usr : std_logic := '0';
     signal serializer_error_sync_usr : std_logic := '0';
+    signal protocol_error_meta_usr : std_logic := '0';
+    signal protocol_error_sync_usr : std_logic := '0';
 
     signal cam_clk_i          : std_logic;
     signal cam_byte_data      : std_logic_vector(7 downto 0);
@@ -257,6 +259,8 @@ architecture rtl of Camera_HyperRAM_OneFrame is
     attribute async_reg : string;
     attribute async_reg of capture_error_meta_usr : signal is "true";
     attribute async_reg of capture_error_sync_usr : signal is "true";
+    attribute async_reg of protocol_error_meta_usr : signal is "true";
+    attribute async_reg of protocol_error_sync_usr : signal is "true";
 
     --------------------------------------------------------------------------
     -- Capture FIFO -> HyperRAM write engine.
@@ -545,6 +549,17 @@ begin
         elsif rising_edge(usr_clk) then
             serializer_error_meta_usr <= serializer_error;
             serializer_error_sync_usr <= serializer_error_meta_usr;
+        end if;
+    end process;
+
+    process(usr_clk, ip_rst_n)
+    begin
+        if ip_rst_n = '0' then
+            protocol_error_meta_usr <= '0';
+            protocol_error_sync_usr <= '0';
+        elsif rising_edge(usr_clk) then
+            protocol_error_meta_usr <= protocol_error;
+            protocol_error_sync_usr <= protocol_error_meta_usr;
         end if;
     end process;
 
@@ -999,7 +1014,7 @@ begin
     lines_sent         <= unsigned(stream_stats_usr(15 downto 0));
 
     write_word_count_u32 <= to_unsigned(write_word_count, 32);
-    stream_error <= reader_error or serializer_error_sync_usr;
+    stream_error <= reader_error or serializer_error_sync_usr or protocol_error_sync_usr;
     read_pipeline_done <= frame_reader_done and stream_stats_valid_usr;
 
     u_integrity_checker : entity work.frame_integrity_checker
@@ -1036,7 +1051,7 @@ begin
     -- Internal status/error aggregation. No debug/status top-level ports.
     --------------------------------------------------------------------------
     top_frame_error <= capture_error_sync_usr or write_error_reg or
-                       reader_error or serializer_error_sync_usr;
+                       reader_error or serializer_error_sync_usr or protocol_error_sync_usr;
     top_error <= top_frame_error or integrity_error;
 
     --------------------------------------------------------------------------
