@@ -33,12 +33,17 @@ fprintf("UART opened: %s @ %d baud, 8N1\n", char(portName), baudRate);
 fprintf("Sending START command...\n");
 write(sp, startByte, "uint8");
 
-%% Receive READY packet
-% Fixed 8-byte packet: A5 01 widthLo widthHi heightLo heightHi BPP format
-ready = readExact(sp, 8, readTimeout_s);
-if ready(1) ~= sofByte || ready(2) ~= uint8(1)
-    error("Invalid READY packet. Received: %s", char(bytesToHex(ready)));
+%% Receive READY packet (or an early FPGA ERROR packet)
+% READY: A5 01 widthLo widthHi heightLo heightHi BPP format
+% ERROR: A5 7F errorCode
+firstType = readPacketType(sp, sofByte, readTimeout_s);
+if firstType == 127
+    errorInfo = readExact(sp, 1, readTimeout_s);
+    error("FPGA reported capture/write error code 0x%02X.", errorInfo(1));
+elseif firstType ~= 1
+    error("Expected READY packet (type 0x01), received type 0x%02X.", firstType);
 end
+ready = [sofByte; uint8(firstType); readExact(sp, 6, readTimeout_s)];
 
 width          = double(ready(3)) + 256 * double(ready(4));
 height         = double(ready(5)) + 256 * double(ready(6));
