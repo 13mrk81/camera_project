@@ -154,6 +154,8 @@ begin
                     when ST_WAIT_FIFO_EMPTY =>
                         -- FIFO write-domain occupancy includes a synchronized
                         -- read pointer. Wait for true empty before reusing it.
+                        -- Bound this wait so a stalled read-side pointer or
+                        -- broken CDC cannot leave the line reader stuck forever.
                         if fifo_wr_level_i = to_unsigned(0, fifo_wr_level_i'length) then
                             line_word_count_reg <= 0;
                             burst_index_reg <= 0;
@@ -161,6 +163,11 @@ begin
                             timeout_count_reg <= 0;
                             line_req_reg <= '1'; -- Flag A
                             state <= ST_ISSUE_COMMAND;
+                        elsif timeout_count_reg = G_READ_TIMEOUT_CYCLES - 1 then
+                            error_reg <= '1';
+                            state <= ST_ERROR;
+                        else
+                            timeout_count_reg <= timeout_count_reg + 1;
                         end if;
 
                     when ST_ISSUE_COMMAND =>
