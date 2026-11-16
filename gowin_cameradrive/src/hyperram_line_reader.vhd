@@ -45,7 +45,7 @@ entity hyperram_line_reader is
 
         -- Flag A: one-cycle pulse at the start of every line read.
         line_read_req_o        : out std_logic;
-        -- Flag B: sticky until line_consumed_i is acknowledged.
+        -- Flag B: sticky until host ACK or NACK is received.
         line_ready_o           : out std_logic;
         line_complete_o        : out std_logic;
         frame_stream_done_o    : out std_logic;
