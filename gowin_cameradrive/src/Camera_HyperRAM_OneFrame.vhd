@@ -24,8 +24,10 @@ entity Camera_HyperRAM_OneFrame is
         G_CMD_INTERVAL_CYCLES     : positive := 21;
         G_WRITE_READ_GAP_CYCLES   : positive := 63;
         G_READ_TIMEOUT_CYCLES     : positive := 100_000;
-        -- Enable an autonomous UART TX test pattern (no host command required).
-        G_UART_SELF_TEST          : boolean := true
+        -- Enable the autonomous UART TX test pattern (highest priority).
+        G_UART_SELF_TEST          : boolean := false;
+        -- Echo only the decoded START command (0xC1), without starting capture.
+        G_UART_ECHO_TEST          : boolean := true
     );
     port (
         -- 8 MHz board clock and global active-low reset.
@@ -193,7 +195,9 @@ architecture rtl of Camera_HyperRAM_OneFrame is
 
     signal rx_data             : std_logic_vector(7 downto 0);
     signal rx_valid            : std_logic;
+    signal protocol_rx_valid   : std_logic;
     signal rx_framing_error    : std_logic;
+    signal uart_echo_pending   : std_logic := '0';
     signal protocol_tx_data    : std_logic_vector(7 downto 0);
     signal protocol_tx_valid   : std_logic;
     signal protocol_tx_ready   : std_logic;
@@ -522,10 +526,35 @@ begin
         uart_tx_mux_valid <= uart_test_valid;
     end generate;
 
-    g_uart_protocol_tx : if not G_UART_SELF_TEST generate
+    -- Echo-test mode accepts only a complete 0xC1 byte from UART RX.
+    -- Hold the response until the UART transmitter accepts it.
+    g_uart_echo_test : if (not G_UART_SELF_TEST) and G_UART_ECHO_TEST generate
+        process(clk8)
+        begin
+            if rising_edge(clk8) then
+                if rst_n = '0' then
+                    uart_echo_pending <= '0';
+                else
+                    if uart_echo_pending = '1' and protocol_tx_ready = '1' then
+                        uart_echo_pending <= '0';
+                    elsif rx_valid = '1' and rx_data = x"C1" then
+                        uart_echo_pending <= '1';
+                    end if;
+                end if;
+            end if;
+        end process;
+
+        uart_tx_mux_data  <= x"C1";
+        uart_tx_mux_valid <= uart_echo_pending;
+    end generate;
+
+    g_uart_protocol_tx : if (not G_UART_SELF_TEST) and (not G_UART_ECHO_TEST) generate
         uart_tx_mux_data  <= protocol_tx_data;
         uart_tx_mux_valid <= protocol_tx_valid;
     end generate;
+
+    -- Do not let the START byte launch a camera capture during UART echo test.
+    protocol_rx_valid <= rx_valid when (not G_UART_SELF_TEST and not G_UART_ECHO_TEST) else '0';
 
     --------------------------------------------------------------------------
     -- UART physical layer and stop-and-wait camera frame protocol.
@@ -559,7 +588,7 @@ begin
         )
         port map (
             clk => clk8, rst_n => rst_n,
-            rx_data_i => rx_data, rx_valid_i => rx_valid,
+            rx_data_i => rx_data, rx_valid_i => protocol_rx_valid,
             tx_data_o => protocol_tx_data, tx_valid_o => protocol_tx_valid,
             tx_ready_i => protocol_tx_ready,
             frame_available_i => write_done_sync_8,
