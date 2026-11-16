@@ -21,7 +21,7 @@
 - Re-ran static checks after integration: no duplicate signal declarations or duplicate attribute specifications in modified VHDL files; top-level and readout-wrapper named port associations match their entity declarations.
 - Confirmed retry pulse is emitted only when the retry budget permits an actual retransmission.
 - Updated MATLAB startup parsing to recognize an FPGA ERROR packet before READY.
-- Confirmed feature branch comparison: 27 commits ahead of main, 0 behind. No main-branch merge was performed.
+- Confirmed feature branch comparison: 29 commits ahead of main, 0 behind. No main-branch merge was performed.
 
 ## Not run — do not treat as passed
 - No VHDL compile or elaboration: no GHDL/NVC/Gowin compiler executable available in this environment.
