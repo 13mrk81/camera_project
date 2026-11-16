@@ -54,5 +54,6 @@ These are initial design values and should be validated on the board.
 - Verify generated Gowin HyperRAM IP command acceptance, address units, response cadence and read adapter behavior against the exact generated IP example.
 - Verify actual camera output geometry/format and that camera PCLK timing matches the packer assumptions.
 - Verify Gowin supports the selected project file paths and VHDL constructs.
+- Review reset strategy before hardware sign-off: the top has no external reset port and currently holds `rst_n` high internally. Confirm Gowin power-up initialization for all state/FIFO registers and ensure `ip_rst_n` deassertion is safe in each affected clock domain (`clk8`, `usr_clk`, and any camera domain). Add domain-synchronous reset release or an explicit board reset if required.
 - Check clock constraints for clk8, clk24, clk96, usr_clk and cam_pclk.
 - Check UART physical pin constraints and USB-UART voltage/logic compatibility.
