@@ -39,9 +39,9 @@ entity hyperram_line_reader is
         fifo_wr_full_i         : in  std_logic;
         fifo_wr_level_i        : in  unsigned(G_FIFO_ADDR_BITS downto 0);
 
-        -- Consumer acknowledgement comes from the UART-side serializer.
-        -- It is synchronized internally into clk.
-        line_consumed_i        : in  std_logic;
+        -- Host ACK/NACK events are synchronized into this memory-clock domain.
+        line_ack_i             : in  std_logic;
+        line_retry_i           : in  std_logic;
 
         -- Flag A: one-cycle pulse at the start of every line read.
         line_read_req_o        : out std_logic;
@@ -65,7 +65,7 @@ architecture rtl of hyperram_line_reader is
         ST_WAIT_FIFO_EMPTY,
         ST_ISSUE_COMMAND,
         ST_WAIT_BURST_DATA,
-        ST_WAIT_LINE_CONSUMED,
+        ST_WAIT_LINE_ACK,
         ST_DONE,
         ST_ERROR
     );
@@ -84,11 +84,6 @@ architecture rtl of hyperram_line_reader is
     signal frame_done_reg       : std_logic := '0';
     signal error_reg            : std_logic := '0';
 
-    signal consumed_meta        : std_logic := '0';
-    signal consumed_sync        : std_logic := '0';
-    attribute async_reg : string;
-    attribute async_reg of consumed_meta : signal is "true";
-    attribute async_reg of consumed_sync : signal is "true";
 begin
     assert (G_FRAME_WIDTH mod 2) = 0
         report "Frame width must contain an integer number of RGB565 pixels per word"
@@ -140,11 +135,7 @@ begin
             line_complete_reg    <= '0';
             frame_done_reg       <= '0';
             error_reg            <= '0';
-            consumed_meta        <= '0';
-            consumed_sync        <= '0';
         elsif rising_edge(clk) then
-            consumed_meta     <= line_consumed_i;
-            consumed_sync     <= consumed_meta;
             line_req_reg      <= '0';
             line_complete_reg <= '0';
 
@@ -198,7 +189,7 @@ begin
                                     if burst_index_reg = C_BURSTS_PER_LINE - 1 then
                                         if line_word_count_reg = C_WORDS_PER_LINE - 1 then
                                             line_ready_reg <= '1'; -- Flag B
-                                            state <= ST_WAIT_LINE_CONSUMED;
+                                            state <= ST_WAIT_LINE_ACK;
                                         else
                                             error_reg <= '1';
                                             state <= ST_ERROR;
@@ -218,8 +209,8 @@ begin
                             timeout_count_reg <= timeout_count_reg + 1;
                         end if;
 
-                    when ST_WAIT_LINE_CONSUMED =>
-                        if consumed_sync = '1' then
+                    when ST_WAIT_LINE_ACK =>
+                        if line_ack_i = '1' then
                             line_ready_reg <= '0';
                             line_complete_reg <= '1';
                             if line_index_reg = G_FRAME_HEIGHT - 1 then
@@ -229,6 +220,13 @@ begin
                                 line_index_reg <= line_index_reg + 1;
                                 state <= ST_WAIT_FIFO_EMPTY;
                             end if;
+                        elsif line_retry_i = '1' then
+                            line_ready_reg <= '0';
+                            line_word_count_reg <= 0;
+                            burst_index_reg <= 0;
+                            beat_count_reg <= 0;
+                            timeout_count_reg <= 0;
+                            state <= ST_WAIT_FIFO_EMPTY;
                         end if;
 
                     when ST_DONE =>
@@ -251,7 +249,11 @@ begin
             rd_addr_reg <= unsigned(G_BASE_ADDR);
 
         elsif rising_edge(clk) then
-            if (state = ST_WAIT_BURST_DATA) and
+            if (state = ST_WAIT_LINE_ACK) and (line_retry_i = '1') then
+                rd_addr_reg <= unsigned(G_BASE_ADDR) +
+                    to_unsigned(line_index_reg * C_BURSTS_PER_LINE * G_BURST_ADDR_STRIDE,
+                                G_ADDR_WIDTH);
+            elsif (state = ST_WAIT_BURST_DATA) and
                (rd_data_valid_i = '1') and
                (fifo_wr_full_i = '0') and
                (beat_count_reg = G_BURST_WORDS - 1) then
