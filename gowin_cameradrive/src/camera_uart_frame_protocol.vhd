@@ -278,7 +278,7 @@ begin
                         when ST_WAIT_FRAME =>
                             if frame_error_i = '1' then
                                 error_reg <= '1';
-                                error_code_reg <= x\"02\";
+                                error_code_reg <= x"02";
                                 error_index <= 0;
                                 state <= ST_SEND_ERROR;
                             elsif frame_available_i = '1' then
@@ -286,7 +286,7 @@ begin
                                 state <= ST_SEND_READY;
                             elsif frame_timer = G_FRAME_TIMEOUT_CYCLES - 1 then
                                 error_reg <= '1';
-                                error_code_reg <= x\"03\";
+                                error_code_reg <= x"03";
                                 error_index <= 0;
                                 state <= ST_SEND_ERROR;
                             else
