@@ -26,6 +26,12 @@ The current branch baseline and existing UART protocol sources were inspected be
 - [x] Separated UART-domain ACK/NACK pulses from synchronized HyperRAM-domain ACK/NACK events.
 - [x] Added a bundled final-statistics CDC snapshot to the HyperRAM-domain integrity checker.
 - [x] Added `gowin_cameradrive/matlab/matlab_gc0308_hyperram_receiver.m` for the camera stream, including early ERROR packet handling.
+- [x] Added a bounded FIFO #2 drain timeout to the line reader so a stalled FIFO/CDC produces a reader error instead of an indefinite wait.
+- [x] Completed a source-level review of CRC coverage, RGB565 word order, ACK/NACK retry sequencing, UART handshake, top-level connections and Gowin project entries.
+- [x] Corrected stale UART comments in the top-level source.
+
+## Final review checkpoint
+The final source-level corrections are saved on `feature/matlab-line-stream`. The branch is 36 commits ahead of `main` and 0 behind. This is not a compile/simulation sign-off: all toolchain and board validation items below remain open.
 
 ## Remaining work
 - [ ] Run a VHDL compiler/elaboration pass and resolve any compile-time issues.
