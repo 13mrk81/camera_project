@@ -23,6 +23,15 @@
 - Updated MATLAB startup parsing to recognize an FPGA ERROR packet before READY.
 - Confirmed feature branch comparison: 29 commits ahead of main, 0 behind. No main-branch merge was performed.
 
+## 2026-11-16 — Final source review
+- Re-reviewed the current feature-branch versions of the top-level integration, protocol FSM, UART RX/TX, HyperRAM reader/adapter, output FIFO wrapper, RGB565 serializer/packer, CDC blocks, MATLAB receiver and Gowin project file.
+- Confirmed protocol CRC coverage matches MATLAB: TYPE + row index + payload length + payload; SOF and transmitted CRC bytes are excluded.
+- Confirmed RGB565 word order is pixel 0 in bits 31:16 and pixel 1 in bits 15:0; serializer emits R, G, B for each pixel.
+- Confirmed ACK advances both protocol and memory reader by one line; NACK/ACK timeout requests the same line again and serializer rolls back its per-line counters/CRC.
+- Added a bounded timeout while waiting for output FIFO #2 to become empty before reusing it.
+- Corrected stale top-level comments that described the old falling-edge-only UART trigger and unused UART TX.
+- Current GitHub comparison remains 31 commits ahead of main and 0 behind. No main-branch changes or merge.
+
 ## Not run — do not treat as passed
 - No VHDL compile or elaboration: no GHDL/NVC/Gowin compiler executable available in this environment.
 - No VHDL simulation.
