@@ -186,8 +186,30 @@ architecture rtl of Camera_HyperRAM_OneFrame is
     -- One-shot trigger and unchanged camera_interface stream.
     --------------------------------------------------------------------------
     signal camera_start_pulse : std_logic;
-    signal start_armed_i      : std_logic;
-    signal start_triggered_i  : std_logic;
+    signal protocol_transfer_start : std_logic;
+    signal protocol_line_start : std_logic;
+    signal protocol_line_index : std_logic_vector(15 downto 0);
+
+    signal rx_data             : std_logic_vector(7 downto 0);
+    signal rx_valid            : std_logic;
+    signal rx_framing_error    : std_logic;
+    signal protocol_tx_data    : std_logic_vector(7 downto 0);
+    signal protocol_tx_valid   : std_logic;
+    signal protocol_tx_ready   : std_logic;
+    signal protocol_src_ready  : std_logic;
+    signal protocol_busy       : std_logic;
+    signal protocol_done       : std_logic;
+    signal protocol_error      : std_logic;
+    signal protocol_line_ack   : std_logic;
+    signal protocol_line_retry : std_logic;
+    signal line_ack_usr        : std_logic;
+    signal line_retry_usr      : std_logic;
+    signal write_done_meta_8   : std_logic := '0';
+    signal write_done_sync_8   : std_logic := '0';
+    signal frame_error_meta_8 : std_logic := '0';
+    signal frame_error_sync_8 : std_logic := '0';
+    signal serializer_error_meta_usr : std_logic := '0';
+    signal serializer_error_sync_usr : std_logic := '0';
 
     signal cam_clk_i          : std_logic;
     signal cam_byte_data      : std_logic_vector(7 downto 0);
@@ -232,13 +254,9 @@ architecture rtl of Camera_HyperRAM_OneFrame is
 
     signal capture_error_meta_usr : std_logic := '0';
     signal capture_error_sync_usr : std_logic := '0';
-    signal start_meta_usr         : std_logic := '0';
-    signal start_sync_usr         : std_logic := '0';
     attribute async_reg : string;
     attribute async_reg of capture_error_meta_usr : signal is "true";
     attribute async_reg of capture_error_sync_usr : signal is "true";
-    attribute async_reg of start_meta_usr : signal is "true";
-    attribute async_reg of start_sync_usr : signal is "true";
 
     --------------------------------------------------------------------------
     -- Capture FIFO -> HyperRAM write engine.
@@ -283,7 +301,6 @@ architecture rtl of Camera_HyperRAM_OneFrame is
 
     signal line_read_req      : std_logic;
     signal line_ready         : std_logic;
-    signal line_consumed      : std_logic;
     signal line_complete      : std_logic;
     signal frame_reader_done  : std_logic;
     signal serializer_done    : std_logic;
@@ -293,12 +310,23 @@ architecture rtl of Camera_HyperRAM_OneFrame is
     signal line_index         : unsigned(15 downto 0);
     signal line_word_count    : unsigned(15 downto 0);
     signal output_fifo_level  : unsigned(G_OUTPUT_FIFO_ADDR_BITS downto 0);
-    signal readback_crc       : std_logic_vector(31 downto 0);
-    signal readback_raw_bytes : unsigned(31 downto 0);
-    signal readback_word_count: unsigned(31 downto 0);
-    signal output_pixel_count : unsigned(31 downto 0);
-    signal uart_byte_count    : unsigned(31 downto 0);
-    signal lines_sent         : unsigned(15 downto 0);
+    signal readback_crc_uart       : std_logic_vector(31 downto 0);
+    signal readback_raw_bytes_uart : unsigned(31 downto 0);
+    signal readback_word_count_uart: unsigned(31 downto 0);
+    signal output_pixel_count_uart : unsigned(31 downto 0);
+    signal uart_byte_count_uart    : unsigned(31 downto 0);
+    signal lines_sent_uart         : unsigned(15 downto 0);
+
+    -- Bundle the final clk8 statistics into usr_clk for the integrity checker.
+    signal stream_stats_src       : std_logic_vector(175 downto 0);
+    signal stream_stats_usr       : std_logic_vector(175 downto 0);
+    signal stream_stats_valid_usr : std_logic;
+    signal readback_crc           : std_logic_vector(31 downto 0);
+    signal readback_raw_bytes     : unsigned(31 downto 0);
+    signal readback_word_count    : unsigned(31 downto 0);
+    signal output_pixel_count     : unsigned(31 downto 0);
+    signal uart_byte_count        : unsigned(31 downto 0);
+    signal lines_sent             : unsigned(15 downto 0);
 
     --------------------------------------------------------------------------
     -- Integrity checker and readback debug index.
@@ -414,18 +442,108 @@ begin
     ip_rst_n <= rst_n and pll_stable;
 
     --------------------------------------------------------------------------
-    -- UART RX falling-edge event -> one rising-edge camera_interface pulse.
-    -- camera_interface itself is not modified.
+    -- UART physical layer and stop-and-wait camera frame protocol.
     --------------------------------------------------------------------------
-    u_start_one_shot : entity work.falling_edge_one_shot
+    u_uart_rx : entity work.uart_rx
+        generic map (G_CLK_FREQ_HZ => 8_000_000, G_BAUD_RATE => 115_200)
         port map (
-            clk           => clk24,
-            rst_n         => rst_n,
-            async_start_i => uart_rx_i,
-            start_pulse_o => camera_start_pulse,
-            armed_o       => start_armed_i,
-            triggered_o   => start_triggered_i
+            clk => clk8, rst_n => rst_n, serial_rx_i => uart_rx_i,
+            data_o => rx_data, data_valid_o => rx_valid,
+            framing_error_o => rx_framing_error
         );
+
+    u_uart_tx : entity work.uart_tx
+        generic map (G_CLK_FREQ_HZ => 8_000_000, G_BAUD_RATE => 115_200)
+        port map (
+            clk => clk8, rst_n => rst_n, data_i => protocol_tx_data,
+            data_valid_i => protocol_tx_valid, data_ready_o => protocol_tx_ready,
+            serial_tx_o => uart_tx_o
+        );
+
+    u_camera_protocol : entity work.camera_uart_frame_protocol
+        generic map (
+            G_FRAME_WIDTH => G_FRAME_WIDTH,
+            G_FRAME_HEIGHT => G_FRAME_HEIGHT,
+            G_BYTES_PER_PIXEL => 3,
+            G_PIXEL_FORMAT => x"01",
+            G_ACK_TIMEOUT_CYCLES => 16_000_000,
+            G_SOURCE_TIMEOUT_CYCLES => 8_000_000,
+            G_FRAME_TIMEOUT_CYCLES => 120_000_000,
+            G_MAX_RETRIES => 3
+        )
+        port map (
+            clk => clk8, rst_n => rst_n,
+            rx_data_i => rx_data, rx_valid_i => rx_valid,
+            tx_data_o => protocol_tx_data, tx_valid_o => protocol_tx_valid,
+            tx_ready_i => protocol_tx_ready,
+            frame_available_i => write_done_sync_8,
+            frame_error_i => frame_error_sync_8,
+            line_start_o => protocol_line_start,
+            line_index_o => protocol_line_index,
+            src_data_i => uart_tx_data,
+            src_valid_i => uart_tx_valid,
+            src_ready_o => protocol_src_ready,
+            transfer_start_o => protocol_transfer_start,
+            line_ack_o => protocol_line_ack,
+            line_retry_o => protocol_line_retry,
+            busy_o => protocol_busy, done_o => protocol_done,
+            error_o => protocol_error
+        );
+
+    -- Decoded START pulse crosses into the camera's 24 MHz control domain.
+    u_camera_start_cdc : entity work.pulse_toggle_cdc
+        port map (
+            src_clk => clk8, src_rst_n => rst_n,
+            src_pulse_i => protocol_transfer_start,
+            dst_clk => clk24, dst_rst_n => rst_n,
+            dst_pulse_o => camera_start_pulse
+        );
+
+    -- Host ACK/NACK events cross from protocol clk8 to HyperRAM usr_clk.
+    u_line_ack_cdc : entity work.pulse_toggle_cdc
+        port map (
+            src_clk => clk8, src_rst_n => ip_rst_n,
+            src_pulse_i => protocol_line_ack,
+            dst_clk => usr_clk, dst_rst_n => ip_rst_n,
+            dst_pulse_o => line_ack_usr
+        );
+
+    u_line_retry_cdc : entity work.pulse_toggle_cdc
+        port map (
+            src_clk => clk8, src_rst_n => ip_rst_n,
+            src_pulse_i => protocol_line_retry,
+            dst_clk => usr_clk, dst_rst_n => ip_rst_n,
+            dst_pulse_o => line_retry_usr
+        );
+
+    -- Frame-write completion/error are sticky status levels crossing to clk8.
+    process(clk8, rst_n)
+    begin
+        if rst_n = '0' then
+            write_done_meta_8 <= '0';
+            write_done_sync_8 <= '0';
+            frame_error_meta_8 <= '0';
+            frame_error_sync_8 <= '0';
+        elsif rising_edge(clk8) then
+            write_done_meta_8 <= write_done_reg;
+            write_done_sync_8 <= write_done_meta_8;
+            frame_error_meta_8 <= capture_error_sync_usr or write_error_reg;
+            frame_error_sync_8 <= frame_error_meta_8;
+        end if;
+    end process;
+
+    -- Serializer error is a clk8-domain status; synchronize it for the
+    -- HyperRAM-domain integrity checker.
+    process(usr_clk, ip_rst_n)
+    begin
+        if ip_rst_n = '0' then
+            serializer_error_meta_usr <= '0';
+            serializer_error_sync_usr <= '0';
+        elsif rising_edge(usr_clk) then
+            serializer_error_meta_usr <= serializer_error;
+            serializer_error_sync_usr <= serializer_error_meta_usr;
+        end if;
+    end process;
 
     u_camera : camera_interface
         generic map (
@@ -454,7 +572,6 @@ begin
         );
 
     cam_clk <= cam_clk_i;
-    uart_tx_o <= '1';
 
     --------------------------------------------------------------------------
     -- Capture packer: preserves the four original RGB565 bytes per word.
@@ -541,13 +658,9 @@ begin
         if ip_rst_n = '0' then
             capture_error_meta_usr <= '0';
             capture_error_sync_usr <= '0';
-            start_meta_usr <= '0';
-            start_sync_usr <= '0';
         elsif rising_edge(usr_clk) then
             capture_error_meta_usr <= capture_error_cam;
             capture_error_sync_usr <= capture_error_meta_usr;
-            start_meta_usr <= start_triggered_i;
-            start_sync_usr <= start_meta_usr;
         end if;
     end process;
 
@@ -727,9 +840,11 @@ begin
         )
         port map (
             mem_clk                => usr_clk,
-            uart_clk               => usr_clk,
+            uart_clk               => clk8,
             rst_n                  => ip_rst_n,
             frame_written_i        => readout_start_reg,
+            line_ack_i             => line_ack_usr,
+            line_retry_i           => line_retry_usr,
             mem_rd_cmd_valid_o     => line_cmd_valid,
             mem_rd_cmd_ready_i     => line_cmd_ready,
             mem_rd_addr_o          => line_cmd_addr,
@@ -737,7 +852,7 @@ begin
             mem_rd_data_valid_i    => read_data_valid_usr,
             uart_tx_data_o         => uart_tx_data,
             uart_tx_valid_o        => uart_tx_valid,
-            uart_tx_ready_i        => '1',
+            uart_tx_ready_i        => protocol_src_ready,
             uart_r_valid_o         => uart_r_valid,
             uart_g_valid_o         => uart_g_valid,
             uart_b_valid_o         => uart_b_valid,
@@ -746,7 +861,7 @@ begin
             rgb_b_o                => rgb_b,
             line_read_req_o        => line_read_req,
             line_ready_o           => line_ready,
-            line_consumed_o        => line_consumed,
+            line_consumed_o        => open,
             line_complete_o        => line_complete,
             frame_stream_done_o    => frame_reader_done,
             serializer_done_o      => serializer_done,
@@ -755,27 +870,23 @@ begin
             line_index_o           => line_index,
             line_word_count_o      => line_word_count,
             fifo_write_level_o     => output_fifo_level,
-            readback_crc_o         => readback_crc,
-            raw_byte_count_o       => readback_raw_bytes,
-            read_word_count_o      => readback_word_count,
-            pixel_count_o          => output_pixel_count,
-            uart_byte_count_o      => uart_byte_count,
-            lines_sent_o           => lines_sent
+            readback_crc_o         => readback_crc_uart,
+            raw_byte_count_o       => readback_raw_bytes_uart,
+            read_word_count_o      => readback_word_count_uart,
+            pixel_count_o          => output_pixel_count_uart,
+            uart_byte_count_o      => uart_byte_count_uart,
+            lines_sent_o           => lines_sent_uart
         );
 
-    -- Preserve the original write/read settling interval before the first read.
-    process(usr_clk, ip_rst_n)
+    -- Start prefetch only after the host ACKs READY and the protocol emits
+    -- the first LINE header. The level remains asserted for all subsequent rows.
+    process(clk8, rst_n)
     begin
-        if ip_rst_n = '0' then
+        if rst_n = '0' then
             readout_start_reg <= '0';
-            read_gap_count <= 0;
-        elsif rising_edge(usr_clk) then
-            if (write_done_reg = '1') and (readout_start_reg = '0') then
-                if read_gap_count = G_WRITE_READ_GAP_CYCLES - 1 then
-                    readout_start_reg <= '1';
-                else
-                    read_gap_count <= read_gap_count + 1;
-                end if;
+        elsif rising_edge(clk8) then
+            if protocol_line_start = '1' then
+                readout_start_reg <= '1';
             end if;
         end if;
     end process;
@@ -848,9 +959,33 @@ begin
     -- End-to-end integrity checker. UART is not physically present in this
     -- build, so its idle condition is tied high.
     --------------------------------------------------------------------------
+    -- One bundled snapshot crosses only after protocol DONE is acknowledged.
+    stream_stats_src <= readback_crc_uart &
+                        std_logic_vector(readback_raw_bytes_uart) &
+                        std_logic_vector(readback_word_count_uart) &
+                        std_logic_vector(output_pixel_count_uart) &
+                        std_logic_vector(uart_byte_count_uart) &
+                        std_logic_vector(lines_sent_uart);
+
+    u_stream_stats_cdc : entity work.stable_bus_event_cdc
+        generic map (G_WIDTH => 176)
+        port map (
+            src_clk => clk8, src_rst_n => ip_rst_n,
+            src_event_i => protocol_done, src_data_i => stream_stats_src,
+            dst_clk => usr_clk, dst_rst_n => ip_rst_n,
+            dst_event_o => stream_stats_valid_usr, dst_data_o => stream_stats_usr
+        );
+
+    readback_crc       <= stream_stats_usr(175 downto 144);
+    readback_raw_bytes <= unsigned(stream_stats_usr(143 downto 112));
+    readback_word_count<= unsigned(stream_stats_usr(111 downto 80));
+    output_pixel_count <= unsigned(stream_stats_usr(79 downto 48));
+    uart_byte_count    <= unsigned(stream_stats_usr(47 downto 16));
+    lines_sent         <= unsigned(stream_stats_usr(15 downto 0));
+
     write_word_count_u32 <= to_unsigned(write_word_count, 32);
-    stream_error <= reader_error or serializer_error;
-    read_pipeline_done <= serializer_done and frame_reader_done;
+    stream_error <= reader_error or serializer_error_sync_usr;
+    read_pipeline_done <= frame_reader_done and stream_stats_valid_usr;
 
     u_integrity_checker : entity work.frame_integrity_checker
         generic map (
@@ -863,7 +998,7 @@ begin
             capture_done_i        => capture_snapshot_valid_usr,
             write_done_i          => write_done_reg,
             stream_done_i         => read_pipeline_done,
-            uart_idle_i           => '1',
+            uart_idle_i           => stream_stats_valid_usr,
             capture_error_i       => capture_error_sync_usr,
             write_error_i         => write_error_reg,
             stream_error_i        => stream_error,
@@ -886,7 +1021,7 @@ begin
     -- Internal status/error aggregation. No debug/status top-level ports.
     --------------------------------------------------------------------------
     top_frame_error <= capture_error_sync_usr or write_error_reg or
-                       reader_error or serializer_error;
+                       reader_error or serializer_error_sync_usr;
     top_error <= top_frame_error or integrity_error;
 
     --------------------------------------------------------------------------
