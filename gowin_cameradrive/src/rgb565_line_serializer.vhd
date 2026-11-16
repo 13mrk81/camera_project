@@ -16,6 +16,8 @@ entity rgb565_line_serializer is
         rst_n                : in  std_logic;
 
         line_ready_i         : in  std_logic;
+        line_ack_i           : in  std_logic;
+        line_retry_i         : in  std_logic;
         line_consumed_o      : out std_logic;
         frame_stream_done_o  : out std_logic;
         error_o              : out std_logic;
@@ -55,7 +57,9 @@ architecture rtl of rgb565_line_serializer is
         ST_SEND_R,
         ST_SEND_G,
         ST_SEND_B,
-        ST_LINE_DONE,
+        ST_WAIT_HOST_ACK,
+        ST_WAIT_LINE_DROP,
+        ST_WAIT_RETRY_DROP,
         ST_FRAME_DONE,
         ST_ERROR
     );
@@ -85,6 +89,13 @@ architecture rtl of rgb565_line_serializer is
     signal word_count_reg    : unsigned(31 downto 0) := (others => '0');
     signal pixel_count_reg   : unsigned(31 downto 0) := (others => '0');
     signal uart_byte_count_reg : unsigned(31 downto 0) := (others => '0');
+
+    -- Per-line checkpoint: statistics become permanent only after host ACK.
+    signal crc_checkpoint             : std_logic_vector(31 downto 0) := x\"FFFFFFFF\";
+    signal raw_byte_checkpoint        : unsigned(31 downto 0) := (others => '0');
+    signal word_count_checkpoint      : unsigned(31 downto 0) := (others => '0');
+    signal pixel_count_checkpoint     : unsigned(31 downto 0) := (others => '0');
+    signal uart_byte_checkpoint       : unsigned(31 downto 0) := (others => '0');
 
     function crc32_byte(
         crc_in  : std_logic_vector(31 downto 0);
@@ -183,6 +194,11 @@ begin
             word_count_reg      <= (others => '0');
             pixel_count_reg     <= (others => '0');
             uart_byte_count_reg <= (others => '0');
+            crc_checkpoint <= x\"FFFFFFFF\";
+            raw_byte_checkpoint <= (others => '0');
+            word_count_checkpoint <= (others => '0');
+            pixel_count_checkpoint <= (others => '0');
+            uart_byte_checkpoint <= (others => '0');
         elsif rising_edge(uart_clk) then
             line_ready_meta <= line_ready_i;
             line_ready_sync <= line_ready_meta;
@@ -192,6 +208,11 @@ begin
                     if line_ready_sync = '1' then
                         words_this_line <= 0;
                         wait_count <= 0;
+                        crc_checkpoint <= crc_reg;
+                        raw_byte_checkpoint <= raw_byte_count_reg;
+                        word_count_checkpoint <= word_count_reg;
+                        pixel_count_checkpoint <= pixel_count_reg;
+                        uart_byte_checkpoint <= uart_byte_count_reg;
                         state <= ST_REQUEST_WORD;
                     end if;
 
@@ -258,29 +279,46 @@ begin
                             state <= ST_SEND_R;
                         else
                             if words_this_line = C_WORDS_PER_LINE then
-                                line_consumed_reg <= '1';
-                                if lines_completed < G_FRAME_HEIGHT then
-                                    lines_completed <= lines_completed + 1;
-                                end if;
-                                if lines_completed = G_FRAME_HEIGHT - 1 then
-                                    frame_done_reg <= '1';
-                                end if;
-                                state <= ST_LINE_DONE;
+                                line_consumed_reg <= '0';
+                                state <= ST_WAIT_HOST_ACK;
                             else
                                 state <= ST_REQUEST_WORD;
                             end if;
                         end if;
                     end if;
 
-                when ST_LINE_DONE =>
-                    -- Hold acknowledgement until the reader drops line_ready.
+                when ST_WAIT_HOST_ACK =>
+                    if line_ack_i = '1' then
+                        if lines_completed < G_FRAME_HEIGHT then
+                            lines_completed <= lines_completed + 1;
+                        end if;
+                        if lines_completed = G_FRAME_HEIGHT - 1 then
+                            frame_done_reg <= '1';
+                        end if;
+                        state <= ST_WAIT_LINE_DROP;
+                    elsif line_retry_i = '1' then
+                        crc_reg <= crc_checkpoint;
+                        raw_byte_count_reg <= raw_byte_checkpoint;
+                        word_count_reg <= word_count_checkpoint;
+                        pixel_count_reg <= pixel_count_checkpoint;
+                        uart_byte_count_reg <= uart_byte_checkpoint;
+                        words_this_line <= 0;
+                        pixel_select <= '0';
+                        state <= ST_WAIT_RETRY_DROP;
+                    end if;
+
+                when ST_WAIT_LINE_DROP =>
                     if line_ready_sync = '0' then
-                        line_consumed_reg <= '0';
                         if frame_done_reg = '1' then
                             state <= ST_FRAME_DONE;
                         else
                             state <= ST_WAIT_LINE_READY;
                         end if;
+                    end if;
+
+                when ST_WAIT_RETRY_DROP =>
+                    if line_ready_sync = '0' then
+                        state <= ST_WAIT_LINE_READY;
                     end if;
 
                 when ST_FRAME_DONE =>
