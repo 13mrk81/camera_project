@@ -86,6 +86,7 @@ architecture rtl of camera_uart_frame_protocol is
 
     type state_t is (
         ST_IDLE,
+        ST_SEND_START_ACK,
         ST_WAIT_FRAME,
         ST_SEND_READY,
         ST_WAIT_READY_ACK,
@@ -210,6 +211,10 @@ begin
                     if tx_ready_i = '1' then
                         tx_valid_reg <= '0';
                         case state is
+                            when ST_SEND_START_ACK =>
+                                state <= ST_WAIT_FRAME;
+                                frame_timer <= 0;
+
                             when ST_SEND_READY =>
                                 if ready_index = 7 then
                                     state <= ST_WAIT_READY_ACK;
@@ -268,11 +273,15 @@ begin
                     case state is
                         when ST_IDLE =>
                             if (rx_valid_i = '1') and (rx_data_i = C_CMD_START) then
+                                -- Immediate command-level handshake: tell the host
+                                -- START was decoded before camera/HyperRAM processing.
                                 transfer_start_reg <= '1';
+                                tx_data_reg <= C_ACK;
+                                tx_valid_reg <= '1';
                                 ready_index <= 0;
                                 retry_count <= 0;
                                 frame_timer <= 0;
-                                state <= ST_WAIT_FRAME;
+                                state <= ST_SEND_START_ACK;
                             end if;
 
                         when ST_WAIT_FRAME =>
