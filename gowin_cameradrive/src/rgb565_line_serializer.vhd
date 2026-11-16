@@ -91,7 +91,7 @@ architecture rtl of rgb565_line_serializer is
     signal uart_byte_count_reg : unsigned(31 downto 0) := (others => '0');
 
     -- Per-line checkpoint: statistics become permanent only after host ACK.
-    signal crc_checkpoint             : std_logic_vector(31 downto 0) := x\"FFFFFFFF\";
+    signal crc_checkpoint             : std_logic_vector(31 downto 0) := x"FFFFFFFF";
     signal raw_byte_checkpoint        : unsigned(31 downto 0) := (others => '0');
     signal word_count_checkpoint      : unsigned(31 downto 0) := (others => '0');
     signal pixel_count_checkpoint     : unsigned(31 downto 0) := (others => '0');
@@ -194,7 +194,7 @@ begin
             word_count_reg      <= (others => '0');
             pixel_count_reg     <= (others => '0');
             uart_byte_count_reg <= (others => '0');
-            crc_checkpoint <= x\"FFFFFFFF\";
+            crc_checkpoint <= x"FFFFFFFF";
             raw_byte_checkpoint <= (others => '0');
             word_count_checkpoint <= (others => '0');
             pixel_count_checkpoint <= (others => '0');
