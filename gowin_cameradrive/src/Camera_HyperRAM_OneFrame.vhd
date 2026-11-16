@@ -267,8 +267,6 @@ architecture rtl of Camera_HyperRAM_OneFrame is
     attribute async_reg of serializer_error_sync_usr : signal is "true";
     attribute async_reg of protocol_error_meta_usr : signal is "true";
     attribute async_reg of protocol_error_sync_usr : signal is "true";
-    attribute async_reg of protocol_error_meta_usr : signal is "true";
-    attribute async_reg of protocol_error_sync_usr : signal is "true";
 
     --------------------------------------------------------------------------
     -- Capture FIFO -> HyperRAM write engine.
