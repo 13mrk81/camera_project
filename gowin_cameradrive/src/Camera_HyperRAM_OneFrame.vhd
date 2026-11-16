@@ -257,8 +257,6 @@ architecture rtl of Camera_HyperRAM_OneFrame is
     attribute async_reg : string;
     attribute async_reg of capture_error_meta_usr : signal is "true";
     attribute async_reg of capture_error_sync_usr : signal is "true";
-    attribute async_reg of readout_start_meta_usr : signal is "true";
-    attribute async_reg of readout_start_sync_usr : signal is "true";
 
     --------------------------------------------------------------------------
     -- Capture FIFO -> HyperRAM write engine.
@@ -283,6 +281,8 @@ architecture rtl of Camera_HyperRAM_OneFrame is
     signal readout_start_reg      : std_logic := '0'; -- clk8 domain, sticky
     signal readout_start_meta_usr : std_logic := '0';
     signal readout_start_sync_usr : std_logic := '0';
+    attribute async_reg of readout_start_meta_usr : signal is "true";
+    attribute async_reg of readout_start_sync_usr : signal is "true";
 
     signal line_cmd_valid     : std_logic;
     signal line_cmd_ready     : std_logic;
