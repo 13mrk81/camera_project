@@ -2,9 +2,8 @@ library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 
--- One-shot GC0308 -> raw RGB565 HyperRAM frame capture and internal readback.
--- UART RX is used only as a falling-edge start trigger.
--- UART TX is reserved for future use and is held at the idle-high level.
+-- One-shot GC0308 -> raw RGB565 HyperRAM capture and stop-and-wait UART readback.
+-- UART RX decodes the complete 0xC1 START command; UART TX streams RGB888 rows.
 --
 -- Memory format (640x480 defaults):
 --   4 original RGB565 bytes per 32-bit user word
@@ -30,9 +29,9 @@ entity Camera_HyperRAM_OneFrame is
         -- 8 MHz board clock and global active-low reset.
         clk8                : in  std_logic;
 
-        -- UART RX falling edge starts the one-shot capture sequence.
+        -- UART RX input: complete 0xC1 START command.
         uart_rx_i           : in  std_logic;
-        -- Reserved for future UART transmission; held at idle-high for now.
+        -- UART TX output: READY/LINE/DONE/ERROR protocol packets and payload.
         uart_tx_o           : out std_logic;
 
         -- GC0308 connections.
@@ -183,7 +182,7 @@ architecture rtl of Camera_HyperRAM_OneFrame is
     signal mem_data_mask_i    : std_logic_vector(3 downto 0) := (others => '0');
 
     --------------------------------------------------------------------------
-    -- One-shot trigger and unchanged camera_interface stream.
+    -- Decoded UART START event and camera_interface stream.
     --------------------------------------------------------------------------
     signal camera_start_pulse : std_logic;
     signal protocol_transfer_start : std_logic;
@@ -992,8 +991,9 @@ begin
     end process;
 
     --------------------------------------------------------------------------
-    -- End-to-end integrity checker. UART is not physically present in this
-    -- build, so its idle condition is tied high.
+    -- End-to-end integrity checker. The final statistics snapshot is captured
+    -- only after the host ACKs DONE; this also implies the DONE UART byte has
+    -- completed transmission and the physical UART transmitter is idle.
     --------------------------------------------------------------------------
     -- One bundled snapshot crosses only after protocol DONE is acknowledged.
     stream_stats_src <= readback_crc_uart &
