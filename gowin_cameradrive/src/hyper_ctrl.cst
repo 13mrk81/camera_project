@@ -12,12 +12,12 @@ IO_LOC  "clk8" 35;
 IO_PORT "clk8" IO_TYPE=LVCMOS33 PULL_MODE=NONE;
 
 
-// UART pins: HDMI_TX1 pair (HDMI is unused in this design).
-// Bank 2 VCCIO is 2.5 V; use a suitable level interface to a 3.3 V USB-UART.
-IO_LOC  "uart_rx_i" 31;
-IO_PORT "uart_rx_i" IO_TYPE=LVCMOS25 PULL_MODE=NONE;
-IO_LOC  "uart_tx_o" 32;
-IO_PORT "uart_tx_o" IO_TYPE=LVCMOS25 PULL_MODE=NONE;
+// UART pins: shared with SPI Flash data signals (MSPI).
+// Keep MSPI inactive while using UART after FPGA configuration.
+IO_LOC  "uart_rx_i" 47;
+IO_PORT "uart_rx_i" IO_TYPE=LVCMOS33 PULL_MODE=NONE;
+IO_LOC  "uart_tx_o" 48;
+IO_PORT "uart_tx_o" IO_TYPE=LVCMOS33 PULL_MODE=NONE;
 
 
 // ------------------------------------------------------------
