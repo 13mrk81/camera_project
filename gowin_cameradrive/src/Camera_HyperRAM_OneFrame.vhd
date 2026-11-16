@@ -257,6 +257,8 @@ architecture rtl of Camera_HyperRAM_OneFrame is
     attribute async_reg : string;
     attribute async_reg of capture_error_meta_usr : signal is "true";
     attribute async_reg of capture_error_sync_usr : signal is "true";
+    attribute async_reg of readout_start_meta_usr : signal is "true";
+    attribute async_reg of readout_start_sync_usr : signal is "true";
 
     --------------------------------------------------------------------------
     -- Capture FIFO -> HyperRAM write engine.
@@ -278,8 +280,9 @@ architecture rtl of Camera_HyperRAM_OneFrame is
     --------------------------------------------------------------------------
     -- Read adapter and line-by-line readout subsystem.
     --------------------------------------------------------------------------
-    signal readout_start_reg  : std_logic := '0';
-    signal read_gap_count     : natural range 0 to G_WRITE_READ_GAP_CYCLES - 1 := 0;
+    signal readout_start_reg      : std_logic := '0'; -- clk8 domain, sticky
+    signal readout_start_meta_usr : std_logic := '0';
+    signal readout_start_sync_usr : std_logic := '0';
 
     signal line_cmd_valid     : std_logic;
     signal line_cmd_ready     : std_logic;
@@ -664,6 +667,17 @@ begin
         end if;
     end process;
 
+    process(usr_clk, ip_rst_n)
+    begin
+        if ip_rst_n = '0' then
+            readout_start_meta_usr <= '0';
+            readout_start_sync_usr <= '0';
+        elsif rising_edge(usr_clk) then
+            readout_start_meta_usr <= readout_start_reg;
+            readout_start_sync_usr <= readout_start_meta_usr;
+        end if;
+    end process;
+
     --------------------------------------------------------------------------
     -- HyperRAM write engine.
     --------------------------------------------------------------------------
@@ -814,7 +828,7 @@ begin
         port map (
             clk                => usr_clk,
             rst_n              => ip_rst_n,
-            enable_i           => readout_start_reg,
+            enable_i           => readout_start_sync_usr,
             rd_cmd_valid_i     => line_cmd_valid,
             rd_cmd_ready_o     => line_cmd_ready,
             rd_cmd_addr_i      => line_cmd_addr,
@@ -842,9 +856,11 @@ begin
             mem_clk                => usr_clk,
             uart_clk               => clk8,
             rst_n                  => ip_rst_n,
-            frame_written_i        => readout_start_reg,
+            frame_written_i        => readout_start_sync_usr,
             line_ack_i             => line_ack_usr,
             line_retry_i           => line_retry_usr,
+            line_ack_uart_i        => protocol_line_ack,
+            line_retry_uart_i      => protocol_line_retry,
             mem_rd_cmd_valid_o     => line_cmd_valid,
             mem_rd_cmd_ready_i     => line_cmd_ready,
             mem_rd_addr_o          => line_cmd_addr,
