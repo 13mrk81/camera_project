@@ -225,6 +225,7 @@ begin
                                 state <= ST_DONE;
                             else
                                 line_index_reg <= line_index_reg + 1;
+                                timeout_count_reg <= 0;
                                 state <= ST_WAIT_FIFO_EMPTY;
                             end if;
                         elsif line_retry_i = '1' then
