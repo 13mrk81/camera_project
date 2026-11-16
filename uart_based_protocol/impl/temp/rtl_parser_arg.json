@@ -1,0 +1,33 @@
+{
+ "Device" : "GW1NSR-4C",
+ "Files" : [
+  {
+   "Library" : "work",
+   "Path" : "/home/mrk/A_Projects/FPGA/gowin/golden/uart_based_protocol/src/UART_Protocol_Test_Top.vhd",
+   "Type" : "vhdl"
+  },
+  {
+   "Library" : "work",
+   "Path" : "/home/mrk/A_Projects/FPGA/gowin/golden/uart_based_protocol/src/uart_frame_protocol.vhd",
+   "Type" : "vhdl"
+  },
+  {
+   "Library" : "work",
+   "Path" : "/home/mrk/A_Projects/FPGA/gowin/golden/uart_based_protocol/src/uart_rx.vhd",
+   "Type" : "vhdl"
+  },
+  {
+   "Library" : "work",
+   "Path" : "/home/mrk/A_Projects/FPGA/gowin/golden/uart_based_protocol/src/uart_tx.vhd",
+   "Type" : "vhdl"
+  }
+ ],
+ "IncludePath" : [
+
+ ],
+ "LoopLimit" : 2000,
+ "ResultFile" : "/home/mrk/A_Projects/FPGA/gowin/golden/uart_based_protocol/impl/temp/rtl_parser.result",
+ "Top" : "",
+ "VerilogStd" : "verilog_2001",
+ "VhdlStd" : "vhdl_93"
+}

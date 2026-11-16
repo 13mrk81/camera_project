@@ -1,0 +1,24 @@
+# Gowin generated files
+impl/
+*.tmp
+*.log
+*.bak
+*.cache
+*.rpt
+*.fs
+*.bin
+*.mif
+*.hex
+
+# Operating system
+.DS_Store
+Thumbs.db
+
+# Editor
+*.swp
+*.swo
+*~
+
+# Backup files
+*.bak
+*.old

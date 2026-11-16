@@ -1,0 +1,18 @@
+-d /home/mrk/A_Projects/FPGA/gowin/golden/uart_based_protocol/impl/gwsynthesis/uart_based_protocol.vg
+-p GW1NSR-4C-QFN48P-6
+-pn GW1NSR-LV4CQN48PC6/I5
+-cst /home/mrk/A_Projects/FPGA/gowin/golden/uart_based_protocol/src/UART_Protocol_Test_Top.cst
+-cfg /home/mrk/A_Projects/FPGA/gowin/golden/uart_based_protocol/impl/pnr/device.cfg
+-sdc /home/mrk/A_Projects/FPGA/gowin/golden/uart_based_protocol/src/uart_test.sdc
+-bit
+-tr
+-ph
+-timing
+-cst_error
+-convert_sdp32_36_to_sdp16_18
+-place_option 0
+-route_option 0
+-clock_route_order 0
+-correct_hold 1
+-route_maxfan 23
+-global_freq 50.000

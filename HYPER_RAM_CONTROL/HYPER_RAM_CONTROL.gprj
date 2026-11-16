@@ -1,0 +1,27 @@
+<?xml version="1" encoding="UTF-8"?>
+<!DOCTYPE gowin-fpga-project>
+<Project>
+    <Template>FPGA</Template>
+    <Version>5</Version>
+    <Device name="GW1NSR-4C" pn="GW1NSR-LV4CQN48PC6/I5">gw1nsr4c-000</Device>
+    <FileList>
+        <File path="src/Camera_HyperRAM_OneFrame.vhd" type="file.vhdl" enable="1"/>
+        <File path="src/async_fifo_32.vhd" type="file.vhdl" enable="1"/>
+        <File path="src/camera_interface.vhd" type="file.vhdl" enable="1"/>
+        <File path="src/falling_edge_one_shot.vhd" type="file.vhdl" enable="1"/>
+        <File path="src/frame_integrity_checker.vhd" type="file.vhdl" enable="1"/>
+        <File path="src/gowin_hyperram_read_adapter.vhd" type="file.vhdl" enable="1"/>
+        <File path="src/gowin_pllvr/gowin_pllvr.vhd" type="file.vhdl" enable="1"/>
+        <File path="src/gowin_pllvr/gowin_pllvr_1.vhd" type="file.vhdl" enable="1"/>
+        <File path="src/hyperram_line_reader.vhd" type="file.vhdl" enable="1"/>
+        <File path="src/hyperram_line_readout.vhd" type="file.vhdl" enable="1"/>
+        <File path="src/hyperram_memory_interface/hyperram_memory_interface.vhd" type="file.vhdl" enable="1"/>
+        <File path="src/i2c_master_nack.vhd" type="file.vhdl" enable="1"/>
+        <File path="src/rgb565_frame_packer.vhd" type="file.vhdl" enable="1"/>
+        <File path="src/rgb565_line_serializer.vhd" type="file.vhdl" enable="1"/>
+        <File path="src/stable_bus_event_cdc.vhd" type="file.vhdl" enable="1"/>
+        <File path="src/hyper_ctrl.cst" type="file.cst" enable="1"/>
+        <File path="src/hyper_ctrl.sdc" type="file.sdc" enable="1"/>
+        <File path="src/HYPER_RAM_CONTROL.rao" type="file.gao" enable="1"/>
+    </FileList>
+</Project>

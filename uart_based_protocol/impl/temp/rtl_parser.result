@@ -1,0 +1,36 @@
+[
+ {
+  "InstFile" : "/home/mrk/A_Projects/FPGA/gowin/golden/uart_based_protocol/src/UART_Protocol_Test_Top.vhd",
+  "InstLine" : 12,
+  "InstName" : "UART_Protocol_Test_Top",
+  "ModuleFile" : "/home/mrk/A_Projects/FPGA/gowin/golden/uart_based_protocol/src/UART_Protocol_Test_Top.vhd",
+  "ModuleLine" : 12,
+  "ModuleName" : "UART_Protocol_Test_Top",
+  "SubInsts" : [
+   {
+    "InstFile" : "/home/mrk/A_Projects/FPGA/gowin/golden/uart_based_protocol/src/UART_Protocol_Test_Top.vhd",
+    "InstLine" : 67,
+    "InstName" : "u_uart_rx",
+    "ModuleFile" : "/home/mrk/A_Projects/FPGA/gowin/golden/uart_based_protocol/src/uart_rx.vhd",
+    "ModuleLine" : 7,
+    "ModuleName" : "uart_rx"
+   },
+   {
+    "InstFile" : "/home/mrk/A_Projects/FPGA/gowin/golden/uart_based_protocol/src/UART_Protocol_Test_Top.vhd",
+    "InstLine" : 81,
+    "InstName" : "u_uart_tx",
+    "ModuleFile" : "/home/mrk/A_Projects/FPGA/gowin/golden/uart_based_protocol/src/uart_tx.vhd",
+    "ModuleLine" : 8,
+    "ModuleName" : "uart_tx"
+   },
+   {
+    "InstFile" : "/home/mrk/A_Projects/FPGA/gowin/golden/uart_based_protocol/src/UART_Protocol_Test_Top.vhd",
+    "InstLine" : 95,
+    "InstName" : "u_protocol",
+    "ModuleFile" : "/home/mrk/A_Projects/FPGA/gowin/golden/uart_based_protocol/src/uart_frame_protocol.vhd",
+    "ModuleLine" : 25,
+    "ModuleName" : "uart_frame_protocol"
+   }
+  ]
+ }
+]

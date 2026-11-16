@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Module name="UART_Protocol_Test_Top" Register="28" Alu="16" Lut="23" T_Register="192(28)" T_Alu="16(16)" T_Lut="482(23)">
+ <SubModule name="u_uart_rx" Register="32" Lut="38" T_Register="32(32)" T_Lut="38(38)"/>
+ <SubModule name="u_uart_tx" Register="21" Lut="31" T_Register="21(21)" T_Lut="31(31)"/>
+ <SubModule name="u_protocol" Register="111" Lut="390" T_Register="111(111)" T_Lut="390(390)"/>
+</Module>

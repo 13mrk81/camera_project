@@ -1,0 +1,2 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Module name="HyperRAM_Memory_Interface_Top" Register="400" Alu="30" Lut="650" Bsram="2" T_Register="400(400)" T_Alu="30(30)" T_Lut="650(650)" T_Bsram="2(2)"/>

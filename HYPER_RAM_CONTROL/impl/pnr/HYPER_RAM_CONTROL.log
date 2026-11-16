@@ -1,0 +1,33 @@
+Reading netlist file: "/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/impl/gwsynthesis/HYPER_RAM_CONTROL.vg"
+Parsing netlist file "/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/impl/gwsynthesis/HYPER_RAM_CONTROL.vg" completed
+Processing netlist completed
+Reading constraint file: "/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/hyper_ctrl.cst"
+Physical Constraint parsed completed
+Running placement......
+[10%] Placement Phase 0 completed
+[20%] Placement Phase 1 completed
+[30%] Placement Phase 2 completed
+WARN  (TA1132) :  'cam_pclk' was determined to be a clock but was not created.
+WARN  (TA1132) :  'tck_pad_i' was determined to be a clock but was not created.
+WARN  (TA1132) :  'u_hyperram/u_hpram_top/clkdiv_s0/CLKOUT.default_gen_clk' was determined to be a clock but was not created.
+[50%] Placement Phase 3 completed
+Running routing......
+[60%] Routing Phase 0 completed
+[70%] Routing Phase 1 completed
+[80%] Routing Phase 2 completed
+WARN  (PR1014) : Generic routing resource will be used to clock signal 'clk8_d' by the specified constraint. And then it may lead to the excessive delay or skew
+[90%] Routing Phase 3 completed
+Running timing analysis......
+[95%] Timing analysis completed
+Placement and routing completed
+Bitstream generation in progress......
+Bitstream generation completed
+Running power analysis......
+[100%] Power analysis completed
+Generate file "/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/impl/pnr/HYPER_RAM_CONTROL.power.html" completed
+Generate file "/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/impl/pnr/HYPER_RAM_CONTROL.pin.html" completed
+Generate file "/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/impl/pnr/HYPER_RAM_CONTROL.rpt.html" completed
+Generate file "/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/impl/pnr/HYPER_RAM_CONTROL.rpt.txt" completed
+Generate file "/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/impl/pnr/HYPER_RAM_CONTROL.tr.html" completed
+Sun Nov 15 09:45:57 2026
+

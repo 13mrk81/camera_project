@@ -1,0 +1,145 @@
+GowinSynthesis start
+Running parser ...
+Analyzing VHDL file '/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/falling_edge_one_shot.vhd'
+Analyzing entity 'falling_edge_one_shot'("/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/falling_edge_one_shot.vhd":8)
+Analyzing architecture 'rtl'("/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/falling_edge_one_shot.vhd":19)
+Analyzing VHDL file '/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/rgb565_frame_packer.vhd'
+Analyzing entity 'rgb565_frame_packer'("/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/rgb565_frame_packer.vhd":11)
+Analyzing architecture 'rtl'("/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/rgb565_frame_packer.vhd":34)
+Analyzing VHDL file '/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/async_fifo_32.vhd'
+Analyzing entity 'async_fifo_32'("/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/async_fifo_32.vhd":8)
+Analyzing architecture 'rtl'("/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/async_fifo_32.vhd":29)
+Analyzing VHDL file '/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/stable_bus_event_cdc.vhd'
+Analyzing entity 'stable_bus_event_cdc'("/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/stable_bus_event_cdc.vhd":9)
+Analyzing architecture 'rtl'("/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/stable_bus_event_cdc.vhd":26)
+Analyzing VHDL file '/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/gowin_hyperram_read_adapter.vhd'
+Analyzing entity 'gowin_hyperram_read_adapter'("/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/gowin_hyperram_read_adapter.vhd":16)
+Analyzing architecture 'rtl'("/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/gowin_hyperram_read_adapter.vhd":42)
+Analyzing VHDL file '/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/hyperram_line_reader.vhd'
+Analyzing entity 'hyperram_line_reader'("/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/hyperram_line_reader.vhd":13)
+Analyzing architecture 'rtl'("/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/hyperram_line_reader.vhd":59)
+Analyzing VHDL file '/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/rgb565_line_serializer.vhd'
+Analyzing entity 'rgb565_line_serializer'("/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/rgb565_line_serializer.vhd":8)
+Analyzing architecture 'rtl'("/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/rgb565_line_serializer.vhd":47)
+Analyzing VHDL file '/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/hyperram_line_readout.vhd'
+Analyzing entity 'hyperram_line_readout'("/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/hyperram_line_readout.vhd":15)
+Analyzing architecture 'rtl'("/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/hyperram_line_readout.vhd":71)
+Analyzing VHDL file '/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/frame_integrity_checker.vhd'
+Analyzing entity 'frame_integrity_checker'("/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/frame_integrity_checker.vhd":8)
+Analyzing architecture 'rtl'("/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/frame_integrity_checker.vhd":39)
+Analyzing VHDL file '/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/Camera_HyperRAM_OneFrame.vhd'
+Analyzing entity 'camera_hyperram_oneframe'("/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/Camera_HyperRAM_OneFrame.vhd":19)
+Analyzing architecture 'rtl'("/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/Camera_HyperRAM_OneFrame.vhd":57)
+Analyzing VHDL file '/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/camera_interface.vhd'
+Analyzing entity 'camera_interface'("/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/camera_interface.vhd":18)
+Analyzing architecture 'rtl'("/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/camera_interface.vhd":55)
+Analyzing VHDL file '/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/gowin_pllvr/gowin_pllvr.vhd'
+Analyzing entity 'gowin_pllvr'("/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/gowin_pllvr/gowin_pllvr.vhd":12)
+Analyzing architecture 'behavioral'("/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/gowin_pllvr/gowin_pllvr.vhd":20)
+Analyzing VHDL file '/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/gowin_pllvr/gowin_pllvr_1.vhd'
+Analyzing entity 'gowin_pllvr_1'("/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/gowin_pllvr/gowin_pllvr_1.vhd":12)
+Analyzing architecture 'behavioral'("/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/gowin_pllvr/gowin_pllvr_1.vhd":19)
+Analyzing VHDL file '/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/hyperram_memory_interface/hyperram_memory_interface.vhd'
+Analyzing entity 'matched_rvld_fifo'("/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/hyperram_memory_interface/hyperram_memory_interface.vhd":3701)
+Analyzing architecture 'beh'("/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/hyperram_memory_interface/hyperram_memory_interface.vhd":3701)
+Analyzing entity '\~hpram_lane.HyperRAM_Memory_Interface_Top\'("/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/hyperram_memory_interface/hyperram_memory_interface.vhd":3701)
+Analyzing architecture 'beh'("/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/hyperram_memory_interface/hyperram_memory_interface.vhd":3701)
+Analyzing entity '\~hpram_wd.HyperRAM_Memory_Interface_Top\'("/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/hyperram_memory_interface/hyperram_memory_interface.vhd":3701)
+Analyzing architecture 'beh'("/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/hyperram_memory_interface/hyperram_memory_interface.vhd":3701)
+Analyzing entity '\~hpram_init.HyperRAM_Memory_Interface_Top\'("/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/hyperram_memory_interface/hyperram_memory_interface.vhd":3701)
+Analyzing architecture 'beh'("/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/hyperram_memory_interface/hyperram_memory_interface.vhd":3701)
+Analyzing entity '\~hpram_sync.HyperRAM_Memory_Interface_Top\'("/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/hyperram_memory_interface/hyperram_memory_interface.vhd":3701)
+Analyzing architecture 'beh'("/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/hyperram_memory_interface/hyperram_memory_interface.vhd":3701)
+Analyzing entity '\~hpram_top.HyperRAM_Memory_Interface_Top\'("/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/hyperram_memory_interface/hyperram_memory_interface.vhd":3701)
+Analyzing architecture 'beh'("/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/hyperram_memory_interface/hyperram_memory_interface.vhd":3701)
+Analyzing entity 'hyperram_memory_interface_top'("/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/hyperram_memory_interface/hyperram_memory_interface.vhd":3701)
+Analyzing architecture 'beh'("/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/hyperram_memory_interface/hyperram_memory_interface.vhd":3701)
+Analyzing VHDL file '/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/i2c_master_nack.vhd'
+Analyzing entity 'i2c_master_nack'("/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/i2c_master_nack.vhd":5)
+Analyzing architecture 'rtl'("/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/i2c_master_nack.vhd":41)
+Analyzing Verilog file '/home/mrk/opt/Gowin/IDE/data/ipcores/GAO/GW_AO_0/gw_ao_crc32.v'
+Analyzing Verilog file '/home/mrk/opt/Gowin/IDE/data/ipcores/GAO/GW_AO_0/gw_ao_match.v'
+Analyzing included file '/home/mrk/opt/Gowin/IDE/data/ipcores/GAO/GW_AO_0/gw_ao_define.v'("/home/mrk/opt/Gowin/IDE/data/ipcores/GAO/GW_AO_0/gw_ao_match.v":374)
+Back to file '/home/mrk/opt/Gowin/IDE/data/ipcores/GAO/GW_AO_0/gw_ao_match.v'("/home/mrk/opt/Gowin/IDE/data/ipcores/GAO/GW_AO_0/gw_ao_match.v":374)
+Analyzing included file '/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/impl/gwsynthesis/RTL_GAO/ao_0/gw_ao_top_define.v'("/home/mrk/opt/Gowin/IDE/data/ipcores/GAO/GW_AO_0/gw_ao_match.v":374)
+Back to file '/home/mrk/opt/Gowin/IDE/data/ipcores/GAO/GW_AO_0/gw_ao_match.v'("/home/mrk/opt/Gowin/IDE/data/ipcores/GAO/GW_AO_0/gw_ao_match.v":374)
+Analyzing included file '/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/impl/gwsynthesis/RTL_GAO/ao_0/gw_ao_init.v'("/home/mrk/opt/Gowin/IDE/data/ipcores/GAO/GW_AO_0/gw_ao_match.v":374)
+Back to file '/home/mrk/opt/Gowin/IDE/data/ipcores/GAO/GW_AO_0/gw_ao_match.v'("/home/mrk/opt/Gowin/IDE/data/ipcores/GAO/GW_AO_0/gw_ao_match.v":374)
+Analyzing Verilog file '/home/mrk/opt/Gowin/IDE/data/ipcores/GAO/GW_AO_0/gw_ao_mem_ctrl.v'
+Analyzing included file '/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/impl/gwsynthesis/RTL_GAO/ao_0/gw_ao_top_define.v'("/home/mrk/opt/Gowin/IDE/data/ipcores/GAO/GW_AO_0/gw_ao_mem_ctrl.v":1256)
+Back to file '/home/mrk/opt/Gowin/IDE/data/ipcores/GAO/GW_AO_0/gw_ao_mem_ctrl.v'("/home/mrk/opt/Gowin/IDE/data/ipcores/GAO/GW_AO_0/gw_ao_mem_ctrl.v":1256)
+Analyzing Verilog file '/home/mrk/opt/Gowin/IDE/data/ipcores/GAO/GW_AO_0/gw_ao_top.v'
+Analyzing included file '/home/mrk/opt/Gowin/IDE/data/ipcores/GAO/GW_AO_0/gw_ao_define.v'("/home/mrk/opt/Gowin/IDE/data/ipcores/GAO/GW_AO_0/gw_ao_top.v":3042)
+Back to file '/home/mrk/opt/Gowin/IDE/data/ipcores/GAO/GW_AO_0/gw_ao_top.v'("/home/mrk/opt/Gowin/IDE/data/ipcores/GAO/GW_AO_0/gw_ao_top.v":3042)
+Analyzing included file '/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/impl/gwsynthesis/RTL_GAO/ao_0/gw_ao_top_define.v'("/home/mrk/opt/Gowin/IDE/data/ipcores/GAO/GW_AO_0/gw_ao_top.v":3042)
+Back to file '/home/mrk/opt/Gowin/IDE/data/ipcores/GAO/GW_AO_0/gw_ao_top.v'("/home/mrk/opt/Gowin/IDE/data/ipcores/GAO/GW_AO_0/gw_ao_top.v":3042)
+Analyzing included file '/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/impl/gwsynthesis/RTL_GAO/ao_0/gw_ao_expression.v'("/home/mrk/opt/Gowin/IDE/data/ipcores/GAO/GW_AO_0/gw_ao_top.v":3042)
+Back to file '/home/mrk/opt/Gowin/IDE/data/ipcores/GAO/GW_AO_0/gw_ao_top.v'("/home/mrk/opt/Gowin/IDE/data/ipcores/GAO/GW_AO_0/gw_ao_top.v":3042)
+Analyzing included file '/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/impl/gwsynthesis/RTL_GAO/ao_0/gw_ao_parameter.v'("/home/mrk/opt/Gowin/IDE/data/ipcores/GAO/GW_AO_0/gw_ao_top.v":3042)
+Back to file '/home/mrk/opt/Gowin/IDE/data/ipcores/GAO/GW_AO_0/gw_ao_top.v'("/home/mrk/opt/Gowin/IDE/data/ipcores/GAO/GW_AO_0/gw_ao_top.v":3042)
+Analyzing included file '/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/impl/gwsynthesis/RTL_GAO/ao_0/gw_ao_init.v'("/home/mrk/opt/Gowin/IDE/data/ipcores/GAO/GW_AO_0/gw_ao_top.v":3042)
+Back to file '/home/mrk/opt/Gowin/IDE/data/ipcores/GAO/GW_AO_0/gw_ao_top.v'("/home/mrk/opt/Gowin/IDE/data/ipcores/GAO/GW_AO_0/gw_ao_top.v":3042)
+Analyzing Verilog file '/home/mrk/opt/Gowin/IDE/data/ipcores/GAO/GW_CON/gw_con_top.v'
+Analyzing included file '/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/impl/gwsynthesis/RTL_GAO/ao_control/gw_con_top_define.v'("/home/mrk/opt/Gowin/IDE/data/ipcores/GAO/GW_CON/gw_con_top.v":377)
+Back to file '/home/mrk/opt/Gowin/IDE/data/ipcores/GAO/GW_CON/gw_con_top.v'("/home/mrk/opt/Gowin/IDE/data/ipcores/GAO/GW_CON/gw_con_top.v":377)
+Analyzing included file '/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/impl/gwsynthesis/RTL_GAO/ao_control/gw_con_parameter.v'("/home/mrk/opt/Gowin/IDE/data/ipcores/GAO/GW_CON/gw_con_top.v":377)
+Back to file '/home/mrk/opt/Gowin/IDE/data/ipcores/GAO/GW_CON/gw_con_top.v'("/home/mrk/opt/Gowin/IDE/data/ipcores/GAO/GW_CON/gw_con_top.v":377)
+Analyzing Verilog file '/home/mrk/opt/Gowin/IDE/data/ipcores/gw_jtag.v'
+Analyzing Verilog file '/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/impl/gwsynthesis/RTL_GAO/gw_gao_top.v'
+Compiling module '**'("/home/mrk/opt/Gowin/IDE/data/ipcores/GAO/GW_AO_0/gw_ao_crc32.v":74)
+Compiling module '**'("/home/mrk/opt/Gowin/IDE/data/ipcores/GAO/GW_AO_0/gw_ao_match.v":374)
+Compiling module '**'("/home/mrk/opt/Gowin/IDE/data/ipcores/GAO/GW_AO_0/gw_ao_mem_ctrl.v":1256)
+Extracting RAM for identifier '**'("/home/mrk/opt/Gowin/IDE/data/ipcores/GAO/GW_AO_0/gw_ao_mem_ctrl.v":1256)
+Compiling module '**'("/home/mrk/opt/Gowin/IDE/data/ipcores/GAO/GW_AO_0/gw_ao_top.v":3042)
+Compiling module '**'("/home/mrk/opt/Gowin/IDE/data/ipcores/GAO/GW_CON/gw_con_top.v":377)
+Compiling module 'GW_JTAG'("/home/mrk/opt/Gowin/IDE/data/ipcores/gw_jtag.v":1)
+Compiling module 'gw_gao'("/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/impl/gwsynthesis/RTL_GAO/gw_gao_top.v":1)
+Processing 'falling_edge_one_shot(rtl)'("/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/falling_edge_one_shot.vhd":8)
+Processing 'rgb565_frame_packer(rtl)'("/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/rgb565_frame_packer.vhd":11)
+'others' clause is never selected("/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/rgb565_frame_packer.vhd":129)
+Processing 'async_fifo_32(rtl)'("/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/async_fifo_32.vhd":8)
+Extracting RAM for identifier 'mem'("/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/async_fifo_32.vhd":33)
+Processing 'stable_bus_event_cdc(rtl)'("/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/stable_bus_event_cdc.vhd":9)
+Processing 'gowin_hyperram_read_adapter(rtl)'("/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/gowin_hyperram_read_adapter.vhd":16)
+Processing 'hyperram_line_reader(rtl)'("/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/hyperram_line_reader.vhd":13)
+'others' clause is never selected("/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/hyperram_line_reader.vhd":242)
+WARN  (EX4160) : Latch inferred for net 'rd_addr_reg[3]'("/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/hyperram_line_reader.vhd":264)
+Processing 'rgb565_line_serializer(rtl)'("/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/rgb565_line_serializer.vhd":8)
+'others' clause is never selected("/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/rgb565_line_serializer.vhd":294)
+WARN  (EX4160) : Latch inferred for net 'raw_byte_count_reg[1]'("/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/rgb565_line_serializer.vhd":297)
+Processing 'hyperram_line_readout(rtl)'("/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/hyperram_line_readout.vhd":15)
+Processing 'frame_integrity_checker(rtl)'("/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/frame_integrity_checker.vhd":8)
+Processing 'Camera_HyperRAM_OneFrame(rtl)'("/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/Camera_HyperRAM_OneFrame.vhd":19)
+Processing 'Gowin_PLLVR_1(Behavioral)'("/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/gowin_pllvr/gowin_pllvr_1.vhd":12)
+Processing 'Gowin_PLLVR(Behavioral)'("/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/gowin_pllvr/gowin_pllvr.vhd":12)
+Processing 'camera_interface(rtl)'("/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/camera_interface.vhd":18)
+Processing 'i2c_master_nack(rtl)'("/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/i2c_master_nack.vhd":5)
+'others' clause is never selected("/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/camera_interface.vhd":610)
+'others' clause is never selected("/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/camera_interface.vhd":796)
+Processing 'async_fifo_32(g_addr_bits=10)(rtl)'("/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/async_fifo_32.vhd":8)
+Extracting RAM for identifier 'mem'("/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/async_fifo_32.vhd":33)
+Processing 'stable_bus_event_cdc(g_width=96)(rtl)'("/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/stable_bus_event_cdc.vhd":9)
+'others' clause is never selected("/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/Camera_HyperRAM_OneFrame.vhd":685)
+Processing '**(**)'("/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/hyperram_memory_interface/hyperram_memory_interface.vhd":3701)
+WARN  (EX4160) : Latch inferred for net 'write_addr[3]'("/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/Camera_HyperRAM_OneFrame.vhd":908)
+Trying to combine GAO to RTL design
+NOTE  (EX0101) : Current top module is "Camera_HyperRAM_OneFrame"
+[5%] Running netlist conversion ...
+Running device independent optimization ...
+[10%] Optimizing Phase 0 completed
+[15%] Optimizing Phase 1 completed
+[25%] Optimizing Phase 2 completed
+Running inference ...
+[30%] Inferring Phase 0 completed
+[40%] Inferring Phase 1 completed
+[50%] Inferring Phase 2 completed
+[55%] Inferring Phase 3 completed
+Running technical mapping ...
+[60%] Tech-Mapping Phase 0 completed
+[65%] Tech-Mapping Phase 1 completed
+[75%] Tech-Mapping Phase 2 completed
+[80%] Tech-Mapping Phase 3 completed
+[90%] Tech-Mapping Phase 4 completed
+[95%] Generate netlist file "/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/impl/gwsynthesis/HYPER_RAM_CONTROL.vg" completed
+[100%] Generate report file "/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/impl/gwsynthesis/HYPER_RAM_CONTROL_syn.rpt.html" completed
+GowinSynthesis finish

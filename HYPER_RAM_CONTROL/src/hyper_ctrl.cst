@@ -1,0 +1,74 @@
+// ============================================================
+// Tang Nano 4K - Camera + HyperRAM
+// Top module: Camera_HyperRAM_OneFrame
+// ============================================================
+
+
+// ------------------------------------------------------------
+// System inputs
+// ------------------------------------------------------------
+
+IO_LOC  "clk8" 35;
+IO_PORT "clk8" IO_TYPE=LVCMOS33 PULL_MODE=NONE;
+
+
+IO_LOC  "uart_rx_i" 39;
+IO_PORT "uart_rx_i" IO_TYPE=LVCMOS33 PULL_MODE=NONE;
+IO_LOC  "uart_tx_o" 40;
+IO_PORT "uart_tx_o" IO_TYPE=LVCMOS33 PULL_MODE=NONE;
+
+
+// ------------------------------------------------------------
+// GC0308 camera interface
+// ------------------------------------------------------------
+
+// Camera master clock output
+IO_LOC  "cam_clk" 33;
+IO_PORT "cam_clk" IO_TYPE=LVCMOS33 DRIVE=8;
+
+// I2C clock
+IO_LOC  "cam_scl" 44;
+IO_PORT "cam_scl" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8;
+
+// I2C data
+IO_LOC  "cam_sda" 46;
+IO_PORT "cam_sda" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8;
+
+// Camera synchronization and pixel clock
+IO_LOC  "cam_vsync" 43;
+IO_PORT "cam_vsync" IO_TYPE=LVCMOS33 PULL_MODE=NONE;
+
+IO_LOC  "cam_hsync" 42;
+IO_PORT "cam_hsync" IO_TYPE=LVCMOS33 PULL_MODE=NONE;
+
+IO_LOC  "cam_pclk" 41;
+IO_PORT "cam_pclk" IO_TYPE=LVCMOS33 PULL_MODE=NONE;
+
+
+// ------------------------------------------------------------
+// Camera pixel data bus
+// ------------------------------------------------------------
+
+IO_LOC  "cam_pix_data[0]" 22;
+IO_PORT "cam_pix_data[0]" IO_TYPE=LVCMOS18 PULL_MODE=NONE;
+
+IO_LOC  "cam_pix_data[1]" 21;
+IO_PORT "cam_pix_data[1]" IO_TYPE=LVCMOS18 PULL_MODE=NONE;
+
+IO_LOC  "cam_pix_data[2]" 17;
+IO_PORT "cam_pix_data[2]" IO_TYPE=LVCMOS18 PULL_MODE=NONE;
+
+IO_LOC  "cam_pix_data[3]" 19;
+IO_PORT "cam_pix_data[3]" IO_TYPE=LVCMOS18 PULL_MODE=NONE;
+
+IO_LOC  "cam_pix_data[4]" 20;
+IO_PORT "cam_pix_data[4]" IO_TYPE=LVCMOS18 PULL_MODE=NONE;
+
+IO_LOC  "cam_pix_data[5]" 18;
+IO_PORT "cam_pix_data[5]" IO_TYPE=LVCMOS18 PULL_MODE=NONE;
+
+IO_LOC  "cam_pix_data[6]" 16;
+IO_PORT "cam_pix_data[6]" IO_TYPE=LVCMOS18 PULL_MODE=NONE;
+
+IO_LOC  "cam_pix_data[7]" 23;
+IO_PORT "cam_pix_data[7]" IO_TYPE=LVCMOS18 PULL_MODE=NONE;
