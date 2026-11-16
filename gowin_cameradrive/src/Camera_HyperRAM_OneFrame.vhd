@@ -259,6 +259,14 @@ architecture rtl of Camera_HyperRAM_OneFrame is
     attribute async_reg : string;
     attribute async_reg of capture_error_meta_usr : signal is "true";
     attribute async_reg of capture_error_sync_usr : signal is "true";
+    attribute async_reg of write_done_meta_8 : signal is "true";
+    attribute async_reg of write_done_sync_8 : signal is "true";
+    attribute async_reg of frame_error_meta_8 : signal is "true";
+    attribute async_reg of frame_error_sync_8 : signal is "true";
+    attribute async_reg of serializer_error_meta_usr : signal is "true";
+    attribute async_reg of serializer_error_sync_usr : signal is "true";
+    attribute async_reg of protocol_error_meta_usr : signal is "true";
+    attribute async_reg of protocol_error_sync_usr : signal is "true";
     attribute async_reg of protocol_error_meta_usr : signal is "true";
     attribute async_reg of protocol_error_sync_usr : signal is "true";
 
