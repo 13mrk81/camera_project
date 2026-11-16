@@ -528,7 +528,7 @@ begin
 
     -- Echo-test mode accepts only a complete 0xC1 byte from UART RX.
     -- Hold the response until the UART transmitter accepts it.
-    g_uart_echo_test : if (not G_UART_SELF_TEST) and G_UART_ECHO_TEST generate
+    g_uart_start_echo_mode : if (not G_UART_SELF_TEST) and G_UART_ECHO_TEST generate
         process(clk8)
         begin
             if rising_edge(clk8) then
