@@ -23,7 +23,9 @@ entity Camera_HyperRAM_OneFrame is
         G_OUTPUT_FIFO_ADDR_BITS   : positive := 9;
         G_CMD_INTERVAL_CYCLES     : positive := 21;
         G_WRITE_READ_GAP_CYCLES   : positive := 63;
-        G_READ_TIMEOUT_CYCLES     : positive := 100_000
+        G_READ_TIMEOUT_CYCLES     : positive := 100_000;
+        -- Enable an autonomous UART TX test pattern (no host command required).
+        G_UART_SELF_TEST          : boolean := true
     );
     port (
         -- 8 MHz board clock and global active-low reset.
@@ -195,6 +197,13 @@ architecture rtl of Camera_HyperRAM_OneFrame is
     signal protocol_tx_data    : std_logic_vector(7 downto 0);
     signal protocol_tx_valid   : std_logic;
     signal protocol_tx_ready   : std_logic;
+    signal uart_tx_mux_data   : std_logic_vector(7 downto 0);
+    signal uart_tx_mux_valid  : std_logic;
+    signal uart_test_data     : std_logic_vector(7 downto 0) := (others => '0');
+    signal uart_test_valid    : std_logic := '0';
+    signal uart_test_index    : natural range 0 to 11 := 0;
+    signal uart_test_pause    : std_logic := '0';
+    signal uart_test_pause_count : natural range 0 to 8_000_000 := 0;
     signal protocol_src_ready  : std_logic;
     signal protocol_busy       : std_logic;
     signal protocol_done       : std_logic;
@@ -454,6 +463,71 @@ begin
     ip_rst_n <= rst_n and pll_stable;
 
     --------------------------------------------------------------------------
+    -- Optional autonomous UART TX self-test.
+    -- Sends "UART TX OK" followed by CR/LF once per second. This isolates
+    -- the FPGA clock, UART transmitter, TX pin constraint and USB-UART RX path
+    -- from the host command decoder, camera and HyperRAM.
+    --------------------------------------------------------------------------
+    g_uart_self_test : if G_UART_SELF_TEST generate
+        process(clk8)
+        begin
+            if rising_edge(clk8) then
+                if rst_n = '0' then
+                    uart_test_data       <= (others => '0');
+                    uart_test_valid      <= '0';
+                    uart_test_index      <= 0;
+                    uart_test_pause      <= '0';
+                    uart_test_pause_count <= 0;
+                else
+                    if uart_test_valid = '1' then
+                        if protocol_tx_ready = '1' then
+                            uart_test_valid <= '0';
+                            if uart_test_index = 11 then
+                                uart_test_index <= 0;
+                                uart_test_pause <= '1';
+                                uart_test_pause_count <= 0;
+                            else
+                                uart_test_index <= uart_test_index + 1;
+                            end if;
+                        end if;
+                    elsif uart_test_pause = '1' then
+                        if uart_test_pause_count = 7_999_999 then
+                            uart_test_pause_count <= 0;
+                            uart_test_pause <= '0';
+                        else
+                            uart_test_pause_count <= uart_test_pause_count + 1;
+                        end if;
+                    else
+                        case uart_test_index is
+                            when 0  => uart_test_data <= x"55"; -- U
+                            when 1  => uart_test_data <= x"41"; -- A
+                            when 2  => uart_test_data <= x"52"; -- R
+                            when 3  => uart_test_data <= x"54"; -- T
+                            when 4  => uart_test_data <= x"20"; -- space
+                            when 5  => uart_test_data <= x"54"; -- T
+                            when 6  => uart_test_data <= x"58"; -- X
+                            when 7  => uart_test_data <= x"20"; -- space
+                            when 8  => uart_test_data <= x"4F"; -- O
+                            when 9  => uart_test_data <= x"4B"; -- K
+                            when 10 => uart_test_data <= x"0D"; -- CR
+                            when others => uart_test_data <= x"0A"; -- LF
+                        end case;
+                        uart_test_valid <= '1';
+                    end if;
+                end if;
+            end if;
+        end process;
+
+        uart_tx_mux_data  <= uart_test_data;
+        uart_tx_mux_valid <= uart_test_valid;
+    end generate;
+
+    g_uart_protocol_tx : if not G_UART_SELF_TEST generate
+        uart_tx_mux_data  <= protocol_tx_data;
+        uart_tx_mux_valid <= protocol_tx_valid;
+    end generate;
+
+    --------------------------------------------------------------------------
     -- UART physical layer and stop-and-wait camera frame protocol.
     --------------------------------------------------------------------------
     u_uart_rx : entity work.uart_rx
@@ -467,8 +541,8 @@ begin
     u_uart_tx : entity work.uart_tx
         generic map (G_CLK_FREQ_HZ => 8_000_000, G_BAUD_RATE => 115_200)
         port map (
-            clk => clk8, rst_n => rst_n, data_i => protocol_tx_data,
-            data_valid_i => protocol_tx_valid, data_ready_o => protocol_tx_ready,
+            clk => clk8, rst_n => rst_n, data_i => uart_tx_mux_data,
+            data_valid_i => uart_tx_mux_valid, data_ready_o => protocol_tx_ready,
             serial_tx_o => uart_tx_o
         );
 
