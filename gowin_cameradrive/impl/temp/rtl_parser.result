@@ -1,133 +1,133 @@
 [
  {
-  "InstFile" : "/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/Camera_HyperRAM_OneFrame.vhd",
+  "InstFile" : "/home/mrk/camera_ram_uart/gowin_cameradrive/src/Camera_HyperRAM_OneFrame.vhd",
   "InstLine" : 19,
   "InstName" : "Camera_HyperRAM_OneFrame",
-  "ModuleFile" : "/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/Camera_HyperRAM_OneFrame.vhd",
+  "ModuleFile" : "/home/mrk/camera_ram_uart/gowin_cameradrive/src/Camera_HyperRAM_OneFrame.vhd",
   "ModuleLine" : 19,
   "ModuleName" : "Camera_HyperRAM_OneFrame",
   "SubInsts" : [
    {
-    "InstFile" : "/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/Camera_HyperRAM_OneFrame.vhd",
+    "InstFile" : "/home/mrk/camera_ram_uart/gowin_cameradrive/src/Camera_HyperRAM_OneFrame.vhd",
     "InstLine" : 806,
     "InstName" : "u_hyperram",
-    "ModuleFile" : "/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/hyperram_memory_interface/hyperram_memory_interface.vhd",
+    "ModuleFile" : "/home/mrk/camera_ram_uart/gowin_cameradrive/src/hyperram_memory_interface/hyperram_memory_interface.vhd",
     "ModuleLine" : 9,
     "ModuleName" : "HyperRAM_Memory_Interface_Top"
    },
    {
-    "InstFile" : "/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/Camera_HyperRAM_OneFrame.vhd",
+    "InstFile" : "/home/mrk/camera_ram_uart/gowin_cameradrive/src/Camera_HyperRAM_OneFrame.vhd",
     "InstLine" : 380,
     "InstName" : "u_pll_24",
-    "ModuleFile" : "/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/gowin_pllvr/gowin_pllvr_1.vhd",
+    "ModuleFile" : "/home/mrk/camera_ram_uart/gowin_cameradrive/src/gowin_pllvr/gowin_pllvr_1.vhd",
     "ModuleLine" : 12,
     "ModuleName" : "Gowin_PLLVR_1"
    },
    {
-    "InstFile" : "/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/Camera_HyperRAM_OneFrame.vhd",
+    "InstFile" : "/home/mrk/camera_ram_uart/gowin_cameradrive/src/Camera_HyperRAM_OneFrame.vhd",
     "InstLine" : 386,
     "InstName" : "u_pll_96",
-    "ModuleFile" : "/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/gowin_pllvr/gowin_pllvr.vhd",
+    "ModuleFile" : "/home/mrk/camera_ram_uart/gowin_cameradrive/src/gowin_pllvr/gowin_pllvr.vhd",
     "ModuleLine" : 12,
     "ModuleName" : "Gowin_PLLVR"
    },
    {
-    "InstFile" : "/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/Camera_HyperRAM_OneFrame.vhd",
+    "InstFile" : "/home/mrk/camera_ram_uart/gowin_cameradrive/src/Camera_HyperRAM_OneFrame.vhd",
     "InstLine" : 420,
     "InstName" : "u_start_one_shot",
-    "ModuleFile" : "/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/falling_edge_one_shot.vhd",
+    "ModuleFile" : "/home/mrk/camera_ram_uart/gowin_cameradrive/src/falling_edge_one_shot.vhd",
     "ModuleLine" : 8,
     "ModuleName" : "falling_edge_one_shot"
    },
    {
-    "InstFile" : "/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/Camera_HyperRAM_OneFrame.vhd",
+    "InstFile" : "/home/mrk/camera_ram_uart/gowin_cameradrive/src/Camera_HyperRAM_OneFrame.vhd",
     "InstLine" : 430,
     "InstName" : "u_camera",
-    "ModuleFile" : "/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/camera_interface.vhd",
+    "ModuleFile" : "/home/mrk/camera_ram_uart/gowin_cameradrive/src/camera_interface.vhd",
     "ModuleLine" : 18,
     "ModuleName" : "camera_interface",
     "SubInsts" : [
      {
-      "InstFile" : "/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/camera_interface.vhd",
+      "InstFile" : "/home/mrk/camera_ram_uart/gowin_cameradrive/src/camera_interface.vhd",
       "InstLine" : 335,
       "InstName" : "u_i2c_master",
-      "ModuleFile" : "/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/i2c_master_nack.vhd",
+      "ModuleFile" : "/home/mrk/camera_ram_uart/gowin_cameradrive/src/i2c_master_nack.vhd",
       "ModuleLine" : 5,
       "ModuleName" : "i2c_master_nack"
      }
     ]
    },
    {
-    "InstFile" : "/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/Camera_HyperRAM_OneFrame.vhd",
+    "InstFile" : "/home/mrk/camera_ram_uart/gowin_cameradrive/src/Camera_HyperRAM_OneFrame.vhd",
     "InstLine" : 462,
     "InstName" : "u_rgb565_packer",
-    "ModuleFile" : "/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/rgb565_frame_packer.vhd",
+    "ModuleFile" : "/home/mrk/camera_ram_uart/gowin_cameradrive/src/rgb565_frame_packer.vhd",
     "ModuleLine" : 11,
     "ModuleName" : "rgb565_frame_packer"
    },
    {
-    "InstFile" : "/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/Camera_HyperRAM_OneFrame.vhd",
+    "InstFile" : "/home/mrk/camera_ram_uart/gowin_cameradrive/src/Camera_HyperRAM_OneFrame.vhd",
     "InstLine" : 483,
     "InstName" : "u_capture_fifo",
-    "ModuleFile" : "/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/async_fifo_32.vhd",
+    "ModuleFile" : "/home/mrk/camera_ram_uart/gowin_cameradrive/src/async_fifo_32.vhd",
     "ModuleLine" : 8,
     "ModuleName" : "async_fifo_32"
    },
    {
-    "InstFile" : "/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/Camera_HyperRAM_OneFrame.vhd",
+    "InstFile" : "/home/mrk/camera_ram_uart/gowin_cameradrive/src/Camera_HyperRAM_OneFrame.vhd",
     "InstLine" : 520,
     "InstName" : "u_capture_snapshot_cdc",
-    "ModuleFile" : "/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/stable_bus_event_cdc.vhd",
+    "ModuleFile" : "/home/mrk/camera_ram_uart/gowin_cameradrive/src/stable_bus_event_cdc.vhd",
     "ModuleLine" : 9,
     "ModuleName" : "stable_bus_event_cdc"
    },
    {
-    "InstFile" : "/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/Camera_HyperRAM_OneFrame.vhd",
+    "InstFile" : "/home/mrk/camera_ram_uart/gowin_cameradrive/src/Camera_HyperRAM_OneFrame.vhd",
     "InstLine" : 696,
     "InstName" : "u_hyperram_read_adapter",
-    "ModuleFile" : "/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/gowin_hyperram_read_adapter.vhd",
+    "ModuleFile" : "/home/mrk/camera_ram_uart/gowin_cameradrive/src/gowin_hyperram_read_adapter.vhd",
     "ModuleLine" : 16,
     "ModuleName" : "gowin_hyperram_read_adapter"
    },
    {
-    "InstFile" : "/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/Camera_HyperRAM_OneFrame.vhd",
+    "InstFile" : "/home/mrk/camera_ram_uart/gowin_cameradrive/src/Camera_HyperRAM_OneFrame.vhd",
     "InstLine" : 717,
     "InstName" : "u_line_readout",
-    "ModuleFile" : "/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/hyperram_line_readout.vhd",
+    "ModuleFile" : "/home/mrk/camera_ram_uart/gowin_cameradrive/src/hyperram_line_readout.vhd",
     "ModuleLine" : 15,
     "ModuleName" : "hyperram_line_readout",
     "SubInsts" : [
      {
-      "InstFile" : "/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/hyperram_line_readout.vhd",
+      "InstFile" : "/home/mrk/camera_ram_uart/gowin_cameradrive/src/hyperram_line_readout.vhd",
       "InstLine" : 87,
       "InstName" : "u_output_fifo",
-      "ModuleFile" : "/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/async_fifo_32.vhd",
+      "ModuleFile" : "/home/mrk/camera_ram_uart/gowin_cameradrive/src/async_fifo_32.vhd",
       "ModuleLine" : 8,
       "ModuleName" : "async_fifo_32"
      },
      {
-      "InstFile" : "/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/hyperram_line_readout.vhd",
+      "InstFile" : "/home/mrk/camera_ram_uart/gowin_cameradrive/src/hyperram_line_readout.vhd",
       "InstLine" : 106,
       "InstName" : "u_line_reader",
-      "ModuleFile" : "/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/hyperram_line_reader.vhd",
+      "ModuleFile" : "/home/mrk/camera_ram_uart/gowin_cameradrive/src/hyperram_line_reader.vhd",
       "ModuleLine" : 13,
       "ModuleName" : "hyperram_line_reader"
      },
      {
-      "InstFile" : "/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/hyperram_line_readout.vhd",
+      "InstFile" : "/home/mrk/camera_ram_uart/gowin_cameradrive/src/hyperram_line_readout.vhd",
       "InstLine" : 141,
       "InstName" : "u_serializer",
-      "ModuleFile" : "/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/rgb565_line_serializer.vhd",
+      "ModuleFile" : "/home/mrk/camera_ram_uart/gowin_cameradrive/src/rgb565_line_serializer.vhd",
       "ModuleLine" : 8,
       "ModuleName" : "rgb565_line_serializer"
      }
     ]
    },
    {
-    "InstFile" : "/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/Camera_HyperRAM_OneFrame.vhd",
+    "InstFile" : "/home/mrk/camera_ram_uart/gowin_cameradrive/src/Camera_HyperRAM_OneFrame.vhd",
     "InstLine" : 855,
     "InstName" : "u_integrity_checker",
-    "ModuleFile" : "/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/frame_integrity_checker.vhd",
+    "ModuleFile" : "/home/mrk/camera_ram_uart/gowin_cameradrive/src/frame_integrity_checker.vhd",
     "ModuleLine" : 8,
     "ModuleName" : "frame_integrity_checker"
    }

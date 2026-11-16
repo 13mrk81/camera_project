@@ -3,77 +3,77 @@
  "Files" : [
   {
    "Library" : "work",
-   "Path" : "/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/Camera_HyperRAM_OneFrame.vhd",
+   "Path" : "/home/mrk/camera_ram_uart/gowin_cameradrive/src/Camera_HyperRAM_OneFrame.vhd",
    "Type" : "vhdl"
   },
   {
    "Library" : "work",
-   "Path" : "/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/async_fifo_32.vhd",
+   "Path" : "/home/mrk/camera_ram_uart/gowin_cameradrive/src/async_fifo_32.vhd",
    "Type" : "vhdl"
   },
   {
    "Library" : "work",
-   "Path" : "/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/camera_interface.vhd",
+   "Path" : "/home/mrk/camera_ram_uart/gowin_cameradrive/src/camera_interface.vhd",
    "Type" : "vhdl"
   },
   {
    "Library" : "work",
-   "Path" : "/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/falling_edge_one_shot.vhd",
+   "Path" : "/home/mrk/camera_ram_uart/gowin_cameradrive/src/falling_edge_one_shot.vhd",
    "Type" : "vhdl"
   },
   {
    "Library" : "work",
-   "Path" : "/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/frame_integrity_checker.vhd",
+   "Path" : "/home/mrk/camera_ram_uart/gowin_cameradrive/src/frame_integrity_checker.vhd",
    "Type" : "vhdl"
   },
   {
    "Library" : "work",
-   "Path" : "/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/gowin_hyperram_read_adapter.vhd",
+   "Path" : "/home/mrk/camera_ram_uart/gowin_cameradrive/src/gowin_hyperram_read_adapter.vhd",
    "Type" : "vhdl"
   },
   {
    "Library" : "work",
-   "Path" : "/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/gowin_pllvr/gowin_pllvr.vhd",
+   "Path" : "/home/mrk/camera_ram_uart/gowin_cameradrive/src/gowin_pllvr/gowin_pllvr.vhd",
    "Type" : "vhdl"
   },
   {
    "Library" : "work",
-   "Path" : "/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/gowin_pllvr/gowin_pllvr_1.vhd",
+   "Path" : "/home/mrk/camera_ram_uart/gowin_cameradrive/src/gowin_pllvr/gowin_pllvr_1.vhd",
    "Type" : "vhdl"
   },
   {
    "Library" : "work",
-   "Path" : "/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/hyperram_line_reader.vhd",
+   "Path" : "/home/mrk/camera_ram_uart/gowin_cameradrive/src/hyperram_line_reader.vhd",
    "Type" : "vhdl"
   },
   {
    "Library" : "work",
-   "Path" : "/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/hyperram_line_readout.vhd",
+   "Path" : "/home/mrk/camera_ram_uart/gowin_cameradrive/src/hyperram_line_readout.vhd",
    "Type" : "vhdl"
   },
   {
    "Library" : "work",
-   "Path" : "/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/hyperram_memory_interface/hyperram_memory_interface.vhd",
+   "Path" : "/home/mrk/camera_ram_uart/gowin_cameradrive/src/hyperram_memory_interface/hyperram_memory_interface.vhd",
    "Type" : "vhdl"
   },
   {
    "Library" : "work",
-   "Path" : "/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/i2c_master_nack.vhd",
+   "Path" : "/home/mrk/camera_ram_uart/gowin_cameradrive/src/i2c_master_nack.vhd",
    "Type" : "vhdl"
   },
   {
    "Library" : "work",
-   "Path" : "/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/rgb565_frame_packer.vhd",
+   "Path" : "/home/mrk/camera_ram_uart/gowin_cameradrive/src/rgb565_frame_packer.vhd",
    "Type" : "vhdl"
   },
   {
    "Library" : "work",
-   "Path" : "/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/rgb565_line_serializer.vhd",
+   "Path" : "/home/mrk/camera_ram_uart/gowin_cameradrive/src/rgb565_line_serializer.vhd",
    "Type" : "vhdl"
   },
   {
    "Library" : "work",
-   "Path" : "/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/stable_bus_event_cdc.vhd",
+   "Path" : "/home/mrk/camera_ram_uart/gowin_cameradrive/src/stable_bus_event_cdc.vhd",
    "Type" : "vhdl"
   }
  ],
@@ -81,7 +81,7 @@
 
  ],
  "LoopLimit" : 2000,
- "ResultFile" : "/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/impl/temp/rtl_parser.result",
+ "ResultFile" : "/home/mrk/camera_ram_uart/gowin_cameradrive/impl/temp/rtl_parser.result",
  "Top" : "",
  "VerilogStd" : "verilog_2001",
  "VhdlStd" : "vhdl_93"
