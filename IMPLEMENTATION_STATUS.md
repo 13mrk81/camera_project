@@ -3,44 +3,40 @@
 Last updated: 2026-11-16
 
 ## Repository safety
-- Working branch: `feature/matlab-line-stream`
-- Base branch: `main`
-- All implementation commits must target this feature branch only.
-- Do not merge or modify `main` without explicit user approval.
+- Working branch: `feature/matlab-line-stream`.
+- Base branch: `main`.
+- All implementation commits target this feature branch only.
+- The feature branch is 19 commits ahead of `main`, 0 behind (last checked 2026-11-16).
+- No merge or changes to `main` have been made.
 
 ## Baseline inspected
-The feature branch is currently the unmodified baseline for the camera readout integration. The following files were fetched from this branch and inspected:
-- `gowin_cameradrive/src/Camera_HyperRAM_OneFrame.vhd`
-- `gowin_cameradrive/src/hyperram_line_reader.vhd`
-- `gowin_cameradrive/src/hyperram_line_readout.vhd`
-- `gowin_cameradrive/src/rgb565_line_serializer.vhd`
-- `gowin_cameradrive/HYPER_RAM_CONTROL.gprj`
-- `projects/uart_based_protocol/src/uart_frame_protocol.vhd`
-- `projects/uart_based_protocol/src/uart_rx.vhd`
-- `projects/uart_based_protocol/src/uart_tx.vhd`
-- `projects/uart_based_protocol/src/matlab_uart_frame_receiver.m`
-- `projects/uart_based_protocol/src/UART_Protocol_Test_Top.vhd`
+The current branch baseline and existing UART protocol sources were inspected before editing. The camera design defaults to 640x480. RGB565 is stored as two pixels per 32-bit HyperRAM word. Existing MATLAB code already implements the READY/LINE/DONE protocol, RGB888, CRC-16/CCITT-FALSE and ACK/NACK.
 
-## Confirmed current behavior / defects
-1. Top-level camera trigger is driven by `falling_edge_one_shot` on raw UART RX. It responds to the UART start bit, not a decoded START byte (0xC1).
-2. UART TX is not connected to a physical UART transmitter; top-level UART TX is held idle high.
-3. Existing `uart_frame_protocol` is reusable, but currently waits for `frame_available_i` before accepting START and has no capture-completion wait state.
-4. Existing line reader advances when `line_consumed_i` is asserted by the serializer. This is not host ACK.
-5. Existing serializer commits counters and line completion as soon as it finishes sending bytes; it has no NACK/timeout rollback.
-6. Existing MATLAB receiver already defines READY/LINE/DONE packets, RGB888 support, CRC-16/CCITT-FALSE, ACK/NACK and DONE acknowledgement.
-7. The top currently clocks the readout serializer with HyperRAM `usr_clk`, while UART protocol/RX/TX are designed for the 8 MHz clock. Integration must explicitly establish the UART clock domain and CDC.
+## Completed and saved
+- [x] Created this status log, `DESIGN_NOTES.md`, and `VALIDATION.md`.
+- [x] Added `camera_uart_frame_protocol.vhd`, adapted from the existing UART protocol. START is decoded as byte 0xC1; it triggers capture, then waits for HyperRAM write completion/error before READY.
+- [x] Added `pulse_toggle_cdc.vhd` for sparse control-event crossings.
+- [x] Copied UART RX/TX into `gowin_cameradrive/src` and added all new VHDL files to `HYPER_RAM_CONTROL.gprj`.
+- [x] Replaced raw UART falling-edge camera trigger with decoded START and clk8-to-clk24 CDC.
+- [x] Connected physical UART RX/TX at 8 MHz / 115200 baud / 8N1.
+- [x] Routed RGB888 serializer bytes into the protocol source ready/valid channel.
+- [x] Started HyperRAM readout only after READY has been acknowledged and the first LINE header is sent.
+- [x] Changed the line reader to advance only on host ACK; NACK/ACK timeout rewinds the same line address and retries after FIFO #2 is empty.
+- [x] Changed serializer accounting to checkpoint per-line CRC and counters, commit line count only on ACK, and restore counters on retry.
+- [x] Separated UART-domain ACK/NACK pulses from synchronized HyperRAM-domain ACK/NACK events.
+- [x] Added a bundled final-statistics CDC snapshot to the HyperRAM-domain integrity checker.
+- [x] Added `gowin_cameradrive/matlab/matlab_gc0308_hyperram_receiver.m` for the camera stream.
 
-## Work plan
-- [x] Reconnect to GitHub and inspect the current branch baseline.
-- [x] Record this checkpoint in the feature branch.
-- [ ] Add UART RX/TX and protocol to the Gowin project, adapted for capture-start / capture-complete sequencing.
-- [ ] Add robust clock-domain event crossings for camera trigger and line ACK/NACK.
-- [ ] Make line reader advance only on decoded host ACK; retry same line on NACK/ACK timeout.
-- [ ] Make serializer produce protocol payload bytes and roll back accounting on retransmission.
-- [ ] Integrate top-level UART and READY/LINE/DONE flow.
-- [ ] Add MATLAB script for the integrated 640x480 RGB888 camera stream.
-- [ ] Static checks, VHDL compile/simulation where available, project file-list consistency, and protocol review.
-- [ ] Update this file with exact test results and remaining limitations.
+## Remaining work
+- [ ] Run a VHDL compiler/elaboration pass and resolve any compile-time issues.
+- [ ] Run protocol-focused simulation: START/capture wait, READY ACK, valid line ACK, NACK retry, ACK timeout retry, final-line ACK, DONE ACK.
+- [ ] Verify CRC and RGB byte order against MATLAB with a known test pattern.
+- [ ] Open the Gowin project and run synthesis, timing analysis, and bitstream generation.
+- [ ] Test on Tang Nano 4K + GC0308 + HyperRAM + USB-UART.
+- [ ] Record board-level results and any timing/throughput adjustments.
 
-## Validation policy
-Never mark a test as passed unless it was actually run. Gowin synthesis/timing and physical-board behavior must remain explicitly unverified unless performed on the target tools/hardware.
+## Known validation limitation
+No GHDL, NVC, Vivado, or Gowin command-line compiler is available in the current execution environment. A direct Git clone also failed because outbound DNS access to github.com is unavailable. GitHub connector reads/writes work. Therefore, current validation is static source/port-map checking only; no compile, synthesis, simulation, or hardware test is claimed.
+
+## Recovery procedure
+If work is interrupted, read this file first, then `DESIGN_NOTES.md` and `VALIDATION.md`. Fetch the latest files from `feature/matlab-line-stream` before editing; never apply an old patch blindly.
