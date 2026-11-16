@@ -30,7 +30,7 @@
 - Confirmed ACK advances both protocol and memory reader by one line; NACK/ACK timeout requests the same line again and serializer rolls back its per-line counters/CRC.
 - Added a bounded timeout while waiting for output FIFO #2 to become empty before reusing it.
 - Corrected stale top-level comments that described the old falling-edge-only UART trigger and unused UART TX.
-- Current GitHub comparison remains 31 commits ahead of main and 0 behind. No main-branch changes or merge.
+- Current GitHub comparison after the final-review corrections: 36 commits ahead of main and 0 behind. No main-branch changes or merge.
 
 ## Not run — do not treat as passed
 - No VHDL compile or elaboration: no GHDL/NVC/Gowin compiler executable available in this environment.
