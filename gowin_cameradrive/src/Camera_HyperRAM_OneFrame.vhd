@@ -468,7 +468,7 @@ begin
     -- the FPGA clock, UART transmitter, TX pin constraint and USB-UART RX path
     -- from the host command decoder, camera and HyperRAM.
     --------------------------------------------------------------------------
-    g_uart_self_test : if G_UART_SELF_TEST generate
+    g_uart_self_tes : if G_UART_SELF_TEST generate
         process(clk8)
         begin
             if rising_edge(clk8) then

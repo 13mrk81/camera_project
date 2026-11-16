@@ -1,7 +1,7 @@
-Reading netlist file: "/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/impl/gwsynthesis/HYPER_RAM_CONTROL.vg"
-Parsing netlist file "/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/impl/gwsynthesis/HYPER_RAM_CONTROL.vg" completed
+Reading netlist file: "/home/mrk/camera_ram_uart/camera-line/gowin_cameradrive/impl/gwsynthesis/HYPER_RAM_CONTROL.vg"
+Parsing netlist file "/home/mrk/camera_ram_uart/camera-line/gowin_cameradrive/impl/gwsynthesis/HYPER_RAM_CONTROL.vg" completed
 Processing netlist completed
-Reading constraint file: "/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/hyper_ctrl.cst"
+Reading constraint file: "/home/mrk/camera_ram_uart/camera-line/gowin_cameradrive/src/hyper_ctrl.cst"
 Physical Constraint parsed completed
 Running placement......
 [10%] Placement Phase 0 completed
@@ -24,10 +24,10 @@ Bitstream generation in progress......
 Bitstream generation completed
 Running power analysis......
 [100%] Power analysis completed
-Generate file "/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/impl/pnr/HYPER_RAM_CONTROL.power.html" completed
-Generate file "/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/impl/pnr/HYPER_RAM_CONTROL.pin.html" completed
-Generate file "/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/impl/pnr/HYPER_RAM_CONTROL.rpt.html" completed
-Generate file "/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/impl/pnr/HYPER_RAM_CONTROL.rpt.txt" completed
-Generate file "/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/impl/pnr/HYPER_RAM_CONTROL.tr.html" completed
-Sun Nov 15 09:45:57 2026
+Generate file "/home/mrk/camera_ram_uart/camera-line/gowin_cameradrive/impl/pnr/HYPER_RAM_CONTROL.power.html" completed
+Generate file "/home/mrk/camera_ram_uart/camera-line/gowin_cameradrive/impl/pnr/HYPER_RAM_CONTROL.pin.html" completed
+Generate file "/home/mrk/camera_ram_uart/camera-line/gowin_cameradrive/impl/pnr/HYPER_RAM_CONTROL.rpt.html" completed
+Generate file "/home/mrk/camera_ram_uart/camera-line/gowin_cameradrive/impl/pnr/HYPER_RAM_CONTROL.rpt.txt" completed
+Generate file "/home/mrk/camera_ram_uart/camera-line/gowin_cameradrive/impl/pnr/HYPER_RAM_CONTROL.tr.html" completed
+Mon Nov 16 18:36:40 2026
 

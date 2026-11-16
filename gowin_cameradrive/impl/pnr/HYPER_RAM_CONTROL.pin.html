@@ -50,15 +50,15 @@ table.detail_table th.label {  min-width: 8%; width: 8%; }
 </tr>
 <tr>
 <td class="label">Design File</td>
-<td>/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/impl/gwsynthesis/HYPER_RAM_CONTROL.vg</td>
+<td>/home/mrk/camera_ram_uart/camera-line/gowin_cameradrive/impl/gwsynthesis/HYPER_RAM_CONTROL.vg</td>
 </tr>
 <tr>
 <td class="label">Physical Constraints File</td>
-<td>/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/hyper_ctrl.cst</td>
+<td>/home/mrk/camera_ram_uart/camera-line/gowin_cameradrive/src/hyper_ctrl.cst</td>
 </tr>
 <tr>
 <td class="label">Timing Constraints File</td>
-<td>/home/mrk/camera_ram_uart/HYPER_RAM_CONTROL/src/hyper_ctrl.sdc</td>
+<td>/home/mrk/camera_ram_uart/camera-line/gowin_cameradrive/src/hyper_ctrl.sdc</td>
 </tr>
 <tr>
 <td class="label">Tool Version</td>
@@ -74,7 +74,7 @@ table.detail_table th.label {  min-width: 8%; width: 8%; }
 </tr>
 <tr>
 <td class="label">Created Time</td>
-<td>Sun Nov 15 09:45:57 2026
+<td>Mon Nov 16 18:36:40 2026
 </td>
 </tr>
 <tr>
@@ -126,11 +126,11 @@ table.detail_table th.label {  min-width: 8%; width: 8%; }
 <tr>
 <td class="label">uart_rx_i</td>
 <td>-</td>
-<td>39/1</td>
+<td>31/2</td>
 <td>Y</td>
 <td>in</td>
-<td>IOT26[A]</td>
-<td>-</td>
+<td>IOR11[B]</td>
+<td>GCLKC_3</td>
 <td>LVCMOS33</td>
 <td>NA</td>
 <td>NONE</td>
@@ -138,7 +138,7 @@ table.detail_table th.label {  min-width: 8%; width: 8%; }
 <td>NONE</td>
 <td>NA</td>
 <td>NA</td>
-<td>NA</td>
+<td>OFF</td>
 <td>NA</td>
 <td>3.3</td>
 </tr>
@@ -411,11 +411,11 @@ table.detail_table th.label {  min-width: 8%; width: 8%; }
 <tr>
 <td class="label">uart_tx_o</td>
 <td>-</td>
-<td>40/1</td>
+<td>32/2</td>
 <td>Y</td>
 <td>out</td>
-<td>IOT26[B]</td>
-<td>-</td>
+<td>IOR11[A]</td>
+<td>GCLKT_3</td>
 <td>LVCMOS33</td>
 <td>8</td>
 <td>NONE</td>
@@ -423,7 +423,7 @@ table.detail_table th.label {  min-width: 8%; width: 8%; }
 <td>NA</td>
 <td>OFF</td>
 <td>NA</td>
-<td>NA</td>
+<td>OFF</td>
 <td>NA</td>
 <td>3.3</td>
 </tr>
@@ -1062,13 +1062,13 @@ table.detail_table th.label {  min-width: 8%; width: 8%; }
 </tr>
 <tr>
 <td class="label">39/1</td>
-<td>uart_rx_i</td>
+<td>-</td>
 <td>in</td>
 <td>IOT26[A]</td>
 <td>-</td>
 <td>LVCMOS33</td>
 <td>NA</td>
-<td>NONE</td>
+<td>UP</td>
 <td>ON</td>
 <td>NONE</td>
 <td>NA</td>
@@ -1079,16 +1079,16 @@ table.detail_table th.label {  min-width: 8%; width: 8%; }
 </tr>
 <tr>
 <td class="label">40/1</td>
-<td>uart_tx_o</td>
-<td>out</td>
+<td>-</td>
+<td>in</td>
 <td>IOT26[B]</td>
 <td>-</td>
 <td>LVCMOS33</td>
-<td>8</td>
+<td>NA</td>
+<td>UP</td>
+<td>ON</td>
 <td>NONE</td>
 <td>NA</td>
-<td>NA</td>
-<td>OFF</td>
 <td>NA</td>
 <td>NA</td>
 <td>NA</td>
@@ -1555,35 +1555,35 @@ table.detail_table th.label {  min-width: 8%; width: 8%; }
 </tr>
 <tr>
 <td class="label">32/2</td>
-<td>-</td>
-<td>in</td>
+<td>uart_tx_o</td>
+<td>out</td>
 <td>IOR11[A]</td>
 <td>GCLKT_3</td>
 <td>LVCMOS33</td>
-<td>NA</td>
-<td>UP</td>
-<td>ON</td>
+<td>8</td>
 <td>NONE</td>
 <td>NA</td>
 <td>NA</td>
+<td>OFF</td>
 <td>NA</td>
+<td>OFF</td>
 <td>NA</td>
 <td>3.3</td>
 </tr>
 <tr>
 <td class="label">31/2</td>
-<td>-</td>
+<td>uart_rx_i</td>
 <td>in</td>
 <td>IOR11[B]</td>
 <td>GCLKC_3</td>
 <td>LVCMOS33</td>
 <td>NA</td>
-<td>UP</td>
+<td>NONE</td>
 <td>ON</td>
 <td>NONE</td>
 <td>NA</td>
 <td>NA</td>
-<td>NA</td>
+<td>OFF</td>
 <td>NA</td>
 <td>3.3</td>
 </tr>
