@@ -6,7 +6,7 @@ Last updated: 2026-11-16
 - Working branch: `feature/matlab-line-stream`.
 - Base branch: `main`.
 - All implementation commits target this feature branch only.
-- The feature branch is 27 commits ahead of `main`, 0 behind (last checked 2026-11-16).
+- A final GitHub comparison confirmed the feature branch is ahead of `main` and has no commits missing from `main`; the branch has not been merged.
 - No merge or changes to `main` have been made.
 
 ## Baseline inspected
