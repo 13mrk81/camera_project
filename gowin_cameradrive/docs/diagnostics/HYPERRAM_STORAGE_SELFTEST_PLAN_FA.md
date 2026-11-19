@@ -43,6 +43,8 @@ The test uses the same default geometry and data format as the camera capture:
 
 The memory writer must continue to load a complete 8-word burst before issuing its write sequence. Existing command spacing and address stride are not changed as part of the first test.
 
+The project baseline uses `G_CMD_INTERVAL_CYCLES=21` and address stride 16. Gowin IPUG944-2.1E specifies a minimum Tcmd of 19 user clocks for burst length 32 at HyperRAM speeds up to 166 MHz, and 24 clocks above 166 MHz; sequential burst addresses advance by burst length/2 (=16) user-address units. Therefore 21 is consistent only while the configured HyperRAM operating speed remains at or below 166 MHz. Do not shorten the interval; verify the actual IP configuration and generated example before changing it. Reference: https://www.gowinsemi.com/upload/database_doc/3086/document/683a0f7f36fd8.pdf.
+
 ## 4. Synthetic source pattern
 
 For pixel coordinate `(x,y)`, generate the 16-bit RGB565 word:
