@@ -1,6 +1,7 @@
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
+use std.env.all;
 
 entity tb_storage_test_pattern_generator is
 end entity;
@@ -118,6 +119,7 @@ begin
             report "Timed out waiting for frame_done_o" severity failure;
         report "PASS: generator byte pattern, byte count and frame completion verified."
             severity note;
+        stop;
         wait;
     end process;
 end architecture;
