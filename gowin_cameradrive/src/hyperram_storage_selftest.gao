@@ -13,10 +13,11 @@
             <Signal capture_enable="true">cap_fifo_overflow_cam</Signal>
             <Signal capture_enable="true">cap_fifo_wr_level</Signal>
             <Signal capture_enable="true">init_calib_i</Signal>
-            <Signal capture_enable="true">write_state</Signal>
             <Signal capture_enable="true">write_done_reg</Signal>
             <Signal capture_enable="true">write_error_reg</Signal>
             <Signal capture_enable="true">write_crc_reg</Signal>
+            <Signal capture_enable="true">write_word_count_u32</Signal>
+            <Signal capture_enable="true">capture_crc_usr</Signal>
             <Signal capture_enable="true">read_ingress_crc_usr</Signal>
             <Signal capture_enable="true">read_ingress_word_count_usr</Signal>
             <Signal capture_enable="true">reader_error</Signal>
