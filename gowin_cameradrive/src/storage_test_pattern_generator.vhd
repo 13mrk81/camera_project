@@ -17,8 +17,8 @@ entity storage_test_pattern_generator is
     generic (
         G_FRAME_WIDTH          : positive := 640;
         G_FRAME_HEIGHT         : positive := 480;
-        G_LINE_BLANK_CYCLES    : positive := 106;
-        G_FRAME_BLANK_CYCLES   : positive := 155232
+        G_LINE_BLANK_CYCLES    : positive := 306;
+        G_FRAME_BLANK_CYCLES   : positive := 31720
     );
     port (
         clk_i              : in  std_logic;
