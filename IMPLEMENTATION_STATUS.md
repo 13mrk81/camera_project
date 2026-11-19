@@ -1,4 +1,4 @@
-# Implementation Status — One-way MATLAB raw RGB565 Line Stream
+# Implementation Status — One-way MATLAB Gray8 Line Stream
 
 Last updated: 2026-11-19
 
@@ -11,7 +11,7 @@ Last updated: 2026-11-19
 
 ## Baseline inspected
 
-The default frame is 640 x 480. Camera pixels are captured in RGB565 and packed two pixels per 32-bit HyperRAM word. The UART serializer now sends the original 16-bit pixel words directly, high byte first, without color expansion. The active main Gowin top uses one-way FPGA-to-MATLAB transport.
+The default frame is 640 x 480. Camera pixels are captured and stored in HyperRAM as RGB565, two pixels per 32-bit word. The UART serializer converts each readback pixel to BT.601 Gray8 and sends one byte per pixel. The active main Gowin top uses one-way FPGA-to-MATLAB transport.
 
 ## Changed in this implementation
 
@@ -20,20 +20,20 @@ The default frame is 640 x 480. Camera pixels are captured in RGB565 and packed 
 - [x] Replaced the stop-and-wait host protocol with common framed packets: A5 5A, type, sequence, length, payload, CRC16.
 - [x] Added STAGE logs for trigger accepted, camera configured, and frame stored; READY, LINE, DONE, and ERROR packet types.
 - [x] Defined CRC-16/CCITT-FALSE over TYPE + sequence + payload length + payload; CRC trailer is high byte first.
-- [x] Defined every LINE payload as raw RGB565 pixel words, high byte first, left-to-right; line sequence is the zero-based row number.
-- [x] Added 20 ms inter-packet quiet time, including the final LINE -> DONE boundary and safe ERROR recovery after a truncated line.
+- [x] Defined every LINE payload as Gray8 luma bytes, one byte per pixel, left-to-right; line sequence is the zero-based row number.
+- [x] Added 50 ms inter-packet quiet time, including the final LINE -> DONE boundary and safe ERROR recovery after a truncated line.
 - [x] Added configurable 25 us UART inter-byte idle spacing (200 clk8 cycles) in the UART TX physical layer.
 - [x] Changed line advance to a local FPGA acknowledgement only after CRC_LO has completed its UART stop bit and TX returns idle; host ACK/NACK and retransmission are removed.
 - [x] Tied readout retry inputs inactive; retained the existing full-line output FIFO, ready/valid serializer, and Gray-pointer asynchronous FIFO.
 - [x] Added clk24 -> clk8 camera-config status synchronizers and usr_clk -> clk8 reader-error synchronizer.
-- [x] Rewrote MATLAB receiver as receive-only, with packet CRC validation, zero-based row mapping, raw RGB565 byte/word reconstruction, sliding-SOF resynchronization, DONE counter checks, and ERROR handling.
+- [x] Rewrote MATLAB receiver as receive-only, with incremental packet CRC validation, zero-based row mapping, Gray8 frame storage, sliding-SOF resynchronization, DONE counter checks, and ERROR handling.
 - [x] MATLAB reads available serial data in chunks up to 8,192 bytes and records RX/queue/parser-buffer diagnostics. The modern `serialport` API manages receive buffering automatically; it has no documented configurable `InputBufferSize`.
 - [x] Changed the active Gowin project file list to remove UART RX from the main top build.
 - [x] Changed the UART constraint to FPGA TX pin 32 only and added KEY1 trigger pin 14 with LVCMOS18.
 
 ## Data-rate and buffering design
 
-At the 8 MHz clock, the current UART divider is 69 clocks/bit, or approximately 115942 baud. At 640 x 480, a LINE packet is 1289 bytes (1280 RGB565 payload + 9 framing/CRC bytes). With a 25 us inter-byte idle interval and 20 ms inter-packet gaps, estimated transfer time is approximately 78.52 s, excluding capture and HyperRAM write time.
+At the 8 MHz clock, the current UART divider is 69 clocks/bit, or approximately 115942 baud. At 640 x 480, a Gray8 LINE packet is 649 bytes (640 payload + 9 framing/CRC bytes). With a 25 us inter-byte idle interval and 50 ms inter-packet gaps, estimated transfer time is approximately 59 s, excluding capture and HyperRAM write time.
 
 Output FIFO #2 is 512 x 32 bits, compared with 320 words for one 640-pixel line. The readout engine only requests the next row after the current row packet is physically complete and the local acknowledgement crosses to usr_clk. This is the intended no-overrun flow-control mechanism; the no-reverse-channel link still cannot retransmit a row lost outside the FPGA.
 
@@ -65,3 +65,13 @@ If the session is interrupted, fetch the latest branch head from feature/matlab-
 - MATLAB stores both exact wire bytes and reconstructed uint16 RGB565 pixels in uart_received_frame.mat.
 - Added gowin_cameradrive/matlab/process_gc0308_rgb565_capture.m to compare MSB/LSB byte order and RGB565/BGR565 channel mapping offline.
 - Static source edits only; compile, simulation, MATLAB execution, and hardware validation remain pending.
+
+
+## Gray8 transport implementation (2026-11-19)
+
+- HyperRAM capture/storage remains RGB565; the readout serializer converts each pixel to BT.601 Gray8.
+- READY advertises BPP=1 / format=3; each LINE payload is frame_width bytes.
+- DONE reports width*height Gray8 UART payload bytes and CRC-32/MPEG-2 over the transmitted Gray8 stream.
+- MATLAB allocates the image from READY geometry, validates packet CRC16 incrementally, and commits only valid rows. The default 640x480 image buffer is 307,200 bytes.
+- Packet gap is 50 ms (400,000 clk8 cycles), increased from 20 ms for host processing margin.
+- Static edits only; MATLAB execution, VHDL compilation/simulation, Gowin synthesis, timing closure and hardware validation remain pending.
