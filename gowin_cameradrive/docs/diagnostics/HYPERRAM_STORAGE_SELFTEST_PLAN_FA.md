@@ -95,9 +95,9 @@ The following CDC mechanisms remain intentional:
 | `clk24` → `usr_clk` readout-start and error levels | 2-FF synchronizers | Asynchronous control/status levels |
 | `clk24` → `usr_clk` line ACK and protocol statistics | pulse toggle / bundled-data CDC | Event and multi-bit status transfer |
 | `usr_clk` → `clk24` write/read status and telemetry | 2-FF / bundled-data CDC | HyperRAM-side results returned to system domain |
-| `clk24` ↔ `usr_clk` FIFO boundaries | asynchronous FIFOs | Data buffering across distinct clock domains |
+| `clk24` ↔ `usr_clk` FIFO boundaries | asynchronous FIFOs with per-domain reset release | Data buffering across distinct clock domains |
 
-The old 8 MHz → 24 MHz source-start CDC and all 8 MHz-domain UART/protocol logic are removed. The pulse-toggle CDC module remains in the project because the line-completion event still crosses from 24 MHz into the 48 MHz HyperRAM user domain. The source-start signal is now a direct same-clock connection. Reset deassertion must still be synchronized/qualified for each active clock domain; equal nominal frequency alone is not a reason to bypass CDC.
+The old 8 MHz → 24 MHz source-start CDC and all 8 MHz-domain UART/protocol logic are removed. The pulse-toggle CDC module remains in the project because the line-completion event still crosses from 24 MHz into the 48 MHz HyperRAM user domain. The source-start signal is now a direct same-clock connection. Reset assertion is asynchronous, while release into the 48 MHz HyperRAM user domain is synchronized with a two-flop reset synchronizer. The dual-clock FIFO now has independent write/read reset inputs so each pointer domain releases reset synchronously to its own clock.
 
 ## 7. Required data-path architecture
 
@@ -227,7 +227,8 @@ Current limitation: an early fatal capture/write/readout error still uses the ex
 - [x] MATLAB receiver parses the report and compares the reconstructed RGB888 frame against the independent pattern.
 - [x] Separate Gowin project and camera-free pin constraints added.
 - [x] 24 MHz designated as the only fabric/UART clock; 8 MHz retained only as PLL reference.
-- [x] Unnecessary 8-to-24 MHz pulse CDC removed; CDCs to/from HyperRAM `usr_clk` retained.
+- [x] Unnecessary 8-to-24 MHz source-start CDC removed; CDCs to/from 48 MHz HyperRAM `usr_clk` retained.
+- [x] HyperRAM-domain reset release synchronized; asynchronous FIFO write/read sides use independent domain resets.
 - [x] Generator simulation testbench added.
 - [ ] Run VHDL simulation and Gowin synthesis/implementation.
 - [ ] Hardware validation and fault-injection regression.
