@@ -180,7 +180,9 @@ MATLAB should compare:
 5. serializer CRC against read-ingress CRC;
 6. every received RGB888 pixel against the independently generated expected image.
 
-The FPGA report must be transmitted after the final LINE packet and before or as part of DONE. Do not label the local UART line-complete handshake as a MATLAB acknowledgement; the existing link is one-way.
+The FPGA report is transmitted in DONE after the final LINE packet and after serializer completion. Do not label the local UART line-complete handshake as a MATLAB acknowledgement; the existing link is one-way.
+
+Current limitation: an early fatal capture/write/readout error still uses the existing 2-byte ERROR payload (error code + detail) and does not append the full 46-byte telemetry snapshot. The full stage CRC/count report is guaranteed on the completed readout/DONE path; extending the ERROR path with a partial telemetry snapshot is a follow-up improvement.
 
 ## 9. Test order
 
