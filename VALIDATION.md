@@ -20,7 +20,7 @@
 - Added a local line acknowledgement only after final CRC byte's UART stop bit completes.
 - Added a 20 ms gap between complete packets and after truncated-line abort before ERROR.
 - Confirmed by source inspection that output FIFO #2 is 512 words at default settings and one 640-pixel row requires 320 words. The existing elaboration assertion enforces at least one full line of FIFO storage.
-- Calculated the default transfer estimate: 925,993 UART bytes including all headers/CRC/status packets, approx. 79.87 s on the divider-derived 115942 baud, plus 9.68 s of inter-packet gaps, approx. 89.55 s total.
+- Calculated the default transfer estimate: The earlier RGB888 estimate used 925,993 UART bytes and is superseded by the raw RGB565 estimate above.
 - Confirmed the MATLAB script contains no serial write call; it only reads available bytes and accepts CRC-valid packets.
 - Confirmed the MATLAB resynchronizer can find a later CRC-valid ERROR packet even while an earlier LINE candidate is incomplete.
 
@@ -47,7 +47,7 @@
 1. Run Gowin project analysis/elaboration and fix any VHDL or port-map issue.
 2. Simulate KEY1 debounce and exactly-one clk8-to-clk24 camera trigger.
 3. Simulate STAGE/READY packets and compare CRC with the standard check vector.
-4. Simulate RGB565 word expansion: verify the first 32-bit word emits R0,G0,B0,R1,G1,B1.
+4. Simulate raw RGB565 serialization: verify a 32-bit FIFO word emits bytes [31:24], [23:16], [15:8], [7:0] in that order.
 5. Simulate full 1920-byte LINE, inter-packet gap, local ACK only after final UART stop bit, and next-line sequencing.
 6. Inject source starvation and readout error mid-LINE; verify ERROR follows UART idle + 20 ms and MATLAB resynchronizes.
 7. Run the MATLAB receiver against generated test packets, then test the USB-UART path.
