@@ -1,4 +1,4 @@
-# One-way UART Protocol — GC0308 RGB888 Stream
+# One-way UART Protocol — GC0308 Raw RGB565 Stream
 
 ## 1. Link contract
 
@@ -46,15 +46,15 @@ Payload is exactly six bytes:
 
 width_lo, width_hi, height_lo, height_hi, bytes_per_pixel, pixel_format
 
-For this project, bytes_per_pixel = 3 and pixel_format = 1 (RGB888). The default geometry is 640 x 480.
+For this project, bytes_per_pixel = 2 and pixel_format = 2 (raw RGB565). The default geometry is 640 x 480.
 
 ### 0x20 — LINE
 
 - SEQUENCE is the zero-based row index.
-- PAYLOAD_LENGTH must equal width * 3.
-- Pixels are serialized from left to right.
-- Every pixel is exactly three consecutive bytes: R, then G, then B.
-- Thus a 640-pixel row is R(0),G(0),B(0), R(1),G(1),B(1), ... R(639),G(639),B(639).
+- PAYLOAD_LENGTH must equal width * 2.
+- Pixels are serialized from left to right as the original 16-bit RGB565 words read from HyperRAM.
+- Each pixel is sent MSB byte first, then LSB byte: pixel0[15:8], pixel0[7:0], pixel1[15:8], pixel1[7:0], ...
+- No RGB565-to-RGB888 expansion or channel remapping is performed in the FPGA.
 - CRC16 is computed independently for every line.
 
 MATLAB stores a row only after its packet CRC and row length pass validation. Row sequence is used as the matrix row index, not the order in which bytes happen to arrive.
@@ -68,7 +68,7 @@ Sequence equals the frame height. Payload is exactly 16 bytes:
 | 0..1 | Height | uint16 little-endian |
 | 2..3 | Lines emitted by serializer | uint16 little-endian |
 | 4..7 | Pixels emitted | uint32 little-endian |
-| 8..11 | RGB UART payload bytes emitted | uint32 little-endian |
+| 8..11 | RGB565 UART payload bytes emitted | uint32 little-endian |
 | 12..15 | Raw RGB565 HyperRAM readback CRC32 | uint32 little-endian |
 
 DONE is sent only after the final LINE packet is physically complete, its local readout acknowledgement has been processed by the serializer, and the serializer reports completion. The 20 ms packet gap is observed between the final LINE and DONE.
@@ -91,15 +91,15 @@ For a truncated LINE packet, the FPGA waits for the UART transmitter to return t
 
 At 8 MHz, the UART divider is 69 clocks per bit. With 8N1, one byte occupies 10 bit periods, or about 86.25 microseconds. The configured 25 us inter-byte idle interval makes the byte slot approximately 111.25 us; the UART bit rate itself remains approximately 115942 baud.
 
-For 640 x 480 RGB888:
-- RGB payload: 1,920 bytes per row and 921,600 bytes per frame.
-- LINE packet: 9 + 1,920 = 1,929 bytes per row.
-- All LINE packets: 925,920 bytes.
+For 640 x 480 raw RGB565:
+- RGB565 payload: 1,280 bytes per row and 614,400 bytes per frame.
+- LINE packet: 9 + 1,280 = 1,289 bytes per row.
+- All LINE packets: 618,720 bytes.
 - STAGE, READY, and DONE packets add another 73 bytes.
-- UART wire time without inter-byte gaps is approximately 79.87 s at the divider-derived baud.
-- The 25 us inter-byte gaps add approximately 23.15 s for 925,993 transmitted bytes.
+- UART wire time without inter-byte gaps is approximately 53.0 s at the divider-derived baud.
+- The 25 us inter-byte gaps add approximately 15.36 s for 618,793 transmitted bytes.
 - 20 ms quiet gaps between the 484 packet boundaries add 9.68 s.
-- Estimated total transfer time is approximately 112.7 s, excluding camera capture and HyperRAM write time.
+- Estimated total transfer time is approximately 78.0 s, excluding camera capture and HyperRAM write time.
 
 The second asynchronous FIFO has 512 32-bit entries by default. One 640-pixel row requires 320 32-bit RGB565 words, so the FIFO can hold one full row with 192 entries of margin. The reader fills one complete row before setting line-ready. The serializer then drains that row through the UART ready/valid interface. The next row is not read until the current row's LINE packet has fully left the UART and the local acknowledgement crosses to the HyperRAM clock domain.
 
@@ -126,9 +126,9 @@ The MATLAB script:
 2. Waits indefinitely for STAGE TRIGGER_ACCEPTED.
 3. Tracks camera configuration, frame storage, READY, line reception, DONE, and ERROR states.
 4. Validates the shared packet CRC before accepting a packet.
-5. Maps each LINE packet to img(sequence+1,:,:) and deinterleaves RGB triplets.
+5. Stores each LINE payload as raw bytes and reconstructs uint16 RGB565 words using the documented MSB-first wire order.
 6. Uses a sliding SOF search and candidate CRC validation to resynchronize after a partial/corrupt packet.
 7. Checks DONE counters and that every expected row arrived before marking the frame complete.
-8. Saves the received image, row-validity map, and link statistics.
+8. Saves raw RGB565 bytes, reconstructed 16-bit words, row-validity map, and link statistics.
 
 No ACK/NACK or other host-to-FPGA command is part of this protocol.
