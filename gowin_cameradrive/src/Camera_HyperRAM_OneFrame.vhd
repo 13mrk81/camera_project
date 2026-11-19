@@ -19,7 +19,7 @@ entity Camera_HyperRAM_OneFrame is
     generic (
         G_FRAME_WIDTH             : positive := 640;
         G_FRAME_HEIGHT            : positive := 480;
-        G_FIFO_ADDR_BITS          : positive := 10;
+        G_FIFO_ADDR_BITS          : positive := 11;
         G_OUTPUT_FIFO_ADDR_BITS   : positive := 9;
         G_CMD_INTERVAL_CYCLES     : positive := 21;
         G_WRITE_READ_GAP_CYCLES   : positive := 63;
