@@ -47,7 +47,6 @@ begin
 
     stimulus : process
         variable accepted_bytes : natural := 0;
-        variable active_cycle   : natural := 0;
         variable pixel_x        : natural;
         variable pixel_y        : natural;
         variable pixel_value    : natural;
@@ -68,9 +67,20 @@ begin
             wait until rising_edge(clk);
             wait for 1 ns;
 
-            if valid = '1' then
-                assert cycle < C_HEIGHT * (C_WIDTH * 2 + C_HBLANK)
+            if cycle < C_HEIGHT * (C_WIDTH * 2 + C_HBLANK) then
+                if (cycle mod (C_WIDTH * 2 + C_HBLANK)) < (C_WIDTH * 2) then
+                    assert valid = '1'
+                        report "Missing active byte in a line" severity failure;
+                else
+                    assert valid = '0'
+                        report "byte_valid asserted during horizontal blanking" severity failure;
+                end if;
+            else
+                assert valid = '0'
                     report "byte_valid asserted during vertical blanking" severity failure;
+            end if;
+
+            if valid = '1' then
 
                 pixel_x := (accepted_bytes mod (C_WIDTH * 2)) / 2;
                 pixel_y := accepted_bytes / (C_WIDTH * 2);
@@ -92,6 +102,8 @@ begin
 
             if frame_done = '1' then
                 frame_done_seen := true;
+                assert cycle = C_FRAME_CYCLES - 1
+                    report "Frame period does not match configured active/blanking timing" severity failure;
                 assert accepted_bytes = C_WIDTH * C_HEIGHT * 2
                     report "Incorrect total number of active bytes" severity failure;
                 assert byte_count = to_unsigned(C_WIDTH * C_HEIGHT * 2, 32)
