@@ -2,7 +2,7 @@
 <GAO_CONFIG>
     <Version>3.0</Version>
     <Mode>Standard</Mode>
-    <AoCore index="0" sample_clock="clk8" trig_type="0" storage_depth="1024" window_num="1" capture_amount="1024" implementation="0" trigger_pos="0" module_name="HyperRAM_Storage_SelfTest" force_trigger_by_falling_edge="false" capture_init_data_enabled="false">
+    <AoCore index="0" sample_clock="clk24" trig_type="0" storage_depth="1024" window_num="1" capture_amount="1024" implementation="0" trigger_pos="0" module_name="HyperRAM_Storage_SelfTest" force_trigger_by_falling_edge="false" capture_init_data_enabled="false">
         <SignalList>
             <Signal capture_enable="true">trigger_pulse</Signal>
             <Signal capture_enable="true">test_source_start_pulse</Signal>
@@ -23,7 +23,7 @@
             <Signal capture_enable="true">reader_error</Signal>
             <Signal capture_enable="true">serializer_error</Signal>
             <Signal capture_enable="true">storage_status_flags_usr</Signal>
-            <Signal capture_enable="true">storage_telemetry_valid_clk8</Signal>
+            <Signal capture_enable="true">storage_telemetry_valid_clk24</Signal>
             <Signal capture_enable="true">integrity_done</Signal>
             <Signal capture_enable="true">integrity_error</Signal>
             <Signal capture_enable="true">system_ok</Signal>
