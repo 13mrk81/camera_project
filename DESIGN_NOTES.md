@@ -1,10 +1,10 @@
-# Design Notes — One-way Camera to MATLAB RGB888 Stream
+# Design Notes — One-way Camera to MATLAB Raw RGB565 Stream
 
 ## Data path
 
-GC0308 DVP -> camera configuration/capture logic -> RGB565 packer -> asynchronous capture FIFO #1 -> HyperRAM write -> HyperRAM line reader -> asynchronous output FIFO #2 -> RGB565-to-RGB888 serializer -> packet/CRC engine -> UART TX -> USB-UART adapter -> MATLAB.
+GC0308 DVP -> camera configuration/capture logic -> RGB565 packer -> asynchronous capture FIFO #1 -> HyperRAM write -> HyperRAM line reader -> asynchronous output FIFO #2 -> raw RGB565 byte serializer -> packet/CRC engine -> UART TX -> USB-UART adapter -> MATLAB.
 
-Two RGB565 pixels are stored per 32-bit HyperRAM word. The serializer expands each pixel independently to RGB888. The transmitted byte order is invariant: for pixels x=0..width-1, emit R(x), then G(x), then B(x). Pixels are left-to-right and rows are numbered from zero.
+Two RGB565 pixels are stored per 32-bit HyperRAM word. The serializer does not modify pixel data: it emits each 16-bit word as high byte then low byte, preserving left-to-right pixel order. Rows are numbered from zero.
 
 ## Trigger and link direction
 
@@ -22,8 +22,8 @@ Packet format: A5 5A TYPE SEQ_LO SEQ_HI LEN_LO LEN_HI PAYLOAD CRC_HI CRC_LO.
 
 Types:
 - 0x10 STAGE: trigger accepted, camera configured, frame stored.
-- 0x11 READY: geometry and RGB888 format.
-- 0x20 LINE: zero-based row sequence and RGB888 row payload.
+- 0x11 READY: geometry and raw RGB565 format.
+- 0x20 LINE: zero-based row sequence and raw RGB565 row payload.
 - 0x30 DONE: frame/serializer counters and raw RGB565 readback CRC32.
 - 0x7F ERROR: error code and detail.
 
@@ -38,7 +38,7 @@ There is no host ACK, NACK, or retransmission. CRC and sequence numbers detect c
 3. After camera setup and RGB565 register verification, FPGA emits STAGE CAMERA_CONFIGURED.
 4. Capture and HyperRAM write proceed. Error or timeout produces ERROR; successful write emits STAGE FRAME_STORED.
 5. FPGA emits READY. After the 20 ms gap it starts the first LINE packet and enables the sticky HyperRAM readout-start level.
-6. The line reader reads one complete row into FIFO #2. The serializer supplies RGB888 bytes only when the packet engine asserts source-ready.
+6. The line reader reads one complete row into FIFO #2. The serializer supplies original RGB565 bytes only when the packet engine asserts source-ready.
 7. Packet engine sends payload and per-row CRC16. Completion is not declared until CRC low byte's UART stop bit is complete and TX returns to idle.
 8. The protocol then generates a local one-cycle line acknowledgement. It crosses to usr_clk through a toggle CDC and advances the HyperRAM reader; it also advances the clk8 serializer. This is internal hardware flow control, never a host ACK.
 9. The FPGA waits 20 ms and then sends the next row. After the final row it waits for serializer completion, observes the packet gap, and emits DONE.
