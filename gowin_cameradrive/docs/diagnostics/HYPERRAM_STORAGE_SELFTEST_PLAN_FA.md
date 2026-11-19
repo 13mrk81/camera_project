@@ -75,7 +75,7 @@ For 1,280 active byte clocks per line:
 - frame period = 480 * 1,386 + 155,232 = 820,512 clocks
 - at 24 MHz, nominal frame rate is approximately 29.25 frames/s
 
-These are datasheet-default-derived values, not a claim that the configured physical sensor has already been measured at exactly this timing. The configured sensor's actual PCLK and HSYNC/VSYNC timing should be measured and the generator generics adjusted if necessary.
+These are datasheet-default-derived values, not a claim that the configured physical sensor has already been measured at exactly this timing. Reference: GC0308 datasheet, register table for P0:0x01, P0:0x02 and P0:0x28: https://min.at/prinz/fp-content/attachs/GC0308.pdf. The configured sensor's actual PCLK and HSYNC/VSYNC timing should be measured and the generator generics adjusted if necessary.
 
 ## 6. Required data-path architecture
 
