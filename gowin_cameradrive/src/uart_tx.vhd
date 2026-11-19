@@ -8,7 +8,8 @@ use ieee.numeric_std.all;
 entity uart_tx is
     generic (
         G_CLK_FREQ_HZ : positive := 8_000_000;
-        G_BAUD_RATE   : positive := 115_200
+        G_BAUD_RATE   : positive := 115_200;
+        G_INTER_BYTE_GAP_CYCLES : positive := 200 -- 25 us at 8 MHz
     );
     port (
         clk           : in  std_logic;
@@ -24,11 +25,12 @@ architecture rtl of uart_tx is
     constant C_CLKS_PER_BIT : positive :=
         (G_CLK_FREQ_HZ + (G_BAUD_RATE / 2)) / G_BAUD_RATE;
 
-    type state_t is (IDLE, START_BIT, DATA_BITS, STOP_BIT);
+    type state_t is (IDLE, START_BIT, DATA_BITS, STOP_BIT, INTER_BYTE_GAP);
     signal state       : state_t := IDLE;
     signal tx_shift    : std_logic_vector(7 downto 0) := (others => '0');
     signal bit_count   : natural range 0 to 7 := 0;
     signal clk_count   : natural range 0 to C_CLKS_PER_BIT - 1 := 0;
+    signal gap_count   : natural range 0 to G_INTER_BYTE_GAP_CYCLES - 1 := 0;
     signal tx_reg      : std_logic := '1';
 begin
     assert C_CLKS_PER_BIT >= 8
@@ -45,6 +47,7 @@ begin
                 tx_shift  <= (others => '0');
                 bit_count <= 0;
                 clk_count <= 0;
+                gap_count <= 0;
                 tx_reg    <= '1';
             else
                 case state is
@@ -86,9 +89,18 @@ begin
                         if clk_count = C_CLKS_PER_BIT - 1 then
                             clk_count <= 0;
                             tx_reg    <= '1';
-                            state     <= IDLE;
+                            gap_count <= 0;
+                            state     <= INTER_BYTE_GAP;
                         else
                             clk_count <= clk_count + 1;
+                        end if;
+                    when INTER_BYTE_GAP =>
+                        tx_reg <= '1';
+                        if gap_count = G_INTER_BYTE_GAP_CYCLES - 1 then
+                            gap_count <= 0;
+                            state <= IDLE;
+                        else
+                            gap_count <= gap_count + 1;
                         end if;
                 end case;
             end if;
