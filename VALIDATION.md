@@ -2,8 +2,8 @@
 
 ## 2026-11-19 — Host buffering and UART byte pacing
 
-- Increased MATLAB serial InputBufferSize to 65,536 bytes. At 1,929 bytes per default LINE packet, this holds more than 33 complete line packets while MATLAB validates CRC and reconstructs rows.
-- Increased MATLAB read chunks to at most 8,192 bytes and added total-byte, maximum observed driver-queue, and maximum parser-buffer counters to the console report and saved MAT file.
+- Removed the unsupported `InputBufferSize` Name-Value argument from MATLAB `serialport`. The modern API manages receive buffering automatically and does not document a user-configurable input-buffer size.
+- MATLAB reads available serial data in chunks up to 8,192 bytes and records total-byte, maximum observed driver-queue, and maximum parser-buffer counters in the console report and saved MAT file.
 - Added a configurable 25 us idle-high interval after every UART byte using 200 clk8 cycles at 8 MHz. UART bit timing remains 69 clocks/bit; the added interval is separate from the 8N1 frame.
 - Updated the default transfer-time estimate to approximately 112.7 s, including inter-byte and inter-packet gaps.
 - These are source changes only. MATLAB, VHDL compile/simulation, Gowin build, and hardware transfer have not yet been run.
