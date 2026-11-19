@@ -40,7 +40,8 @@ architecture rtl of frame_integrity_checker is
     constant C_EXPECTED_PIXELS : natural := G_FRAME_WIDTH * G_FRAME_HEIGHT;
     constant C_EXPECTED_RAW_BYTES : natural := C_EXPECTED_PIXELS * 2;
     constant C_EXPECTED_WORDS : natural := C_EXPECTED_RAW_BYTES / 4;
-    constant C_EXPECTED_UART_BYTES : natural := C_EXPECTED_PIXELS * 3;
+    -- UART transports the original RGB565 stream: exactly two bytes per pixel.
+    constant C_EXPECTED_UART_BYTES : natural := C_EXPECTED_RAW_BYTES;
 
     signal system_ok_reg      : std_logic := '0';
     signal integrity_done_reg : std_logic := '0';
