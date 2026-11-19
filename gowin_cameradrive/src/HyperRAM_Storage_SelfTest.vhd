@@ -442,9 +442,9 @@ begin
 
     -- Asynchronous assertion, synchronous deassertion in HyperRAM usr_clk.
     -- usr_clk is 48 MHz (memory_clk/2), not the 24 MHz fabric clock.
-    process(usr_clk, usr_rst_n)
+    process(usr_clk, ip_rst_n)
     begin
-        if usr_rst_n = '0' then
+        if ip_rst_n = '0' then
             usr_rst_sync1 <= '0';
             usr_rst_sync2 <= '0';
         elsif rising_edge(usr_clk) then
