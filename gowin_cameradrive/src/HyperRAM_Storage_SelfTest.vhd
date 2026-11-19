@@ -131,7 +131,7 @@ architecture rtl of HyperRAM_Storage_SelfTest is
             rst_trigger         : in  std_logic;
             cam_sda             : inout std_logic;
             cam_scl             : inout std_logic;
-            cam_pclk            : in  std_logic;
+            clk24            : in  std_logic;
             cam_vsync           : in  std_logic;
             cam_hsync           : in  std_logic;
             cam_pix_data        : in  std_logic_vector(7 downto 0);
@@ -672,7 +672,7 @@ begin
             G_FRAME_HEIGHT => G_FRAME_HEIGHT
         )
         port map (
-            cam_pclk          => clk24,
+            clk24          => clk24,
             rst_n             => rst_n,
             cam_byte_i        => cam_byte_data,
             cam_byte_valid_i  => cam_byte_valid,
@@ -708,11 +708,11 @@ begin
 
     -- async_fifo_32 deliberately rejects a write while full; make that loss
     -- visible as a sticky capture error instead of silently accepting it.
-    process(cam_pclk, rst_n)
+    process(clk24, rst_n)
     begin
         if rst_n = '0' then
             cap_fifo_overflow_cam <= '0';
-        elsif rising_edge(cam_pclk) then
+        elsif rising_edge(clk24) then
             if (cap_packed_valid = '1') and (cap_fifo_full = '1') then
                 cap_fifo_overflow_cam <= '1';
             end if;
@@ -729,7 +729,7 @@ begin
             G_WIDTH => 96
         )
         port map (
-            src_clk     => cam_pclk,
+            src_clk     => clk24,
             src_rst_n   => rst_n,
             src_event_i => cap_capture_done,
             src_data_i  => capture_snapshot_src,
