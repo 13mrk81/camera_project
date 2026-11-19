@@ -119,7 +119,7 @@ Reset release remains a separate sign-off item: the top currently holds rst_n hi
 
 ## 6. MATLAB receiver behavior
 
-The MATLAB script configures a 65,536-byte serial input buffer. A default 640-pixel LINE packet is 1,929 bytes, so the driver buffer can absorb more than 33 complete line packets while MATLAB performs packet extraction and CRC checking. It reads available data in chunks up to 8,192 bytes and records total bytes read, maximum observed driver-queue occupancy, and maximum parser-buffer size.
+The MATLAB receiver uses the modern `serialport` API. This API does not expose a documented user-configurable `InputBufferSize`; receive buffering is managed automatically by MATLAB. The script drains available bytes in chunks up to 8,192 bytes into a dynamically growing MATLAB parser buffer, then validates complete packets and CRCs. It records total bytes read, maximum observed driver-queue occupancy, and maximum parser-buffer size. A default 640-pixel LINE packet is 1,929 bytes, so each read chunk can hold at least four complete LINE packets when that many bytes are available.
 
 The MATLAB script:
 1. Opens the serial port and sends no bytes.
