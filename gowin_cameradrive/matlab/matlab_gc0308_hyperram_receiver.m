@@ -192,17 +192,24 @@ while true
                 "writeWordCountMismatch", bitget(doneStats.statusFlags, 9) ~= 0, ...
                 "readWordCountMismatch", bitget(doneStats.statusFlags, 10) ~= 0);
 
-            pixelMismatch = any(img ~= storageReference.rgb888, 3);
-            doneStats.patternMismatchPixels = nnz(pixelMismatch);
-            if doneStats.patternMismatchPixels > 0
-                firstMismatch = find(reshape(pixelMismatch.', [], 1), 1, "first");
-                doneStats.firstMismatchRow = floor((firstMismatch - 1) / width);
-                doneStats.firstMismatchColumn = mod(firstMismatch - 1, width);
+            if frameReady
+                pixelMismatch = any(img ~= storageReference.rgb888, 3);
+                doneStats.patternMismatchPixels = nnz(pixelMismatch);
+                if doneStats.patternMismatchPixels > 0
+                    firstMismatch = find(reshape(pixelMismatch.', [], 1), 1, "first");
+                    doneStats.firstMismatchRow = floor((firstMismatch - 1) / width);
+                    doneStats.firstMismatchColumn = mod(firstMismatch - 1, width);
+                else
+                    doneStats.firstMismatchRow = -1;
+                    doneStats.firstMismatchColumn = -1;
+                end
+                doneStats.patternCrc32 = storageReference.expectedCaptureCrc32;
             else
+                doneStats.patternMismatchPixels = Inf;
                 doneStats.firstMismatchRow = -1;
                 doneStats.firstMismatchColumn = -1;
+                doneStats.patternCrc32 = uint32(0);
             end
-            doneStats.patternCrc32 = storageReference.expectedCaptureCrc32;
 
             frameComplete = frameReady && ...
                 doneStats.height == height && ...
