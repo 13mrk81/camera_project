@@ -53,6 +53,8 @@ entity hyperram_line_reader is
         error_o                : out std_logic;
         line_index_o           : out unsigned(15 downto 0);
         line_word_count_o      : out unsigned(15 downto 0);
+        read_ingress_crc_o     : out std_logic_vector(31 downto 0);
+        read_ingress_word_count_o : out unsigned(31 downto 0);
         burst_index_o          : out unsigned(15 downto 0)
     );
 end entity;
@@ -84,6 +86,31 @@ architecture rtl of hyperram_line_reader is
     signal line_complete_reg    : std_logic := '0';
     signal frame_done_reg       : std_logic := '0';
     signal error_reg            : std_logic := '0';
+    signal ingress_crc_reg      : std_logic_vector(31 downto 0) := x"FFFFFFFF";
+    signal ingress_word_count_reg : unsigned(31 downto 0) := (others => '0');
+
+    function crc32_byte(crc_in : std_logic_vector(31 downto 0); data_in : std_logic_vector(7 downto 0)) return std_logic_vector is
+        variable c : unsigned(31 downto 0) := unsigned(crc_in);
+        variable feedback : std_logic;
+        constant POLY : unsigned(31 downto 0) := x"04C11DB7";
+    begin
+        for i in 7 downto 0 loop
+            feedback := c(31) xor data_in(i);
+            c := shift_left(c, 1);
+            if feedback = '1' then c := c xor POLY; end if;
+        end loop;
+        return std_logic_vector(c);
+    end function;
+
+    function crc32_word(crc_in : std_logic_vector(31 downto 0); data_in : std_logic_vector(31 downto 0)) return std_logic_vector is
+        variable c : std_logic_vector(31 downto 0) := crc_in;
+    begin
+        c := crc32_byte(c, data_in(31 downto 24));
+        c := crc32_byte(c, data_in(23 downto 16));
+        c := crc32_byte(c, data_in(15 downto 8));
+        c := crc32_byte(c, data_in(7 downto 0));
+        return c;
+    end function;
 
 begin
     assert (G_FRAME_WIDTH mod 2) = 0
@@ -120,6 +147,8 @@ begin
     error_o         <= error_reg;
     line_index_o    <= to_unsigned(line_index_reg, line_index_o'length);
     line_word_count_o <= to_unsigned(line_word_count_reg, line_word_count_o'length);
+    read_ingress_crc_o <= ingress_crc_reg;
+    read_ingress_word_count_o <= ingress_word_count_reg;
     burst_index_o   <= to_unsigned(burst_index_reg, burst_index_o'length);
 
     process(clk, rst_n)
@@ -136,6 +165,8 @@ begin
             line_complete_reg    <= '0';
             frame_done_reg       <= '0';
             error_reg            <= '0';
+            ingress_crc_reg      <= x"FFFFFFFF";
+            ingress_word_count_reg <= (others => '0');
         elsif rising_edge(clk) then
             line_req_reg      <= '0';
             line_complete_reg <= '0';
@@ -191,6 +222,8 @@ begin
                                 state <= ST_ERROR;
                             else
                                 line_word_count_reg <= line_word_count_reg + 1;
+                                ingress_crc_reg <= crc32_word(ingress_crc_reg, rd_data_i);
+                                ingress_word_count_reg <= ingress_word_count_reg + 1;
                                 if beat_count_reg = G_BURST_WORDS - 1 then
                                     -- Advance after every burst, including the last burst
                                     -- of a line, so the next line starts at the next region.
