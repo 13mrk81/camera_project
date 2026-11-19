@@ -221,6 +221,7 @@ architecture rtl of HyperRAM_Storage_SelfTest is
     signal cam_line_count     : std_logic_vector(9 downto 0);
     signal cam_line_byte_count: std_logic_vector(10 downto 0);
     signal test_source_line_count : unsigned(15 downto 0);
+    signal test_source_byte_count : unsigned(31 downto 0);
     signal test_source_busy       : std_logic;
     signal test_source_error      : std_logic;
 
@@ -248,12 +249,13 @@ architecture rtl of HyperRAM_Storage_SelfTest is
     --------------------------------------------------------------------------
     -- Capture-domain snapshot crossing to HyperRAM user-clock domain.
     --------------------------------------------------------------------------
-    signal capture_snapshot_src : std_logic_vector(95 downto 0);
-    signal capture_snapshot_usr : std_logic_vector(95 downto 0);
+    signal capture_snapshot_src : std_logic_vector(127 downto 0);
+    signal capture_snapshot_usr : std_logic_vector(127 downto 0);
     signal capture_snapshot_valid_usr : std_logic;
     signal capture_crc_usr     : std_logic_vector(31 downto 0);
     signal capture_byte_count_usr : unsigned(31 downto 0);
     signal capture_word_count_usr : unsigned(31 downto 0);
+    signal source_byte_count_usr : unsigned(31 downto 0);
 
     signal capture_error_meta_usr : std_logic := '0';
     signal capture_error_sync_usr : std_logic := '0';
@@ -368,8 +370,8 @@ architecture rtl of HyperRAM_Storage_SelfTest is
 
     -- Stable usr_clk -> clk8 telemetry snapshot, captured after the final
     -- readback line has completed and before the DONE packet is generated.
-    signal storage_telemetry_src : std_logic_vector(207 downto 0);
-    signal storage_telemetry_clk8 : std_logic_vector(207 downto 0);
+    signal storage_telemetry_src : std_logic_vector(239 downto 0);
+    signal storage_telemetry_clk8 : std_logic_vector(239 downto 0);
     signal storage_telemetry_valid_clk8 : std_logic;
     signal storage_status_flags_usr : std_logic_vector(15 downto 0);
 
@@ -540,10 +542,11 @@ begin
             capture_crc_i => storage_telemetry_clk8(31 downto 0),
             write_crc_i => storage_telemetry_clk8(63 downto 32),
             read_ingress_crc_i => storage_telemetry_clk8(95 downto 64),
-            capture_byte_count_i => unsigned(storage_telemetry_clk8(127 downto 96)),
-            write_word_count_i => unsigned(storage_telemetry_clk8(159 downto 128)),
-            read_ingress_word_count_i => unsigned(storage_telemetry_clk8(191 downto 160)),
-            status_flags_i => storage_telemetry_clk8(207 downto 192),
+            source_byte_count_i => unsigned(storage_telemetry_clk8(127 downto 96)),
+            capture_byte_count_i => unsigned(storage_telemetry_clk8(159 downto 128)),
+            write_word_count_i => unsigned(storage_telemetry_clk8(191 downto 160)),
+            read_ingress_word_count_i => unsigned(storage_telemetry_clk8(223 downto 192)),
+            status_flags_i => storage_telemetry_clk8(239 downto 224),
             pixel_count_i => output_pixel_count_uart,
             uart_byte_count_i => uart_byte_count_uart,
             lines_sent_i => lines_sent_uart,
@@ -651,7 +654,7 @@ begin
             frame_done_o   => cam_frame_done,
             busy_o         => test_source_busy,
             error_o        => test_source_error,
-            byte_count_o   => open,
+            byte_count_o   => test_source_byte_count,
             line_count_o   => test_source_line_count
         );
 
@@ -722,11 +725,12 @@ begin
     capture_error_cam <= cap_capture_error or cap_fifo_overflow_cam;
     capture_snapshot_src <= cap_capture_crc &
                             std_logic_vector(cap_byte_count) &
-                            std_logic_vector(cap_word_count);
+                            std_logic_vector(cap_word_count) &
+                            std_logic_vector(test_source_byte_count);
 
     u_capture_snapshot_cdc : entity work.stable_bus_event_cdc
         generic map (
-            G_WIDTH => 96
+            G_WIDTH => 128
         )
         port map (
             src_clk     => clk24,
@@ -1085,11 +1089,12 @@ begin
         if capture_crc_usr /= write_crc_reg then f(5) := '1'; end if;
         if write_crc_reg /= read_ingress_crc_usr then f(6) := '1'; end if;
         if capture_byte_count_usr /= to_unsigned(C_TOTAL_RAW_BYTES, 32) then f(7) := '1'; end if;
+        if source_byte_count_usr /= capture_byte_count_usr then f(10) := '1'; end if;
         if write_word_count_u32 /= to_unsigned(C_TOTAL_WORDS, 32) then f(8) := '1'; end if;
         if read_ingress_word_count_usr /= to_unsigned(C_TOTAL_WORDS, 32) then f(9) := '1'; end if;
         ok := '1';
         if (f(4 downto 0) /= "00000") or (f(6 downto 5) /= "00") or
-           (f(9 downto 7) /= "000") then
+           (f(10 downto 7) /= "0000") then
             ok := '0';
         end if;
         if (capture_crc_usr /= write_crc_reg) or
@@ -1104,10 +1109,11 @@ begin
                              std_logic_vector(read_ingress_word_count_usr) &
                              std_logic_vector(write_word_count_u32) &
                              std_logic_vector(capture_byte_count_usr) &
+                             std_logic_vector(source_byte_count_usr) &
                              read_ingress_crc_usr & write_crc_reg & capture_crc_usr;
 
     u_storage_telemetry_cdc : entity work.stable_bus_event_cdc
-        generic map (G_WIDTH => 208)
+        generic map (G_WIDTH => 240)
         port map (
             src_clk => usr_clk, src_rst_n => ip_rst_n,
             src_event_i => frame_reader_done, src_data_i => storage_telemetry_src,
