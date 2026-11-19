@@ -1071,6 +1071,7 @@ begin
     -- bit2 HyperRAM reader/FIFO2, bit3 serializer, bit4 UART protocol,
     -- bit5 capture-vs-write CRC, bit6 write-vs-read-ingress CRC,
     -- bit7 capture byte count, bit8 write word count, bit9 read word count,
+    -- bit10 source-vs-capture byte count,
     -- bit13 means storage checkpoints/counts all passed.
     process(capture_error_sync_usr, write_error_reg, reader_error,
             serializer_error_sync_usr, protocol_error_sync_usr,
