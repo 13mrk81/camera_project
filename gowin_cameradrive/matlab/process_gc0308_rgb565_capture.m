@@ -79,7 +79,7 @@ save("gc0308_rgb565_offline_candidates.mat", ...
     "wireBytes", "rgb565_msb", "r8", "g8", "b8", ...
     "channelOrders", "candidates", "W", "H");
 
-fprintf("Loaded one captured frame: %d x %d pixels.\\n", W, H);
-fprintf("Generated all six MSB-first channel permutations.\\n");
-fprintf("No FPGA transfer was performed.\\n");
-fprintf("Wire byte order: high byte then low byte per pixel.\\n");
+fprintf("Loaded one captured frame: %d x %d pixels.\n", W, H);
+fprintf("Generated all six MSB-first channel permutations.\n");
+fprintf("No FPGA transfer was performed.\n");
+fprintf("Wire byte order: high byte then low byte per pixel.\n");
