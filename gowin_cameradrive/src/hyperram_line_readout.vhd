@@ -64,6 +64,8 @@ entity hyperram_line_readout is
         line_word_count_o      : out unsigned(15 downto 0);
         fifo_write_level_o     : out unsigned(G_FIFO_ADDR_BITS downto 0);
         readback_crc_o         : out std_logic_vector(31 downto 0);
+        read_ingress_crc_o     : out std_logic_vector(31 downto 0);
+        read_ingress_word_count_o : out unsigned(31 downto 0);
         raw_byte_count_o       : out unsigned(31 downto 0);
         read_word_count_o      : out unsigned(31 downto 0);
         pixel_count_o          : out unsigned(31 downto 0);
@@ -140,6 +142,8 @@ begin
             error_o             => reader_error,
             line_index_o        => line_index_o,
             line_word_count_o   => line_word_count_o,
+            read_ingress_crc_o  => read_ingress_crc_o,
+            read_ingress_word_count_o => read_ingress_word_count_o,
             burst_index_o       => open
         );
 
