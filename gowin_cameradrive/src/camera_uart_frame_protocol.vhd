@@ -35,6 +35,7 @@ entity camera_uart_frame_protocol is
         capture_crc_i         : in  std_logic_vector(31 downto 0);
         write_crc_i           : in  std_logic_vector(31 downto 0);
         read_ingress_crc_i    : in  std_logic_vector(31 downto 0);
+        source_byte_count_i   : in  unsigned(31 downto 0);
         capture_byte_count_i  : in  unsigned(31 downto 0);
         write_word_count_i    : in  unsigned(31 downto 0);
         read_ingress_word_count_i : in unsigned(31 downto 0);
@@ -64,7 +65,7 @@ architecture rtl of camera_uart_frame_protocol is
     constant C_WIDTH_U16        : unsigned(15 downto 0) := to_unsigned(G_FRAME_WIDTH, 16);
     constant C_HEIGHT_U16       : unsigned(15 downto 0) := to_unsigned(G_FRAME_HEIGHT, 16);
     constant C_LINE_BYTES_U16   : unsigned(15 downto 0) := to_unsigned(C_LINE_BYTES, 16);
-    constant C_DONE_BYTES_U16   : unsigned(15 downto 0) := to_unsigned(42, 16);
+    constant C_DONE_BYTES_U16   : unsigned(15 downto 0) := to_unsigned(46, 16);
 
     constant C_TYPE_STAGE : std_logic_vector(7 downto 0) := x"10";
     constant C_TYPE_READY : std_logic_vector(7 downto 0) := x"11";
@@ -668,19 +669,23 @@ begin
                                         when 25 => tx_data_reg <= read_ingress_crc_i(15 downto 8);
                                         when 26 => tx_data_reg <= read_ingress_crc_i(23 downto 16);
                                         when 27 => tx_data_reg <= read_ingress_crc_i(31 downto 24);
-                                        when 28 => tx_data_reg <= std_logic_vector(capture_byte_count_i(7 downto 0));
-                                        when 29 => tx_data_reg <= std_logic_vector(capture_byte_count_i(15 downto 8));
-                                        when 30 => tx_data_reg <= std_logic_vector(capture_byte_count_i(23 downto 16));
-                                        when 31 => tx_data_reg <= std_logic_vector(capture_byte_count_i(31 downto 24));
-                                        when 32 => tx_data_reg <= std_logic_vector(write_word_count_i(7 downto 0));
-                                        when 33 => tx_data_reg <= std_logic_vector(write_word_count_i(15 downto 8));
-                                        when 34 => tx_data_reg <= std_logic_vector(write_word_count_i(23 downto 16));
-                                        when 35 => tx_data_reg <= std_logic_vector(write_word_count_i(31 downto 24));
-                                        when 36 => tx_data_reg <= std_logic_vector(read_ingress_word_count_i(7 downto 0));
-                                        when 37 => tx_data_reg <= std_logic_vector(read_ingress_word_count_i(15 downto 8));
-                                        when 38 => tx_data_reg <= std_logic_vector(read_ingress_word_count_i(23 downto 16));
-                                        when 39 => tx_data_reg <= std_logic_vector(read_ingress_word_count_i(31 downto 24));
-                                        when 40 => tx_data_reg <= status_flags_i(7 downto 0);
+                                        when 28 => tx_data_reg <= std_logic_vector(source_byte_count_i(7 downto 0));
+                                        when 29 => tx_data_reg <= std_logic_vector(source_byte_count_i(15 downto 8));
+                                        when 30 => tx_data_reg <= std_logic_vector(source_byte_count_i(23 downto 16));
+                                        when 31 => tx_data_reg <= std_logic_vector(source_byte_count_i(31 downto 24));
+                                        when 32 => tx_data_reg <= std_logic_vector(capture_byte_count_i(7 downto 0));
+                                        when 33 => tx_data_reg <= std_logic_vector(capture_byte_count_i(15 downto 8));
+                                        when 34 => tx_data_reg <= std_logic_vector(capture_byte_count_i(23 downto 16));
+                                        when 35 => tx_data_reg <= std_logic_vector(capture_byte_count_i(31 downto 24));
+                                        when 36 => tx_data_reg <= std_logic_vector(write_word_count_i(7 downto 0));
+                                        when 37 => tx_data_reg <= std_logic_vector(write_word_count_i(15 downto 8));
+                                        when 38 => tx_data_reg <= std_logic_vector(write_word_count_i(23 downto 16));
+                                        when 39 => tx_data_reg <= std_logic_vector(write_word_count_i(31 downto 24));
+                                        when 40 => tx_data_reg <= std_logic_vector(read_ingress_word_count_i(7 downto 0));
+                                        when 41 => tx_data_reg <= std_logic_vector(read_ingress_word_count_i(15 downto 8));
+                                        when 42 => tx_data_reg <= std_logic_vector(read_ingress_word_count_i(23 downto 16));
+                                        when 43 => tx_data_reg <= std_logic_vector(read_ingress_word_count_i(31 downto 24));
+                                        when 44 => tx_data_reg <= status_flags_i(7 downto 0);
                                         when others => tx_data_reg <= status_flags_i(15 downto 8);
                                     end case;
                                 when PKT_ERROR =>
