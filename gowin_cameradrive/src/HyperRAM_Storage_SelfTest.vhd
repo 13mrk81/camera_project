@@ -612,8 +612,8 @@ begin
         generic map (
             G_FRAME_WIDTH        => G_FRAME_WIDTH,
             G_FRAME_HEIGHT       => G_FRAME_HEIGHT,
-            G_LINE_BLANK_CYCLES  => 106,
-            G_FRAME_BLANK_CYCLES => 155232
+            G_LINE_BLANK_CYCLES  => 306,
+            G_FRAME_BLANK_CYCLES => 31720
         )
         port map (
             clk_i          => clk24,
