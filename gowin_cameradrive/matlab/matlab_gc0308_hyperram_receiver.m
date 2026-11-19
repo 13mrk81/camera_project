@@ -25,17 +25,16 @@ baudRate = 115200;
 preTriggerTimeout_s = Inf;  % Wait indefinitely for the physical KEY1 press.
 activeTimeout_s = 25;       % FPGA capture/config timeout is 15 s; allow margin.
 maxPayloadBytes = 65535;
-inputBufferBytes = 65536; % >33 complete default LINE packets.
 
 %% Open UART in receive-only mode
 sp = serialport(portName, baudRate, ...
     "DataBits", 8, "Parity", "none", "StopBits", 1, ...
-    "FlowControl", "none", "Timeout", 1, ...
-    "InputBufferSize", inputBufferBytes);
+    "FlowControl", "none", "Timeout", 1);
 flush(sp);
 
-fprintf("UART opened: %s @ %d baud, 8N1 (receive-only), RX buffer=%d bytes\n", ...
-    char(portName), baudRate, sp.InputBufferSize);
+fprintf("UART opened: %s @ %d baud, 8N1 (receive-only).\n", ...
+    char(portName), baudRate);
+fprintf("serialport manages receive buffering automatically; MATLAB reads available data in chunks up to 8192 bytes.\n");
 fprintf("No UART commands will be transmitted. Press the board's KEY1 button to start.\n");
 
 rxBuffer = zeros(0, 1, "uint8");
