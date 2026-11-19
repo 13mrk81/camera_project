@@ -1,0 +1,44 @@
+// ============================================================
+// Tang Nano 4K - HyperRAM Storage Self-Test
+// Top module: HyperRAM_Storage_SelfTest
+// ============================================================
+
+
+// ------------------------------------------------------------
+// System inputs
+// ------------------------------------------------------------
+
+IO_LOC  "clk8" 35;
+IO_PORT "clk8" IO_TYPE=LVCMOS33 PULL_MODE=NONE;
+
+
+// One-way UART: FPGA TX -> USB-UART adapter RX (adapter TX is not connected).
+IO_LOC  "uart_tx_o" 32;
+IO_PORT "uart_tx_o" IO_TYPE=LVCMOS33 PULL_MODE=NONE;
+
+// Tang Nano 4K onboard KEY1/S1, active-low, FPGA pin 14 (1.8 V bank).
+// The board already provides the pull-up; the debounced press triggers capture.
+IO_LOC  "trigger_n_i" 14;
+IO_PORT "trigger_n_i" IO_TYPE=LVCMOS18 PULL_MODE=NONE;
+
+
+// ------------------------------------------------------------
+// ------------------------------------------------------------
+
+
+
+
+
+
+
+
+// ------------------------------------------------------------
+// ------------------------------------------------------------
+
+
+
+
+
+
+
+
