@@ -627,8 +627,8 @@ begin
                                         when 1 => tx_data_reg <= std_logic_vector(C_WIDTH_U16(15 downto 8));
                                         when 2 => tx_data_reg <= std_logic_vector(C_HEIGHT_U16(7 downto 0));
                                         when 3 => tx_data_reg <= std_logic_vector(C_HEIGHT_U16(15 downto 8));
-                                        when 4 => tx_data_reg <= x"03";
-                                        when others => tx_data_reg <= x"01";
+                                        when 4 => tx_data_reg <= x"02"; -- bytes per pixel
+                                        when others => tx_data_reg <= x"02"; -- RGB565 format
                                     end case;
                                 when PKT_DONE =>
                                     case tx_payload_index is
