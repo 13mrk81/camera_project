@@ -8,7 +8,7 @@ A user presses the Tang Nano 4K onboard KEY1 button. The FPGA synchronizes and d
 
 UART configuration is 8 data bits, no parity, one stop bit (8N1), with the transmitter configured for 115200 baud from an 8 MHz clock. The UART divider is 69 clocks/bit, giving an actual nominal baud of approximately 115942 baud (+0.64% relative to 115200). Confirm the USB-UART adapter tolerates this clock-derived rate on the board.
 
-The FPGA waits 20 ms between complete packets. Bytes within a packet are transmitted contiguously at the UART rate.
+The FPGA waits 20 ms between complete packets. The UART TX also inserts a 25 us idle-high interval after every byte (including packet-final bytes) before accepting the next byte. This is configurable and is currently 200 clk8 cycles at 8 MHz.
 
 ## 2. Packet framing
 
@@ -89,16 +89,17 @@ For a truncated LINE packet, the FPGA waits for the UART transmitter to return t
 
 ## 4. Timing, throughput, and buffering
 
-At 8 MHz, the UART divider is 69 clocks per bit. With 8N1, one byte occupies 10 bit periods, or about 86.25 microseconds.
+At 8 MHz, the UART divider is 69 clocks per bit. With 8N1, one byte occupies 10 bit periods, or about 86.25 microseconds. The configured 25 us inter-byte idle interval makes the byte slot approximately 111.25 us; the UART bit rate itself remains approximately 115942 baud.
 
 For 640 x 480 RGB888:
 - RGB payload: 1,920 bytes per row and 921,600 bytes per frame.
 - LINE packet: 9 + 1,920 = 1,929 bytes per row.
 - All LINE packets: 925,920 bytes.
 - STAGE, READY, and DONE packets add another 73 bytes.
-- UART wire time is approximately 79.87 s at the divider-derived baud.
+- UART wire time without inter-byte gaps is approximately 79.87 s at the divider-derived baud.
+- The 25 us inter-byte gaps add approximately 23.15 s for 925,993 transmitted bytes.
 - 20 ms quiet gaps between the 484 packet boundaries add 9.68 s.
-- Estimated total transfer time is approximately 89.55 s, excluding camera capture and HyperRAM write time.
+- Estimated total transfer time is approximately 112.7 s, excluding camera capture and HyperRAM write time.
 
 The second asynchronous FIFO has 512 32-bit entries by default. One 640-pixel row requires 320 32-bit RGB565 words, so the FIFO can hold one full row with 192 entries of margin. The reader fills one complete row before setting line-ready. The serializer then drains that row through the UART ready/valid interface. The next row is not read until the current row's LINE packet has fully left the UART and the local acknowledgement crosses to the HyperRAM clock domain.
 
@@ -117,6 +118,8 @@ This provides bounded, line-level flow control without depending on MATLAB sched
 Reset release remains a separate sign-off item: the top currently holds rst_n high internally, and PLL-derived ip_rst_n is consumed in more than one clock domain. Domain-safe reset release/power-up behavior must be reviewed in Gowin and on hardware.
 
 ## 6. MATLAB receiver behavior
+
+The MATLAB script configures a 65,536-byte serial input buffer. A default 640-pixel LINE packet is 1,929 bytes, so the driver buffer can absorb more than 33 complete line packets while MATLAB performs packet extraction and CRC checking. It reads available data in chunks up to 8,192 bytes and records total bytes read, maximum observed driver-queue occupancy, and maximum parser-buffer size.
 
 The MATLAB script:
 1. Opens the serial port and sends no bytes.
