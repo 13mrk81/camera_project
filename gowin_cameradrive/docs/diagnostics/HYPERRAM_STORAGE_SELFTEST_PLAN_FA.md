@@ -56,7 +56,7 @@ The generator emits each pixel MSB first:
 - byte 0: `P[15:8]`
 - byte 1: `P[7:0]`
 
-MATLAB must independently calculate the same pattern using sufficiently wide integer arithmetic (for example `uint64`) and then apply the exact RGB565-to-RGB888 expansion used by `rgb565_line_serializer.vhd`.
+MATLAB must independently calculate the same pattern using sufficiently wide integer arithmetic (for example `uint64`) and then apply the exact RGB565-to-RGB888 expansion used by `rgb565_line_serializer.vhd`. For the default 640x480 frame, the expected raw-byte CRC32 (MSB-first, init FFFFFFFF, no final XOR) is `0xA3734E43`; the MATLAB reference function asserts this regression value.
 
 This pattern varies across both coordinates and both bytes. A byte swap, bit shift, repeated/missing byte, wrong word order, or line displacement should produce a deterministic mismatch.
 
