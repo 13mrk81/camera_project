@@ -31,6 +31,14 @@ entity camera_uart_frame_protocol is
         frame_error_i         : in  std_logic;
         readout_error_i       : in  std_logic;
         serializer_done_i     : in  std_logic;
+        telemetry_ready_i     : in  std_logic;
+        capture_crc_i         : in  std_logic_vector(31 downto 0);
+        write_crc_i           : in  std_logic_vector(31 downto 0);
+        read_ingress_crc_i    : in  std_logic_vector(31 downto 0);
+        capture_byte_count_i  : in  unsigned(31 downto 0);
+        write_word_count_i    : in  unsigned(31 downto 0);
+        read_ingress_word_count_i : in unsigned(31 downto 0);
+        status_flags_i        : in  std_logic_vector(15 downto 0);
         readback_crc_i        : in  std_logic_vector(31 downto 0);
         pixel_count_i         : in  unsigned(31 downto 0);
         uart_byte_count_i     : in  unsigned(31 downto 0);
@@ -56,7 +64,7 @@ architecture rtl of camera_uart_frame_protocol is
     constant C_WIDTH_U16        : unsigned(15 downto 0) := to_unsigned(G_FRAME_WIDTH, 16);
     constant C_HEIGHT_U16       : unsigned(15 downto 0) := to_unsigned(G_FRAME_HEIGHT, 16);
     constant C_LINE_BYTES_U16   : unsigned(15 downto 0) := to_unsigned(C_LINE_BYTES, 16);
-    constant C_DONE_BYTES_U16   : unsigned(15 downto 0) := to_unsigned(16, 16);
+    constant C_DONE_BYTES_U16   : unsigned(15 downto 0) := to_unsigned(42, 16);
 
     constant C_TYPE_STAGE : std_logic_vector(7 downto 0) := x"10";
     constant C_TYPE_READY : std_logic_vector(7 downto 0) := x"11";
@@ -437,7 +445,7 @@ begin
                         gap_count <= 0;
                         error_reg <= '1';
                         ctrl_state <= C_ERROR_GAP;
-                    elsif serializer_done_i = '1' then
+                    elsif (serializer_done_i = '1') and (telemetry_ready_i = '1') then
                         packet_kind_desc <= PKT_DONE;
                         packet_seq_desc <= C_HEIGHT_U16;
                         packet_len_desc <= C_DONE_BYTES_U16;
