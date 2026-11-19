@@ -13,7 +13,7 @@ use ieee.numeric_std.all;
 -- Model 8 non-payload window rows plus 12 VBlank rows:
 --   line clocks = 1280 active bytes + 306 HBlank = 1586
 --   frame clocks = 480*1586 + 20*1586 = 793000
--- At 24 MHz this is about 30.29 frames/s. Confirm against measured DVP timing.
+-- At 24 MHz this is about 30.26 frames/s. Confirm against measured DVP timing.
 entity storage_test_pattern_generator is
     generic (
         G_FRAME_WIDTH          : positive := 640;
