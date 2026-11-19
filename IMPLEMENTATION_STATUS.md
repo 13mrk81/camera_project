@@ -11,7 +11,7 @@ Last updated: 2026-11-19
 
 ## Baseline inspected
 
-The current branch was inspected before editing. The default frame is 640 x 480. Camera pixels are captured in RGB565, packed two pixels per 32-bit HyperRAM word, then streamed as original RGB565 bytes by the line serializer. The original UART protocol required PC-to-FPGA START and per-line ACK/NACK; that host RX dependency is now removed from the active main Gowin top.
+The default frame is 640 x 480. Camera pixels are captured in RGB565 and packed two pixels per 32-bit HyperRAM word. The UART serializer now sends the original 16-bit pixel words directly, high byte first, without color expansion. The active main Gowin top uses one-way FPGA-to-MATLAB transport.
 
 ## Changed in this implementation
 
