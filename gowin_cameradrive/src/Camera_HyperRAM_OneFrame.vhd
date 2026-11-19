@@ -24,7 +24,8 @@ entity Camera_HyperRAM_OneFrame is
         G_CMD_INTERVAL_CYCLES     : positive := 21;
         G_WRITE_READ_GAP_CYCLES   : positive := 63;
         G_READ_TIMEOUT_CYCLES     : positive := 100_000;
-        G_UART_PACKET_GAP_CYCLES   : positive := 160_000 -- 20 ms at 8 MHz
+        G_UART_PACKET_GAP_CYCLES   : positive := 160_000; -- 20 ms at 8 MHz
+        G_UART_INTER_BYTE_GAP_CYCLES : positive := 80 -- 10 us at 8 MHz
     );
     port (
         -- 8 MHz board clock and global active-low reset.
@@ -509,7 +510,11 @@ begin
     -- One-way UART TX physical layer and staged camera stream protocol.
     --------------------------------------------------------------------------
     u_uart_tx : entity work.uart_tx
-        generic map (G_CLK_FREQ_HZ => 8_000_000, G_BAUD_RATE => 115_200)
+        generic map (
+            G_CLK_FREQ_HZ           => 8_000_000,
+            G_BAUD_RATE             => 115_200,
+            G_INTER_BYTE_GAP_CYCLES => G_UART_INTER_BYTE_GAP_CYCLES
+        )
         port map (
             clk => clk8, rst_n => rst_n, data_i => protocol_tx_data,
             data_valid_i => protocol_tx_valid, data_ready_o => protocol_tx_ready,
