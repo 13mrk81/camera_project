@@ -74,7 +74,7 @@ architecture rtl of HyperRAM_Storage_SelfTest is
     );
 
     --------------------------------------------------------------------------
-    -- Component declarations for generated Gowin IP and unchanged camera IP.
+    -- Component declarations for generated Gowin PLL and HyperRAM IP.
     --------------------------------------------------------------------------
     component Gowin_PLLVR_1 is
         port (
@@ -143,7 +143,7 @@ architecture rtl of HyperRAM_Storage_SelfTest is
     --------------------------------------------------------------------------
     -- Debounced KEY1 trigger, one-way UART TX protocol and CDC status levels.
     --------------------------------------------------------------------------
-    signal camera_start_pulse : std_logic;
+    signal test_source_start_pulse : std_logic;
     signal protocol_transfer_start : std_logic;
     signal protocol_line_start : std_logic;
     signal protocol_line_index : std_logic_vector(15 downto 0);
@@ -188,8 +188,6 @@ architecture rtl of HyperRAM_Storage_SelfTest is
     signal cam_frame_error    : std_logic;
     signal cam_config_done    : std_logic;
     signal cam_config_pass    : std_logic;
-    signal cam_line_count     : std_logic_vector(9 downto 0);
-    signal cam_line_byte_count: std_logic_vector(10 downto 0);
     signal test_source_line_count : unsigned(15 downto 0);
     signal test_source_byte_count : unsigned(31 downto 0);
     signal test_source_busy       : std_logic;
@@ -540,7 +538,7 @@ begin
             src_clk => clk8, src_rst_n => rst_n,
             src_pulse_i => protocol_transfer_start,
             dst_clk => clk24, dst_rst_n => rst_n,
-            dst_pulse_o => camera_start_pulse
+            dst_pulse_o => test_source_start_pulse
         );
 
     -- Host ACK/NACK events cross from protocol clk8 to HyperRAM usr_clk.
@@ -618,7 +616,7 @@ begin
         port map (
             clk_i          => clk24,
             rst_n_i        => rst_n,
-            start_i        => camera_start_pulse,
+            start_i        => test_source_start_pulse,
             byte_data_o    => cam_byte_data,
             byte_valid_o   => cam_byte_valid,
             frame_done_o   => cam_frame_done,
@@ -633,8 +631,6 @@ begin
     cam_config_done <= '1';
     cam_config_pass <= '1';
     cam_frame_error <= test_source_error;
-    cam_line_count <= std_logic_vector(resize(test_source_line_count, 10));
-    cam_line_byte_count <= (others => '0');
 
     --------------------------------------------------------------------------
     -- Capture packer: preserves the four original RGB565 bytes per word.
