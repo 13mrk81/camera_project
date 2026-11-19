@@ -7,7 +7,7 @@
 - Added a raw RGB565 readout path: the serializer now emits each original HyperRAM pixel word MSB byte first, without RGB888 expansion. READY advertises BPP=2 / format=2, LINE length is width*2, and DONE UART byte count is width*height*2.
 - Added an offline MATLAB script to compare MSB/LSB byte order and RGB565/BGR565 channel interpretation from one captured frame.
 - The 25 us idle-high interval after every UART byte remains configured at 200 clk8 cycles. UART bit timing remains 69 clocks/bit.
-- Updated the default transfer-time estimate to approximately 78.0 s, including inter-byte and inter-packet gaps.
+- Updated the default transfer-time estimate to approximately 78.52 s, including inter-byte and inter-packet gaps.
 - These are source changes only. MATLAB, VHDL compile/simulation, Gowin build, and hardware transfer have not yet been run.
 
 ## 2026-11-17 — One-way redesign
