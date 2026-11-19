@@ -7,16 +7,16 @@ use ieee.numeric_std.all;
 -- Two consecutive bytes form one pixel: MSB first, then LSB.
 --
 -- Default timing assumes a 24 MHz byte clock, 1280 active bytes/line,
--- 320 blank cycles/line, and 32000 vertical blank cycles:
---   480 * (1280 + 320) + 32000 = 800000 clocks = 30 frames/s.
+-- 106 blank cycles/line, and 155232 vertical blank cycles:
+--   480 * (1280 + 106) + 155232 = 820512 clocks.\n-- At 24 MHz this is about 29.25 frames/s, based on GC0308 default Hb=0x6A\n-- and Vb=0x70 values. Verify actual PCLK/blanking on the configured sensor.
 -- These blanking values are explicit generics and should be replaced by
 -- measured camera timing if exact sensor cadence is required.
 entity storage_test_pattern_generator is
     generic (
         G_FRAME_WIDTH          : positive := 640;
         G_FRAME_HEIGHT         : positive := 480;
-        G_LINE_BLANK_CYCLES    : positive := 320;
-        G_FRAME_BLANK_CYCLES   : positive := 32000
+        G_LINE_BLANK_CYCLES    : positive := 106;
+        G_FRAME_BLANK_CYCLES   : positive := 155232
     );
     port (
         clk_i              : in  std_logic;
