@@ -436,7 +436,7 @@ begin
 
     --------------------------------------------------------------------------
     -- KEY1 active-low trigger: synchronize, debounce for 20 ms, and emit one
-    -- clk8 pulse on a stable high-to-low transition.
+    -- clk24 pulse on a stable high-to-low transition.
     --------------------------------------------------------------------------
     process(clk24, rst_n)
     begin
@@ -489,7 +489,7 @@ begin
             G_FRAME_TIMEOUT_CYCLES  => 360_000_000
         )
         port map (
-            clk => clk8, rst_n => rst_n,
+            clk => clk24, rst_n => rst_n,
             trigger_i => trigger_pulse,
             camera_config_done_i => cam_config_done,
             camera_config_pass_i => cam_config_pass,
@@ -617,7 +617,7 @@ begin
             G_FRAME_HEIGHT => G_FRAME_HEIGHT
         )
         port map (
-            clk24          => clk24,
+            cam_pclk          => clk24,
             rst_n             => rst_n,
             cam_byte_i        => cam_byte_data,
             cam_byte_valid_i  => cam_byte_valid,
