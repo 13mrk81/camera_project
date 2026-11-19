@@ -20,131 +20,155 @@ clc;
 clear sp;
 
 %% User settings
-portName = "/dev/ttyUSB0";  % Change to the Tang Nano USB-UART device / COM port.
+portName = "/dev/ttyUSB0";
 baudRate = 115200;
-preTriggerTimeout_s = Inf;  % Wait indefinitely for the physical KEY1 press.
-activeTimeout_s = 25;       % FPGA capture/config timeout is 15 s; allow margin.
+
+% The current FPGA design sends 640x480 RGB565:
+% 480 LINE packets x (9 framing/CRC bytes + 1280 payload bytes)
+% plus 3 STAGE, 1 READY and 1 DONE control packets.
+expectedWidth = 640;
+expectedHeight = 480;
+linePayloadBytes = expectedWidth * 2;
+linePacketBytes = 9 + linePayloadBytes;
+expectedTransferBytes = expectedHeight * linePacketBytes + 3*11 + 15 + 25;
+
+% The complete transfer takes substantially longer than 25 s:
+% UART 8N1 lower bound ~= 53.7 s, plus FPGA inter-byte and packet gaps.
+overallTimeout_s = 180;
+inactivityTimeout_s = 10;
+readChunkBytes = 8192;
 maxPayloadBytes = 65535;
 
 %% Open UART in receive-only mode
 sp = serialport(portName, baudRate, ...
     "DataBits", 8, "Parity", "none", "StopBits", 1, ...
-    "FlowControl", "none", "Timeout", 1);
+    "FlowControl", "none", "Timeout", 2);
 flush(sp);
 
-fprintf("UART opened: %s @ %d baud, 8N1 (receive-only).\n", ...
-    char(portName), baudRate);
-fprintf("serialport manages receive buffering automatically; MATLAB reads available data in chunks up to 8192 bytes.\n");
-fprintf("No UART commands will be transmitted. Press the board's KEY1 button to start.\n");
+fprintf("UART opened: %s @ %d baud, 8N1 (receive-only).\n", char(portName), baudRate);
+fprintf("Expected transfer: %d bytes (640x480 RGB565).\n", expectedTransferBytes);
+fprintf("Press KEY1 on the FPGA board. Bytes will be collected first; CRC is processed only after reception.\n");
 
-rxBuffer = zeros(0, 1, "uint8");
-receiverState = "WAIT_TRIGGER";
-transferStarted = false;
-frameReady = false;
-frameComplete = false;
-gotError = false;
-receivedRows = false(0, 1);
-nextExpectedRow = 0;
+% Preallocate the complete transfer buffer. No packet CRC calculation,
+% image conversion, plotting, or console output occurs in the receive loop.
+rawStream = zeros(expectedTransferBytes, 1, "uint8");
+receivedByteCount = 0;
+maxDriverQueueBytes = 0;
+lastDataTime = tic;
+totalTime = tic;
+lastProgress = 0;
+
+while receivedByteCount < expectedTransferBytes
+    available = double(sp.NumBytesAvailable);
+    maxDriverQueueBytes = max(maxDriverQueueBytes, available);
+
+    if available > 0
+        n = min([available, readChunkBytes, expectedTransferBytes - receivedByteCount]);
+        chunk = read(sp, n, "uint8");
+        nRead = numel(chunk);
+        if nRead > 0
+            rawStream(receivedByteCount + (1:nRead)) = uint8(chunk(:));
+            receivedByteCount = receivedByteCount + nRead;
+            lastDataTime = tic;
+        end
+    else
+        if toc(lastDataTime) >= inactivityTimeout_s
+            fprintf(2, "\nUART inactivity timeout. Captured %d/%d bytes.\n", ...
+                receivedByteCount, expectedTransferBytes);
+            break;
+        end
+        if toc(totalTime) >= overallTimeout_s
+            fprintf(2, "\nOverall receive timeout. Captured %d/%d bytes.\n", ...
+                receivedByteCount, expectedTransferBytes);
+            break;
+        end
+        pause(0.001);
+    end
+
+    progress = floor(100 * receivedByteCount / expectedTransferBytes);
+    if progress >= lastProgress + 10
+        lastProgress = progress;
+        fprintf("Captured %d/%d bytes (%d%%).\n", ...
+            receivedByteCount, expectedTransferBytes, progress);
+    end
+end
+
+rawStream = rawStream(1:receivedByteCount);
+fprintf("\nRaw UART capture finished: %d bytes in %.1f s.\n", ...
+    receivedByteCount, toc(totalTime));
+fprintf("Maximum observed serial driver queue: %d bytes.\n", maxDriverQueueBytes);
+
+%% Offline packet extraction and CRC validation
+% The UART receive loop above is deliberately independent of CRC workload.
+% All CRC-16 checks and packet recovery happen now, after capture is complete.
+rxBuffer = rawStream;
 acceptedLines = 0;
 duplicateLines = 0;
 outOfOrderLines = 0;
 badCrcCandidates = 0;
 discardedBytes = 0;
-totalBytesRead = 0;
-maxDriverQueueBytes = 0;
-maxSoftwareBufferBytes = 0;
+receivedRows = false(expectedHeight, 1);
+raw565Bytes = zeros(expectedHeight, linePayloadBytes, "uint8");
+raw565Frame = zeros(expectedHeight, expectedWidth, "uint16");
+frameReady = false;
+frameComplete = false;
+gotDone = false;
+gotError = false;
+doneStats = struct();
+receiverState = "PARSING";
+nextExpectedRow = 0;
+packetCount = 0;
 lastErrorCode = uint8(0);
 lastErrorDetail = uint8(0);
-doneStats = struct();
-matlabRawCrc32 = uint32(0);
 
-%% Packet receive and frame reconstruction
-while true
-    if transferStarted
-        packetTimeout = activeTimeout_s;
-    else
-        packetTimeout = preTriggerTimeout_s;
-    end
-
-    [packet, rxBuffer, droppedNow, badNow, bytesNow, queueMaxNow, parserMaxNow] = receivePacket(sp, rxBuffer, packetTimeout, maxPayloadBytes);
-    totalBytesRead = totalBytesRead + bytesNow;
-    maxDriverQueueBytes = max(maxDriverQueueBytes, queueMaxNow);
-    maxSoftwareBufferBytes = max(maxSoftwareBufferBytes, parserMaxNow);
+while numel(rxBuffer) >= 2
+    [packet, found, rxBuffer, droppedNow, badNow] = ...
+        extractValidPacket(rxBuffer, maxPayloadBytes);
     discardedBytes = discardedBytes + droppedNow;
     badCrcCandidates = badCrcCandidates + badNow;
 
-    if droppedNow > 0 || badNow > 0
-        fprintf(2, "Resynchronization: discarded %d byte(s), rejected %d CRC candidate(s).\n", ...
-            droppedNow, badNow);
+    if ~found
+        break;
     end
+    packetCount = packetCount + 1;
 
-    switch packet.type
+    switch double(packet.type)
         case hex2dec("10")  % STAGE
-            if numel(packet.payload) ~= 2
-                fprintf(2, "Malformed STAGE packet (length=%d).\n", numel(packet.payload));
-                continue;
-            end
-            stageCode = packet.payload(1);
-            detail = packet.payload(2);
-            transferStarted = true;
-
-            switch stageCode
-                case 1
-                    receiverState = "WAIT_CAMERA_CONFIG";
-                    fprintf("[STAGE 1/3] FPGA accepted KEY1 trigger. Camera setup started.\n");
-                case 2
-                    receiverState = "WAIT_FRAME_STORED";
-                    fprintf("[STAGE 2/3] Camera configured and RGB565 mode verified.\n");
-                case 3
-                    receiverState = "WAIT_READY";
-                    fprintf("[STAGE 3/3] Frame captured and stored in HyperRAM.\n");
-                otherwise
-                    fprintf("[STAGE] Unknown stage 0x%02X, detail=0x%02X.\n", stageCode, detail);
+            if numel(packet.payload) == 2
+                fprintf("[STAGE] code=%d detail=0x%02X\n", ...
+                    packet.payload(1), packet.payload(2));
             end
 
         case hex2dec("11")  % READY
             if numel(packet.payload) ~= 6
-                error("Malformed READY packet: expected 6 payload bytes, got %d.", ...
-                    numel(packet.payload));
+                fprintf(2, "Malformed READY packet (length=%d).\n", numel(packet.payload));
+                continue;
             end
             width = double(readLE(packet.payload(1:2)));
             height = double(readLE(packet.payload(3:4)));
             bytesPerPixel = double(packet.payload(5));
             pixelFormat = double(packet.payload(6));
-
-            if width < 1 || height < 1 || bytesPerPixel ~= 2 || pixelFormat ~= 2
-                error("Unsupported READY geometry/format: %dx%d, BPP=%d, format=%d.", ...
+            if width ~= expectedWidth || height ~= expectedHeight || ...
+                    bytesPerPixel ~= 2 || pixelFormat ~= 2
+                error("Unexpected READY format/geometry: %dx%d, BPP=%d, format=%d.", ...
                     width, height, bytesPerPixel, pixelFormat);
             end
-            if width * bytesPerPixel > maxPayloadBytes
-                error("RGB565 line length exceeds the protocol's 16-bit payload length.");
-            end
-
-            raw565Bytes = zeros(height, width * 2, "uint8");
-            raw565Frame = zeros(height, width, "uint16");
-            receivedRows = false(height, 1);
-            nextExpectedRow = 0;
             frameReady = true;
-            receiverState = "RECEIVING_LINES";
-            fprintf("[READY] %d x %d RGB565; %d bytes/line; first line follows.\n", ...
-                width, height, width * 2);
+            fprintf("[READY] %d x %d RGB565.\n", width, height);
 
         case hex2dec("20")  % LINE
             if ~frameReady
-                fprintf(2, "LINE arrived before READY; sequence=%d ignored.\n", packet.sequence);
+                fprintf(2, "LINE before READY; sequence=%d ignored.\n", packet.sequence);
                 continue;
             end
-
             row = double(packet.sequence);
-            expectedLineBytes = width * 2;
-            if row >= height || numel(packet.payload) ~= expectedLineBytes
-                fprintf(2, "Invalid LINE: row=%d, payload=%d, expected=%d.\n", ...
-                    row, numel(packet.payload), expectedLineBytes);
+            if row >= height || numel(packet.payload) ~= linePayloadBytes
+                fprintf(2, "Invalid LINE: row=%d, payload=%d bytes.\n", ...
+                    row, numel(packet.payload));
                 continue;
             end
             if receivedRows(row + 1)
                 duplicateLines = duplicateLines + 1;
-                fprintf(2, "Duplicate row %d ignored.\n", row);
                 continue;
             end
             if row ~= nextExpectedRow
@@ -153,8 +177,7 @@ while true
                     nextExpectedRow, row);
             end
 
-            % Preserve raw bytes; each pixel is high byte then low byte.
-            raw565Bytes(row + 1, :) = reshape(packet.payload(:), 1, width * 2);
+            raw565Bytes(row + 1, :) = reshape(packet.payload(:), 1, linePayloadBytes);
             hi = uint16(packet.payload(1:2:end));
             lo = uint16(packet.payload(2:2:end));
             raw565Frame(row + 1, :) = bitor(bitshift(hi, 8), lo).';
@@ -162,109 +185,111 @@ while true
             acceptedLines = acceptedLines + 1;
             nextExpectedRow = row + 1;
 
-            if mod(acceptedLines, 20) == 0 || acceptedLines == height
-                fprintf("Received %d/%d rows (latest row=%d, CRC valid).\n", ...
-                    acceptedLines, height, row);
-                drawnow limitrate;
-            end
-
         case hex2dec("30")  % DONE
             if numel(packet.payload) ~= 16
-                error("Malformed DONE packet: expected 16 payload bytes, got %d.", ...
-                    numel(packet.payload));
+                fprintf(2, "Malformed DONE packet (length=%d).\n", numel(packet.payload));
+                continue;
             end
             doneStats.height = double(readLE(packet.payload(1:2)));
             doneStats.lines = double(readLE(packet.payload(3:4)));
             doneStats.pixels = double(readLE(packet.payload(5:8)));
             doneStats.uartBytes = double(readLE(packet.payload(9:12)));
             doneStats.rawRgb565Crc32 = readLE32(packet.payload(13:16));
-
-            % Recompute CRC over the exact received wire-byte order:
-            % row 0 bytes first, then row 1, etc. No RGB conversion here.
-            if frameReady && all(receivedRows)
-                wireByteStream = reshape(raw565Bytes.', [], 1);
-                matlabRawCrc32 = crc32Mpeg2(wireByteStream);
-            end
-
-            frameComplete = frameReady && ...
-                doneStats.height == height && ...
-                doneStats.lines == height && ...
-                doneStats.pixels == width * height && ...
-                doneStats.uartBytes == width * height * 2 && ...
-                all(receivedRows) && ...
-                matlabRawCrc32 == doneStats.rawRgb565Crc32;
-
-            if frameComplete
-                receiverState = "COMPLETE";
-                fprintf("[DONE] Complete frame received: %d/%d rows, %d RGB565 bytes.\n", ...
-                    acceptedLines, height, doneStats.uartBytes);
-            else
-                receiverState = "INCOMPLETE";
-                fprintf(2, "[DONE] Integrity mismatch: rows %d/%d, FPGA lines=%d, pixels=%d, bytes=%d.\n", ...
-                    acceptedLines, height, doneStats.lines, doneStats.pixels, doneStats.uartBytes);
-            end
-            fprintf("FPGA raw RGB565 readback CRC32: %08X\n", doneStats.rawRgb565Crc32);
-            if frameReady && all(receivedRows)
-                fprintf("MATLAB received-byte CRC32:       %08X\n", matlabRawCrc32);
-                fprintf("Raw RGB565 byte-stream CRC match: %s\n", ...
-                    string(matlabRawCrc32 == doneStats.rawRgb565Crc32));
-            end
-            break;
+            gotDone = true;
 
         case hex2dec("7F")  % ERROR
-            if numel(packet.payload) ~= 2
-                fprintf(2, "Malformed ERROR packet (length=%d).\n", numel(packet.payload));
-                continue;
+            if numel(packet.payload) == 2
+                lastErrorCode = packet.payload(1);
+                lastErrorDetail = packet.payload(2);
+                gotError = true;
+                fprintf(2, "[FPGA ERROR] code=0x%02X detail=0x%02X\n", ...
+                    lastErrorCode, lastErrorDetail);
             end
-            lastErrorCode = packet.payload(1);
-            lastErrorDetail = packet.payload(2);
-            gotError = true;
-            receiverState = "ERROR";
-            fprintf(2, "[FPGA ERROR] %s (code=0x%02X, detail=0x%02X, seq=%d).\n", ...
-                errorName(lastErrorCode), lastErrorCode, lastErrorDetail, packet.sequence);
-            break;
-
         otherwise
-            fprintf(2, "Unknown packet type 0x%02X (sequence=%d, len=%d), ignored.\n", ...
-                packet.type, packet.sequence, numel(packet.payload));
+            fprintf(2, "Unknown packet type 0x%02X, sequence=%d.\n", ...
+                packet.type, packet.sequence);
     end
 end
 
-%% Report and save the result
-fprintf("\nReceiver state: %s\n", receiverState);
-fprintf("Valid LINE packets: %d | duplicates: %d | out-of-order: %d\n", ...
-    acceptedLines, duplicateLines, outOfOrderLines);
-fprintf("Rejected CRC candidates: %d | discarded bytes during resync: %d\n", ...
-    badCrcCandidates, discardedBytes);
-fprintf("UART bytes read: %d | max driver queue: %d | max parser buffer: %d bytes\n", ...
-    totalBytesRead, maxDriverQueueBytes, maxSoftwareBufferBytes);
+% Include any trailing bytes that could not form a valid packet.
+discardedBytes = discardedBytes + numel(rxBuffer);
+matlabRawCrc32 = uint32(0);
+if frameReady && all(receivedRows)
+    wireByteStream = reshape(raw565Bytes.', [], 1);
+    matlabRawCrc32 = crc32Mpeg2(wireByteStream);
+end
 
-if exist("raw565Frame", "var")
-    if frameComplete
-        figure("Name", "GC0308 raw RGB565 preview");
-        imshow(decodeRgb565(raw565Frame));
-        title(sprintf("GC0308 raw RGB565: %d x %d", width, height));
-    else
-        figure("Name", "Partial GC0308 RGB565 frame");
-        imshow(decodeRgb565(raw565Frame));
-        axis image off;
-        title(sprintf("Partial frame: %d/%d rows received", acceptedLines, height));
-        figure("Name", "Received row map");
-        imagesc(receivedRows);
-        colormap gray;
-        axis tight;
-        title("Rows with valid CRC");
+frameComplete = frameReady && gotDone && ~gotError && ...
+    doneStats.height == height && doneStats.lines == height && ...
+    doneStats.pixels == width * height && ...
+    doneStats.uartBytes == width * height * 2 && ...
+    all(receivedRows) && ...
+    matlabRawCrc32 == doneStats.rawRgb565Crc32;
+
+if frameComplete
+    receiverState = "COMPLETE";
+else
+    receiverState = "INCOMPLETE";
+end
+
+fprintf("\nReceiver state: %s\n", receiverState);
+fprintf("Packets parsed: %d\n", packetCount);
+fprintf("Valid LINE packets: %d/%d | duplicates: %d | out-of-order: %d\n", ...
+    acceptedLines, expectedHeight, duplicateLines, outOfOrderLines);
+fprintf("Rejected CRC candidates: %d | discarded bytes: %d\n", ...
+    badCrcCandidates, discardedBytes);
+fprintf("UART bytes captured: %d / expected %d\n", ...
+    receivedByteCount, expectedTransferBytes);
+
+if gotDone
+    fprintf("FPGA: lines=%d, pixels=%d, bytes=%d, RGB565 CRC32=%08X\n", ...
+        doneStats.lines, doneStats.pixels, doneStats.uartBytes, doneStats.rawRgb565Crc32);
+    if all(receivedRows)
+        fprintf("MATLAB RGB565 CRC32: %08X | match=%s\n", ...
+            matlabRawCrc32, string(matlabRawCrc32 == doneStats.rawRgb565Crc32));
+    end
+end
+
+%% Reconstruct and display RGB565 with zero-padding
+% RGB565 -> 8-bit display channels by zero-padding at the LSB side:
+% R5 << 3, G6 << 2, B5 << 3. No bit replication/scaling is applied.
+if frameReady
+    rgbZeroPadded = decodeRgb565ZeroPad(raw565Frame);
+
+    % Show all six channel permutations for mapping/order diagnosis.
+    channelOrders = ["RGB", "RBG", "GRB", "GBR", "BRG", "BGR"];
+    channelIndex = [1 2 3; 1 3 2; 2 1 3; 2 3 1; 3 1 2; 3 2 1];
+
+    figure("Name", "GC0308 RGB565 - zero padded channel mappings", ...
+        "Color", "w");
+    tiledlayout(2, 3, "Padding", "compact", "TileSpacing", "compact");
+    for k = 1:6
+        nexttile;
+        mappedImage = rgbZeroPadded(:, :, channelIndex(k, :));
+        imshow(mappedImage);
+        title(channelOrders(k) + " (zero padded)");
     end
 
-    save("uart_received_frame.mat", "raw565Frame", "raw565Bytes", "width", "height", ...
-        "receivedRows", "frameComplete", "matlabRawCrc32", "acceptedLines", ...
-        "duplicateLines", "outOfOrderLines", "badCrcCandidates", ...
-        "discardedBytes", "doneStats", "gotError", "totalBytesRead", ...
-        "maxDriverQueueBytes", "maxSoftwareBufferBytes", ...
-        "lastErrorCode", "lastErrorDetail");
-    fprintf("Saved image and receive statistics to uart_received_frame.mat\n");
+    figure("Name", "GC0308 received row validity", "Color", "w");
+    imagesc(receivedRows);
+    colormap gray;
+    axis tight;
+    title(sprintf("CRC-valid rows: %d/%d", acceptedLines, expectedHeight));
+    xlabel("Frame row index");
+    ylabel("Received");
+
+    save("uart_received_frame.mat", "rawStream", "raw565Frame", "raw565Bytes", ...
+        "rgbZeroPadded", "width", "height", "receivedRows", "frameComplete", ...
+        "matlabRawCrc32", "acceptedLines", "duplicateLines", "outOfOrderLines", ...
+        "badCrcCandidates", "discardedBytes", "doneStats", "gotDone", "gotError", ...
+        "receivedByteCount", "expectedTransferBytes", "maxDriverQueueBytes", ...
+        "lastErrorCode", "lastErrorDetail", "channelOrders");
+    fprintf("Saved raw capture, reconstructed frame, and statistics to uart_received_frame.mat\n");
 else
-    fprintf(2, "No READY/image data received; no frame file written.\n");
+    save("uart_received_frame.mat", "rawStream", "receivedByteCount", ...
+        "expectedTransferBytes", "maxDriverQueueBytes", "badCrcCandidates", ...
+        "discardedBytes", "gotError", "lastErrorCode", "lastErrorDetail");
+    fprintf(2, "READY was not recovered; raw UART capture and statistics were saved.\n");
 end
 
 %% Local functions
@@ -424,14 +449,15 @@ function value = readLE32(bytes)
     end
 end
 
-function rgb = decodeRgb565(frame)
+function rgb = decodeRgb565ZeroPad(frame)
     p = uint16(frame);
     r5 = bitshift(bitand(p, uint16(63488)), -11);
     g6 = bitshift(bitand(p, uint16(2016)), -5);
     b5 = bitand(p, uint16(31));
-    r8 = uint8(bitor(bitshift(r5, 3), bitshift(r5, -2)));
-    g8 = uint8(bitor(bitshift(g6, 2), bitshift(g6, -4)));
-    b8 = uint8(bitor(bitshift(b5, 3), bitshift(b5, -2)));
+    % Zero-pad the missing least-significant bits; do not replicate MSBs.
+    r8 = uint8(bitshift(r5, 3));
+    g8 = uint8(bitshift(g6, 2));
+    b8 = uint8(bitshift(b5, 3));
     rgb = cat(3, r8, g8, b8);
 end
 
