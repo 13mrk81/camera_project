@@ -252,24 +252,24 @@ if gotDone
     end
 end
 
-%% Reconstruct and display RGB565 with zero-padding
-% RGB565 -> 8-bit display channels by zero-padding at the LSB side:
-% R5 << 3, G6 << 2, B5 << 3. No bit replication/scaling is applied.
+%% Reconstruct and display RGB565 as full-range RGB888
+% RGB565 -> RGB888 by bit replication (standard full-range expansion):
+% R8={R5,R5[4:2]}, G8={G6,G6[5:4]}, B8={B5,B5[4:2]}.
 if frameReady
-    rgbZeroPadded = decodeRgb565ZeroPad(raw565Frame);
+    rgb888Frame = decodeRgb565ToRgb888(raw565Frame);
 
     % Show all six channel permutations for mapping/order diagnosis.
     channelOrders = ["RGB", "RBG", "GRB", "GBR", "BRG", "BGR"];
     channelIndex = [1 2 3; 1 3 2; 2 1 3; 2 3 1; 3 1 2; 3 2 1];
 
-    figure("Name", "GC0308 RGB565 - zero padded channel mappings", ...
+    figure("Name", "GC0308 RGB565 decoded as RGB888", ...
         "Color", "w");
     tiledlayout(2, 3, "Padding", "compact", "TileSpacing", "compact");
     for k = 1:6
         nexttile;
-        mappedImage = rgbZeroPadded(:, :, channelIndex(k, :));
+        mappedImage = rgb888Frame(:, :, channelIndex(k, :));
         imshow(mappedImage);
-        title(channelOrders(k) + " (zero padded)");
+        title(channelOrders(k) + " (RGB888)");
     end
 
     figure("Name", "GC0308 received row validity", "Color", "w");
@@ -281,7 +281,7 @@ if frameReady
     ylabel("Received");
 
     save("uart_received_frame.mat", "rawStream", "raw565Frame", "raw565Bytes", ...
-        "rgbZeroPadded", "width", "height", "receivedRows", "frameComplete", ...
+        "rgb888Frame", "width", "height", "receivedRows", "frameComplete", ...
         "matlabRawCrc32", "acceptedLines", "duplicateLines", "outOfOrderLines", ...
         "badCrcCandidates", "discardedBytes", "doneStats", "gotDone", "gotError", ...
         "receivedByteCount", "expectedTransferBytes", "maxDriverQueueBytes", ...
@@ -451,15 +451,15 @@ function value = readLE32(bytes)
     end
 end
 
-function rgb = decodeRgb565ZeroPad(frame)
+function rgb = decodeRgb565ToRgb888(frame)
     p = uint16(frame);
     r5 = bitshift(bitand(p, uint16(63488)), -11);
     g6 = bitshift(bitand(p, uint16(2016)), -5);
     b5 = bitand(p, uint16(31));
-    % Zero-pad the missing least-significant bits; do not replicate MSBs.
-    r8 = uint8(bitshift(r5, 3));
-    g8 = uint8(bitshift(g6, 2));
-    b8 = uint8(bitshift(b5, 3));
+    % Replicate the most-significant bits to fill the 8-bit channels.
+    r8 = uint8(bitor(bitshift(r5, 3), bitshift(r5, -2)));
+    g8 = uint8(bitor(bitshift(g6, 2), bitshift(g6, -4)));
+    b8 = uint8(bitor(bitshift(b5, 3), bitshift(b5, -2)));
     rgb = cat(3, r8, g8, b8);
 end
 
