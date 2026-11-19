@@ -123,7 +123,7 @@ architecture rtl of HyperRAM_Storage_SelfTest is
     --------------------------------------------------------------------------
     signal clk24              : std_logic;
     signal clk96              : std_logic;
-    signal usr_clk            : std_logic;
+    signal usr_clk            : std_logic; -- 48 MHz = HyperRAM memory_clk / 2
     signal pll_locked         : std_logic;
     signal pll_lock_meta      : std_logic := '0';
     signal pll_lock_sync      : std_logic := '0';
