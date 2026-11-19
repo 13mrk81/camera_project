@@ -37,7 +37,7 @@ Generated synthesis and place-and-route outputs are retained under `gowin_camera
 
 ## Active camera stream protocol
 
-The main gowin_cameradrive camera top uses a one-way UART stream: Tang Nano 4K KEY1 triggers capture, FPGA TX reports stages and sends CRC-protected RGB888 rows, and MATLAB is receive-only. See DESIGN_NOTES.md, UART_ONE_WAY_PROTOCOL.md, IMPLEMENTATION_STATUS.md, and VALIDATION.md for the protocol, CDC/buffer assumptions, recovery instructions, and remaining hardware sign-off checks.
+The main gowin_cameradrive camera top uses a one-way UART stream: Tang Nano 4K KEY1 triggers capture, FPGA TX reports stages and sends CRC-protected raw RGB565 rows, and MATLAB is receive-only. See DESIGN_NOTES.md, UART_ONE_WAY_PROTOCOL.md, IMPLEMENTATION_STATUS.md, and VALIDATION.md for the protocol, CDC/buffer assumptions, recovery instructions, and remaining hardware sign-off checks.
 
 ## Projects
 
@@ -45,7 +45,7 @@ The main gowin_cameradrive camera top uses a one-way UART stream: Tang Nano 4K K
 
 Located at `projects/Camera_HyperRAM_OneFrame_Integrated/hyperram_line_rtl/`.
 
-This project integrates a GC0308-style camera capture path with RGB565 frame packing, HyperRAM frame storage, line-by-line readback, RGB565-to-RGB888 serialization, and a UART byte-stream interface.
+This project integrates a GC0308-style camera capture path with RGB565 frame packing, HyperRAM frame storage, line-by-line readback, raw RGB565 serialization, and a UART byte-stream interface.
 
 The directory README describes the module roles, data layout, clock domains, handshakes, and verification checklist. Read that document before integrating or modifying the RTL.
 
