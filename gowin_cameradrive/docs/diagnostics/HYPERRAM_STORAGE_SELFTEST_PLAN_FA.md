@@ -64,18 +64,19 @@ This pattern varies across both coordinates and both bytes. A byte swap, bit shi
 
 The generator runs from the same 24 MHz clock domain used to clock the camera master clock in the existing top. It emits one valid byte per clock during each active line and inserts explicit horizontal and vertical blanking intervals.
 
-Current defaults are based on the GC0308 register defaults documented for:
-- P0:0x01 horizontal blanking = 0x6A (106 pixel clocks)
-- P0:0x02 vertical blanking = 0x70 (112 line periods)
-- P0:0x28 clock divider = 0x00 (no programmed division)
+The synthetic source now follows the register values explicitly written by the camera project's `C_INIT_TABLE`, rather than the sensor's power-on defaults:
+- P0:0x01 = 0x32 and P0:0x0F = 0x01 -> Hb = 0x132 = 306 PCLKs
+- P0:0x02 = 0x0C and P0:0x0F = 0x01 -> Vb = 0x00C = 12 line periods
+- P0:0x09/0x0A configure a 488-row sensor window, while the FPGA capture path retains 480 rows
+- P0:0x28 = 0x00 -> no programmed clock division
 
-For 1,280 active byte clocks per line:
-- line period = 1,280 + 106 = 1,386 clocks
-- vertical blank = 112 * 1,386 = 155,232 clocks
-- frame period = 480 * 1,386 + 155,232 = 820,512 clocks
-- at 24 MHz, nominal frame rate is approximately 29.25 frames/s
+For 1,280 active byte clocks per captured line:
+- line period = 1,280 + 306 = 1,586 clocks
+- the source models 8 non-payload window rows plus 12 VBlank rows: 20 * 1,586 = 31,720 blank clocks
+- frame period = 480 * 1,586 + 31,720 = 793,000 clocks
+- at 24 MHz, nominal frame rate is approximately 30.29 frames/s
 
-These are datasheet-default-derived values, not a claim that the configured physical sensor has already been measured at exactly this timing. Reference: GC0308 datasheet, register table for P0:0x01, P0:0x02 and P0:0x28: https://min.at/prinz/fp-content/attachs/GC0308.pdf. The configured sensor's actual PCLK and HSYNC/VSYNC timing should be measured and the generator generics adjusted if necessary.
+This is a first-order timing model derived from the project's register table and 480-row capture contract, not a measured waveform guarantee. Verify the actual DVP PCLK, HSYNC line period, and VSYNC frame period with ILA/oscilloscope before claiming exact sensor-rate equivalence. GC0308 register definitions are in the datasheet: https://min.at/prinz/fp-content/attachs/GC0308.pdf.
 
 ## 6. Required data-path architecture
 
@@ -216,7 +217,7 @@ The FPGA report must be transmitted after the final LINE packet and before or as
 5. In MATLAB, run `matlab/matlab_gc0308_hyperram_receiver.m`; then press KEY1 on the board.
 6. The receiver independently creates the reference pattern. A successful run requires all source/capture/write/read CRCs and expected counts to match, all 480 LINE packets to be received, and every reconstructed RGB888 pixel to match.
 
-The generator currently uses a 24 MHz source clock, 1,280 active byte clocks per line, 106 horizontal blank clocks, and 155,232 vertical blank clocks. This produces a nominal 29.25 frame/s cadence. These are explicit test parameters; if the configured GC0308 PCLK timing is measured differently, adjust the generator generics before claiming exact camera-rate equivalence.
+The generator currently uses a 24 MHz source clock, 1,280 active byte clocks per captured line, 306 horizontal blank clocks, and 31,720 non-payload frame-blank clocks (8 window rows + 12 VBlank rows). This produces a nominal 30.29 frame/s cadence. These are explicit register-derived test parameters; if measured GC0308 DVP timing differs, adjust the generator generics before claiming exact camera-rate equivalence.
 
 ## 12. Status flag bit assignments
 
