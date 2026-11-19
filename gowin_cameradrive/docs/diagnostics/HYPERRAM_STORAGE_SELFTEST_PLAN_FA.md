@@ -76,7 +76,7 @@ For 1,280 active byte clocks per captured line:
 - line period = 1,280 + 306 = 1,586 clocks
 - the source models 8 non-payload window rows plus 12 VBlank rows: 20 * 1,586 = 31,720 blank clocks
 - frame period = 480 * 1,586 + 31,720 = 793,000 clocks
-- at 24 MHz, nominal frame rate is approximately 30.29 frames/s
+- at 24 MHz, nominal frame rate is approximately 30.26 frames/s
 
 This is a first-order timing model derived from the project's register table and 480-row capture contract, not a measured waveform guarantee. Verify the actual DVP PCLK, HSYNC line period, and VSYNC frame period with ILA/oscilloscope before claiming exact sensor-rate equivalence. GC0308 register definitions are in the datasheet: https://min.at/prinz/fp-content/attachs/GC0308.pdf.
 
@@ -227,7 +227,7 @@ Then:
 5. In MATLAB, run `matlab/matlab_gc0308_hyperram_receiver.m`; then press KEY1 on the board.
 6. The receiver independently creates the reference pattern. A successful run requires all source/capture/write/read CRCs and expected counts to match, all 480 LINE packets to be received, and every reconstructed RGB888 pixel to match.
 
-The generator currently uses a 24 MHz source clock, 1,280 active byte clocks per captured line, 306 horizontal blank clocks, and 31,720 non-payload frame-blank clocks (8 window rows + 12 VBlank rows). This produces a nominal 30.29 frame/s cadence. These are explicit register-derived test parameters; if measured GC0308 DVP timing differs, adjust the generator generics before claiming exact camera-rate equivalence.
+The generator currently uses a 24 MHz source clock, 1,280 active byte clocks per captured line, 306 horizontal blank clocks, and 31,720 non-payload frame-blank clocks (8 window rows + 12 VBlank rows). This produces a nominal 30.26 frame/s cadence. These are explicit register-derived test parameters; if measured GC0308 DVP timing differs, adjust the generator generics before claiming exact camera-rate equivalence.
 
 ## 12. Status flag bit assignments
 
