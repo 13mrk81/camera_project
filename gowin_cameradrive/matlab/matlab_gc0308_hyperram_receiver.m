@@ -45,6 +45,7 @@ packetCount = 0;
 receivedByteCount = 0;
 maxDriverQueueBytes = 0;
 maxParserBufferBytes = 0;
+maxPacketParseTime_s = 0;
 rxBuffer = zeros(0, 1, "uint8");
 transferStarted = false;
 lastDataTime = tic;
@@ -63,6 +64,9 @@ while ~gotDone && ~gotError
             rxBuffer = [rxBuffer; chunk]; %#ok<AGROW>
             receivedByteCount = receivedByteCount + numel(chunk);
             maxParserBufferBytes = max(maxParserBufferBytes, numel(rxBuffer));
+            if ~transferStarted
+                totalTime = tic;
+            end
             transferStarted = true;
             lastDataTime = tic;
         end
@@ -81,8 +85,10 @@ while ~gotDone && ~gotError
     % Parse every complete packet already buffered. CRC is checked here,
     % before the next FPGA packet is expected (50 ms inter-packet gap).
     while numel(rxBuffer) >= 2
+        parseTimer = tic;
         [packet, found, rxBuffer, droppedNow, badNow] = ...
             extractValidPacket(rxBuffer, maxPayloadBytes);
+        maxPacketParseTime_s = max(maxPacketParseTime_s, toc(parseTimer));
         discardedBytes = discardedBytes + droppedNow;
         badCrcCandidates = badCrcCandidates + badNow;
         if ~found
@@ -208,7 +214,7 @@ if frameReady
         "receivedRows", "frameComplete", "matlabGray8Crc32", "doneStats", ...
         "acceptedLines", "duplicateLines", "outOfOrderLines", ...
         "badCrcCandidates", "discardedBytes", "receivedByteCount", ...
-        "maxDriverQueueBytes", "maxParserBufferBytes", ...
+        "maxDriverQueueBytes", "maxParserBufferBytes", "maxPacketParseTime_s", ...
         "lastErrorCode", "lastErrorDetail");
     fprintf("Saved Gray8 frame and receiver statistics to uart_received_gray8_frame.mat\n");
 else
