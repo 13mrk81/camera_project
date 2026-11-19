@@ -11,7 +11,7 @@ Last updated: 2026-11-19
 
 ## Baseline inspected
 
-The current branch was inspected before editing. The default frame is 640 x 480. Camera pixels are captured in RGB565, packed two pixels per 32-bit HyperRAM word, then expanded to RGB888 by the line serializer. The original UART protocol required PC-to-FPGA START and per-line ACK/NACK; that host RX dependency is now removed from the active main Gowin top.
+The current branch was inspected before editing. The default frame is 640 x 480. Camera pixels are captured in RGB565, packed two pixels per 32-bit HyperRAM word, then streamed as original RGB565 bytes by the line serializer. The original UART protocol required PC-to-FPGA START and per-line ACK/NACK; that host RX dependency is now removed from the active main Gowin top.
 
 ## Changed in this implementation
 
@@ -20,20 +20,20 @@ The current branch was inspected before editing. The default frame is 640 x 480.
 - [x] Replaced the stop-and-wait host protocol with common framed packets: A5 5A, type, sequence, length, payload, CRC16.
 - [x] Added STAGE logs for trigger accepted, camera configured, and frame stored; READY, LINE, DONE, and ERROR packet types.
 - [x] Defined CRC-16/CCITT-FALSE over TYPE + sequence + payload length + payload; CRC trailer is high byte first.
-- [x] Defined every RGB888 line as R,G,B triplets for pixels left-to-right; line sequence is the zero-based row number.
+- [x] Defined every LINE payload as raw RGB565 pixel words, high byte first, left-to-right; line sequence is the zero-based row number.
 - [x] Added 20 ms inter-packet quiet time, including the final LINE -> DONE boundary and safe ERROR recovery after a truncated line.
 - [x] Added configurable 25 us UART inter-byte idle spacing (200 clk8 cycles) in the UART TX physical layer.
 - [x] Changed line advance to a local FPGA acknowledgement only after CRC_LO has completed its UART stop bit and TX returns idle; host ACK/NACK and retransmission are removed.
 - [x] Tied readout retry inputs inactive; retained the existing full-line output FIFO, ready/valid serializer, and Gray-pointer asynchronous FIFO.
 - [x] Added clk24 -> clk8 camera-config status synchronizers and usr_clk -> clk8 reader-error synchronizer.
-- [x] Rewrote MATLAB receiver as receive-only, with packet CRC validation, zero-based row mapping, RGB triplet reconstruction, sliding-SOF resynchronization, DONE counter checks, and ERROR handling.
+- [x] Rewrote MATLAB receiver as receive-only, with packet CRC validation, zero-based row mapping, raw RGB565 byte/word reconstruction, sliding-SOF resynchronization, DONE counter checks, and ERROR handling.
 - [x] MATLAB reads available serial data in chunks up to 8,192 bytes and records RX/queue/parser-buffer diagnostics. The modern `serialport` API manages receive buffering automatically; it has no documented configurable `InputBufferSize`.
 - [x] Changed the active Gowin project file list to remove UART RX from the main top build.
 - [x] Changed the UART constraint to FPGA TX pin 32 only and added KEY1 trigger pin 14 with LVCMOS18.
 
 ## Data-rate and buffering design
 
-At the 8 MHz clock, the current UART divider is 69 clocks/bit, or approximately 115942 baud. At 640 x 480, a LINE packet is 1929 bytes (1920 RGB payload + 9 framing/CRC bytes). With a 25 us inter-byte idle interval and 20 ms inter-packet gaps, estimated transfer time is approximately 78.0 s, excluding capture and HyperRAM write time.
+At the 8 MHz clock, the current UART divider is 69 clocks/bit, or approximately 115942 baud. At 640 x 480, a LINE packet is 1289 bytes (1280 RGB565 payload + 9 framing/CRC bytes). With a 25 us inter-byte idle interval and 20 ms inter-packet gaps, estimated transfer time is approximately 78.5 s, excluding capture and HyperRAM write time.
 
 Output FIFO #2 is 512 x 32 bits, compared with 320 words for one 640-pixel line. The readout engine only requests the next row after the current row packet is physically complete and the local acknowledgement crosses to usr_clk. This is the intended no-overrun flow-control mechanism; the no-reverse-channel link still cannot retransmit a row lost outside the FPGA.
 
