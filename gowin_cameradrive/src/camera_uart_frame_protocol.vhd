@@ -6,8 +6,8 @@ use ieee.numeric_std.all;
 -- Packet: A5 5A TYPE SEQ_LO SEQ_HI LEN_LO LEN_HI PAYLOAD CRC_HI CRC_LO.
 -- CRC-16/CCITT-FALSE covers TYPE through the last PAYLOAD byte, not the SOF.
 -- Sequence, length and payload integers are little-endian.
--- Types: 10 STAGE [stage,detail]; 11 READY [width(2),height(2),03,01];
--- 20 LINE [RGB888 R,G,B triplets, sequence=row]; 30 DONE [height(2),
+-- Types: 10 STAGE [stage,detail]; 11 READY [width(2),height(2),02,02];
+-- 20 LINE [raw RGB565 bytes, MSB first per pixel, sequence=row]; 30 DONE [height(2),
 -- lines(2),pixels(4),uart_bytes(4),raw_RGB565_CRC32(4)];
 -- 7F ERROR [error_code,detail].
 --
@@ -52,7 +52,7 @@ entity camera_uart_frame_protocol is
 end entity;
 
 architecture rtl of camera_uart_frame_protocol is
-    constant C_LINE_BYTES       : positive := G_FRAME_WIDTH * 3;
+    constant C_LINE_BYTES       : positive := G_FRAME_WIDTH * 2;
     constant C_WIDTH_U16        : unsigned(15 downto 0) := to_unsigned(G_FRAME_WIDTH, 16);
     constant C_HEIGHT_U16       : unsigned(15 downto 0) := to_unsigned(G_FRAME_HEIGHT, 16);
     constant C_LINE_BYTES_U16   : unsigned(15 downto 0) := to_unsigned(C_LINE_BYTES, 16);
@@ -139,7 +139,7 @@ begin
     assert G_FRAME_HEIGHT <= 65535
         report "UART protocol: frame height must fit in 16 bits" severity failure;
     assert C_LINE_BYTES <= 65535
-        report "UART protocol: RGB888 line length must fit in 16 bits" severity failure;
+        report "UART protocol: RGB565 line length must fit in 16 bits" severity failure;
     assert G_PACKET_GAP_CYCLES > 0
         report "UART protocol: packet gap must be greater than zero" severity failure;
     assert G_SOURCE_TIMEOUT_CYCLES > 0
