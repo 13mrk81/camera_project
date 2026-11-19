@@ -231,7 +231,7 @@ begin
                             packet_kind_desc <= PKT_STAGE;
                             packet_seq_desc <= (others => '0');
                             packet_len_desc <= to_unsigned(2, 16);
-                            stage_code_desc <= x"02"; -- CAMERA_CONFIGURED
+                            stage_code_desc <= x"02"; -- TEST_SOURCE_READY
                             stage_detail_desc <= x"00";
                             packet_start_reg <= '1';
                             ctrl_state <= C_CONFIG_PACKET;
