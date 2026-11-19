@@ -655,7 +655,33 @@ begin
                                         when 12 => tx_data_reg <= readback_crc_i(7 downto 0);
                                         when 13 => tx_data_reg <= readback_crc_i(15 downto 8);
                                         when 14 => tx_data_reg <= readback_crc_i(23 downto 16);
-                                        when others => tx_data_reg <= readback_crc_i(31 downto 24);
+                                        when 15 => tx_data_reg <= readback_crc_i(31 downto 24);
+                                        when 16 => tx_data_reg <= capture_crc_i(7 downto 0);
+                                        when 17 => tx_data_reg <= capture_crc_i(15 downto 8);
+                                        when 18 => tx_data_reg <= capture_crc_i(23 downto 16);
+                                        when 19 => tx_data_reg <= capture_crc_i(31 downto 24);
+                                        when 20 => tx_data_reg <= write_crc_i(7 downto 0);
+                                        when 21 => tx_data_reg <= write_crc_i(15 downto 8);
+                                        when 22 => tx_data_reg <= write_crc_i(23 downto 16);
+                                        when 23 => tx_data_reg <= write_crc_i(31 downto 24);
+                                        when 24 => tx_data_reg <= read_ingress_crc_i(7 downto 0);
+                                        when 25 => tx_data_reg <= read_ingress_crc_i(15 downto 8);
+                                        when 26 => tx_data_reg <= read_ingress_crc_i(23 downto 16);
+                                        when 27 => tx_data_reg <= read_ingress_crc_i(31 downto 24);
+                                        when 28 => tx_data_reg <= std_logic_vector(capture_byte_count_i(7 downto 0));
+                                        when 29 => tx_data_reg <= std_logic_vector(capture_byte_count_i(15 downto 8));
+                                        when 30 => tx_data_reg <= std_logic_vector(capture_byte_count_i(23 downto 16));
+                                        when 31 => tx_data_reg <= std_logic_vector(capture_byte_count_i(31 downto 24));
+                                        when 32 => tx_data_reg <= std_logic_vector(write_word_count_i(7 downto 0));
+                                        when 33 => tx_data_reg <= std_logic_vector(write_word_count_i(15 downto 8));
+                                        when 34 => tx_data_reg <= std_logic_vector(write_word_count_i(23 downto 16));
+                                        when 35 => tx_data_reg <= std_logic_vector(write_word_count_i(31 downto 24));
+                                        when 36 => tx_data_reg <= std_logic_vector(read_ingress_word_count_i(7 downto 0));
+                                        when 37 => tx_data_reg <= std_logic_vector(read_ingress_word_count_i(15 downto 8));
+                                        when 38 => tx_data_reg <= std_logic_vector(read_ingress_word_count_i(23 downto 16));
+                                        when 39 => tx_data_reg <= std_logic_vector(read_ingress_word_count_i(31 downto 24));
+                                        when 40 => tx_data_reg <= status_flags_i(7 downto 0);
+                                        when others => tx_data_reg <= status_flags_i(15 downto 8);
                                     end case;
                                 when PKT_ERROR =>
                                     if tx_payload_index = 0 then
