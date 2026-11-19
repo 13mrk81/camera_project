@@ -1,11 +1,13 @@
 # Validation Log — One-way UART Camera Stream
 
-## 2026-11-19 — Host buffering and UART byte pacing
+## 2026-11-19 — Raw RGB565 UART stream
 
 - Removed the unsupported `InputBufferSize` Name-Value argument from MATLAB `serialport`. The modern API manages receive buffering automatically and does not document a user-configurable input-buffer size.
 - MATLAB reads available serial data in chunks up to 8,192 bytes and records total-byte, maximum observed driver-queue, and maximum parser-buffer counters in the console report and saved MAT file.
-- Added a configurable 25 us idle-high interval after every UART byte using 200 clk8 cycles at 8 MHz. UART bit timing remains 69 clocks/bit; the added interval is separate from the 8N1 frame.
-- Updated the default transfer-time estimate to approximately 112.7 s, including inter-byte and inter-packet gaps.
+- Added a raw RGB565 readout path: the serializer now emits each original HyperRAM pixel word MSB byte first, without RGB888 expansion. READY advertises BPP=2 / format=2, LINE length is width*2, and DONE UART byte count is width*height*2.
+- Added an offline MATLAB script to compare MSB/LSB byte order and RGB565/BGR565 channel interpretation from one captured frame.
+- The 25 us idle-high interval after every UART byte remains configured at 200 clk8 cycles. UART bit timing remains 69 clocks/bit.
+- Updated the default transfer-time estimate to approximately 78.0 s, including inter-byte and inter-packet gaps.
 - These are source changes only. MATLAB, VHDL compile/simulation, Gowin build, and hardware transfer have not yet been run.
 
 ## 2026-11-17 — One-way redesign
