@@ -115,36 +115,6 @@ architecture rtl of HyperRAM_Storage_SelfTest is
         );
     end component;
 
-    component camera_interface is
-        generic (
-            G_CLK_FREQ_HZ       : positive := 24_000_000;
-            G_I2C_DEVICE_ADDR   : std_logic_vector(6 downto 0) := "0100001";
-            G_RESET_WAIT_MS     : positive := 80;
-            G_POR_RESET_MS      : positive := 1;
-            G_FRAME_WIDTH       : positive := 640;
-            G_FRAME_HEIGHT      : positive := 480
-        );
-        port (
-            clk24               : in  std_logic;
-            clkcam              : out std_logic;
-            rst_n               : in  std_logic;
-            rst_trigger         : in  std_logic;
-            cam_sda             : inout std_logic;
-            cam_scl             : inout std_logic;
-            clk24            : in  std_logic;
-            cam_vsync           : in  std_logic;
-            cam_hsync           : in  std_logic;
-            cam_pix_data        : in  std_logic_vector(7 downto 0);
-            frame_byte_o        : out std_logic_vector(7 downto 0);
-            frame_byte_valid_o  : out std_logic;
-            frame_done_o        : out std_logic;
-            frame_error_o       : out std_logic;
-            config_done_o       : out std_logic;
-            config_pass_o       : out std_logic;
-            line_count_o        : out std_logic_vector(9 downto 0);
-            line_byte_count_o   : out std_logic_vector(10 downto 0)
-        );
-    end component;
 
 
     signal rst_n              : std_logic := '1';
@@ -565,7 +535,7 @@ begin
         );
 
     -- Debounced KEY1 event crosses into the camera's 24 MHz control domain.
-    u_camera_start_cdc : entity work.pulse_toggle_cdc
+    u_test_source_start_cdc : entity work.pulse_toggle_cdc
         port map (
             src_clk => clk8, src_rst_n => rst_n,
             src_pulse_i => protocol_transfer_start,
