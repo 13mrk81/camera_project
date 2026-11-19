@@ -210,6 +210,14 @@ The FPGA report must be transmitted after the final LINE packet and before or as
 
 ## 11. Build and run
 
+First run the standalone generator regression (requires GHDL):
+```bash
+cd gowin_cameradrive
+bash sim/run_generator_tb.sh
+```
+
+Then:
+
 1. Open `gowin_cameradrive/HYPERRAM_STORAGE_SELFTEST.gprj` in Gowin EDA.
 2. Confirm the selected top module is `HyperRAM_Storage_SelfTest`.
 3. Keep the generated HyperRAM IP and PLL files from the camera project; do not regenerate them as part of the baseline test.
