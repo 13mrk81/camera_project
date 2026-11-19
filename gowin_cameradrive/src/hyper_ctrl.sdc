@@ -6,3 +6,7 @@ create_generated_clock -name clk24 -source [get_ports {clk8}] -multiply_by 3 [ge
 
 # HyperRAM reference clock generated from the 24 MHz fabric clock: 96 MHz.
 create_generated_clock -name clk96 -source [get_pins {u_pll_24/clkout}] -multiply_by 4 [get_pins {u_pll_96/clkout}]
+
+# Gowin HyperRAM IPUG944: clk_out is the user-design clock at 1/2 memory_clk.
+# With memory_clk=96 MHz, the HyperRAM user domain usr_clk is 48 MHz.
+create_generated_clock -name usr_clk -source [get_pins {u_pll_96/clkout}] -divide_by 2 [get_pins {u_hyperram/clk_out}]
