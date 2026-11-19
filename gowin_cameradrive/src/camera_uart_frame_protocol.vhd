@@ -7,8 +7,8 @@ use ieee.numeric_std.all;
 -- CRC-16/CCITT-FALSE covers TYPE through the last PAYLOAD byte, not the SOF.
 -- Sequence, length and payload integers are little-endian.
 -- Types: 10 STAGE [stage,detail]; 11 READY [width(2),height(2),03,01];
--- 20 LINE [RGB888 R,G,B triplets, sequence=row]; 30 DONE [height(2),
--- lines(2),pixels(4),uart_bytes(4),raw_RGB565_CRC32(4)];
+-- 20 LINE [RGB888 R,G,B triplets, sequence=row]; 30 DONE [46-byte
+-- stream + capture/write/read CRCs, byte/word counts, and status flags];
 -- 7F ERROR [error_code,detail].
 --
 -- A line is internally acknowledged only after CRC_LO's stop bit completes.
