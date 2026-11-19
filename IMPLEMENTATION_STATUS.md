@@ -27,7 +27,7 @@ The current branch was inspected before editing. The default frame is 640 x 480.
 - [x] Tied readout retry inputs inactive; retained the existing full-line output FIFO, ready/valid serializer, and Gray-pointer asynchronous FIFO.
 - [x] Added clk24 -> clk8 camera-config status synchronizers and usr_clk -> clk8 reader-error synchronizer.
 - [x] Rewrote MATLAB receiver as receive-only, with packet CRC validation, zero-based row mapping, RGB triplet reconstruction, sliding-SOF resynchronization, DONE counter checks, and ERROR handling.
-- [x] Increased MATLAB serial InputBufferSize to 65,536 bytes (>33 default LINE packets), reads available data in chunks up to 8,192 bytes, and records RX/queue/parser-buffer diagnostics.
+- [x] MATLAB reads available serial data in chunks up to 8,192 bytes and records RX/queue/parser-buffer diagnostics. The modern `serialport` API manages receive buffering automatically; it has no documented configurable `InputBufferSize`.
 - [x] Changed the active Gowin project file list to remove UART RX from the main top build.
 - [x] Changed the UART constraint to FPGA TX pin 32 only and added KEY1 trigger pin 14 with LVCMOS18.
 
