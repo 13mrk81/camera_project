@@ -22,9 +22,11 @@ entity frame_integrity_checker is
         stream_error_i         : in  std_logic;
         capture_crc_i          : in  std_logic_vector(31 downto 0);
         write_crc_i            : in  std_logic_vector(31 downto 0);
+        read_ingress_crc_i     : in  std_logic_vector(31 downto 0);
         readback_crc_i         : in  std_logic_vector(31 downto 0);
         capture_byte_count_i   : in  unsigned(31 downto 0);
         write_word_count_i     : in  unsigned(31 downto 0);
+        read_ingress_word_count_i : in unsigned(31 downto 0);
         readback_raw_bytes_i   : in  unsigned(31 downto 0);
         readback_word_count_i  : in  unsigned(31 downto 0);
         pixel_count_i          : in  unsigned(31 downto 0);
@@ -69,9 +71,11 @@ begin
                    (write_error_i = '0') and
                    (stream_error_i = '0') and
                    (capture_crc_i = write_crc_i) and
-                   (capture_crc_i = readback_crc_i) and
+                   (write_crc_i = read_ingress_crc_i) and
+                   (read_ingress_crc_i = readback_crc_i) and
                    (capture_byte_count_i = to_unsigned(C_EXPECTED_RAW_BYTES, 32)) and
                    (write_word_count_i = to_unsigned(C_EXPECTED_WORDS, 32)) and
+                   (read_ingress_word_count_i = to_unsigned(C_EXPECTED_WORDS, 32)) and
                    (readback_raw_bytes_i = to_unsigned(C_EXPECTED_RAW_BYTES, 32)) and
                    (readback_word_count_i = to_unsigned(C_EXPECTED_WORDS, 32)) and
                    (pixel_count_i = to_unsigned(C_EXPECTED_PIXELS, 32)) and
