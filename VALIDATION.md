@@ -53,3 +53,13 @@
 7. Run the MATLAB receiver against generated test packets, then test the USB-UART path.
 8. Verify KEY1 pin14 voltage, UART TX waveform/baud, and full-frame transfer on board.
 9. Review reset release, HyperRAM timing/address semantics, and timing closure before sign-off.
+
+
+## 2026-11-19 — Gray8 transport branch
+
+- Kept camera capture and HyperRAM storage in RGB565.
+- Converted RGB565 readback pixels to BT.601 Gray8 in the UART serializer; one output byte is emitted per pixel.
+- READY now advertises BPP=1 / format=3; LINE payload length is frame width; DONE byte count and CRC32 refer to the transmitted Gray8 stream.
+- Increased the inter-packet quiet interval to 50 ms (400,000 clk8 cycles).
+- MATLAB now allocates the frame from READY geometry, validates packet CRC16 as each packet arrives, and stores only valid rows in a uint8 grayscale matrix.
+- No MATLAB, GHDL/NVC, Gowin EDA, simulation, synthesis, bitstream, or physical board test was run. These checks remain outstanding.
