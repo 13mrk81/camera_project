@@ -38,7 +38,7 @@ function ref = matlab_storage_selftest_reference(width, height)
     rgb888(:,:,2) = g8;
     rgb888(:,:,3) = b8;
 
-    rawVector = raw(:);
+    % Flatten row by row, matching the FPGA's left-to-right line stream.\n    rawVector = reshape(raw.', [], 1);
     ref.width = width;
     ref.height = height;
     ref.rgb565 = p;
