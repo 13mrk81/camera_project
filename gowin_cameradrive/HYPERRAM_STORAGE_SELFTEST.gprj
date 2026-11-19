@@ -10,6 +10,7 @@
         <File path="src/camera_uart_frame_protocol.vhd" type="file.vhdl" enable="1"/>
         <File path="src/async_fifo_32.vhd" type="file.vhdl" enable="1"/>
         <File path="src/frame_integrity_checker.vhd" type="file.vhdl" enable="1"/>
+        <File path="src/pulse_toggle_cdc.vhd" type="file.vhdl" enable="1"/>
         <File path="src/stable_bus_event_cdc.vhd" type="file.vhdl" enable="1"/>
         <File path="src/gowin_hyperram_read_adapter.vhd" type="file.vhdl" enable="1"/>
         <File path="src/gowin_pllvr/gowin_pllvr.vhd" type="file.vhdl" enable="1"/>
