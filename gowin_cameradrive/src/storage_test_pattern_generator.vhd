@@ -8,7 +8,9 @@ use ieee.numeric_std.all;
 --
 -- Default timing assumes a 24 MHz byte clock, 1280 active bytes/line,
 -- 106 blank cycles/line, and 155232 vertical blank cycles:
---   480 * (1280 + 106) + 155232 = 820512 clocks.\n-- At 24 MHz this is about 29.25 frames/s, based on GC0308 default Hb=0x6A\n-- and Vb=0x70 values. Verify actual PCLK/blanking on the configured sensor.
+--   480 * (1280 + 106) + 155232 = 820512 clocks.
+-- At 24 MHz this is about 29.25 frames/s, based on GC0308 default Hb=0x6A
+-- and Vb=0x70 values. Verify actual PCLK/blanking on the configured sensor.
 -- These blanking values are explicit generics and should be replaced by
 -- measured camera timing if exact sensor cadence is required.
 entity storage_test_pattern_generator is
