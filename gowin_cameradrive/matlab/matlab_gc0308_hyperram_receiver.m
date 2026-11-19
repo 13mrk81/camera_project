@@ -67,10 +67,10 @@ while true
         packetTimeout = preTriggerTimeout_s;
     end
 
-    [packet, rxBuffer, droppedNow, badNow, bytesNow, queueMaxNow] = receivePacket(sp, rxBuffer, packetTimeout, maxPayloadBytes);
+    [packet, rxBuffer, droppedNow, badNow, bytesNow, queueMaxNow, parserMaxNow] = receivePacket(sp, rxBuffer, packetTimeout, maxPayloadBytes);
     totalBytesRead = totalBytesRead + bytesNow;
     maxDriverQueueBytes = max(maxDriverQueueBytes, queueMaxNow);
-    maxSoftwareBufferBytes = max(maxSoftwareBufferBytes, numel(rxBuffer));
+    maxSoftwareBufferBytes = max(maxSoftwareBufferBytes, parserMaxNow);
     discardedBytes = discardedBytes + droppedNow;
     badCrcCandidates = badCrcCandidates + badNow;
 
@@ -257,7 +257,7 @@ else
 end
 
 %% Local functions
-function [packet, buffer, droppedBytes, badCrcCount, bytesRead, maxQueueBytes] = receivePacket(sp, buffer, timeoutSeconds, maxPayloadBytes)
+function [packet, buffer, droppedBytes, badCrcCount, bytesRead, maxQueueBytes, maxBufferBytes] = receivePacket(sp, buffer, timeoutSeconds, maxPayloadBytes)
 % Read in available chunks and extract the earliest CRC-valid packet.
 % Scanning for a later valid SOF allows recovery if a LINE payload was aborted:
 % a nested A5 5A candidate is accepted only after its own complete CRC passes.
@@ -266,9 +266,15 @@ function [packet, buffer, droppedBytes, badCrcCount, bytesRead, maxQueueBytes] =
     badCrcCount = 0;
     bytesRead = 0;
     maxQueueBytes = 0;
+    maxBufferBytes = numel(buffer);
 
     while true
+        % Sample the driver queue both before and after parser/CRC work so
+        % bytes accumulated while MATLAB was busy are included in the metric.
+        maxQueueBytes = max(maxQueueBytes, double(sp.NumBytesAvailable));
+        maxBufferBytes = max(maxBufferBytes, numel(buffer));
         [packet, found, buffer, droppedNow, badNow] = extractValidPacket(buffer, maxPayloadBytes);
+        maxQueueBytes = max(maxQueueBytes, double(sp.NumBytesAvailable));
         droppedBytes = droppedBytes + droppedNow;
         badCrcCount = badCrcCount + badNow;
         if found
@@ -282,6 +288,7 @@ function [packet, buffer, droppedBytes, badCrcCount, bytesRead, maxQueueBytes] =
             chunk = read(sp, n, "uint8");
             bytesRead = bytesRead + numel(chunk);
             buffer = [buffer; uint8(chunk(:))]; %#ok<AGROW>
+            maxBufferBytes = max(maxBufferBytes, numel(buffer));
         else
             if ~isinf(timeoutSeconds) && toc(tStart) >= timeoutSeconds
                 error("UART inactivity timeout after %.1f s while waiting for a valid packet (buffer=%d byte(s)).", ...
