@@ -130,6 +130,10 @@ architecture rtl of HyperRAM_Storage_SelfTest is
     signal pll_stable         : std_logic := '0';
     signal pll_lock_count     : natural range 0 to C_PLL_STABLE_CYCLES := 0;
     signal ip_rst_n           : std_logic;
+    -- Reset release is synchronized separately into the 48 MHz HyperRAM user domain.
+    signal usr_rst_sync1      : std_logic := '0';
+    signal usr_rst_sync2      : std_logic := '0';
+    signal usr_rst_n          : std_logic;
     signal init_calib_i       : std_logic;
 
     signal mem_cmd_i          : std_logic := '0';
@@ -234,6 +238,8 @@ architecture rtl of HyperRAM_Storage_SelfTest is
     attribute async_reg of serializer_error_sync_usr : signal is "true";
     attribute async_reg of protocol_error_meta_usr : signal is "true";
     attribute async_reg of protocol_error_sync_usr : signal is "true";
+    attribute async_reg of usr_rst_sync1 : signal is "true";
+    attribute async_reg of usr_rst_sync2 : signal is "true";
     attribute async_reg of trigger_meta : signal is "true";
     attribute async_reg of trigger_sync : signal is "true";
     attribute async_reg of reader_error_meta_24 : signal is "true";
@@ -434,6 +440,20 @@ begin
 
     ip_rst_n <= rst_n and pll_stable;
 
+    -- Asynchronous assertion, synchronous deassertion in HyperRAM usr_clk.
+    -- usr_clk is 48 MHz (memory_clk/2), not the 24 MHz fabric clock.
+    process(usr_clk, usr_rst_n)
+    begin
+        if usr_rst_n = '0' then
+            usr_rst_sync1 <= '0';
+            usr_rst_sync2 <= '0';
+        elsif rising_edge(usr_clk) then
+            usr_rst_sync1 <= '1';
+            usr_rst_sync2 <= usr_rst_sync1;
+        end if;
+    end process;
+    usr_rst_n <= usr_rst_sync2;
+
     --------------------------------------------------------------------------
     -- KEY1 active-low trigger: synchronize, debounce for 20 ms, and emit one
     -- clk24 pulse on a stable high-to-low transition.
@@ -530,9 +550,9 @@ begin
     -- Host ACK/NACK events cross from system clk24 to HyperRAM usr_clk.
     u_line_ack_cdc : entity work.pulse_toggle_cdc
         port map (
-            src_clk => clk24, src_rst_n => ip_rst_n,
+            src_clk => clk24, src_rst_n => rst_n,
             src_pulse_i => protocol_line_ack,
-            dst_clk => usr_clk, dst_rst_n => ip_rst_n,
+            dst_clk => usr_clk, dst_rst_n => usr_rst_n,
             dst_pulse_o => line_ack_usr
         );
 
@@ -560,9 +580,9 @@ begin
 
     readout_error_24 <= reader_error_sync_24 or serializer_error;
 
-    process(usr_clk, ip_rst_n)
+    process(usr_clk, usr_rst_n)
     begin
-        if ip_rst_n = '0' then
+        if usr_rst_n = '0' then
             serializer_error_meta_usr <= '0';
             serializer_error_sync_usr <= '0';
         elsif rising_edge(usr_clk) then
@@ -571,9 +591,9 @@ begin
         end if;
     end process;
 
-    process(usr_clk, ip_rst_n)
+    process(usr_clk, usr_rst_n)
     begin
-        if ip_rst_n = '0' then
+        if usr_rst_n = '0' then
             protocol_error_meta_usr <= '0';
             protocol_error_sync_usr <= '0';
         elsif rising_edge(usr_clk) then
@@ -637,7 +657,8 @@ begin
             G_ADDR_BITS => G_FIFO_ADDR_BITS
         )
         port map (
-            rst_n      => rst_n,
+            wr_rst_n   => rst_n,
+            rd_rst_n   => usr_rst_n,
             wr_clk     => clk24,
             wr_en_i    => cap_packed_valid,
             wr_data_i  => cap_packed_word,
@@ -680,7 +701,7 @@ begin
             src_event_i => cap_capture_done,
             src_data_i  => capture_snapshot_src,
             dst_clk     => usr_clk,
-            dst_rst_n   => ip_rst_n,
+            dst_rst_n   => usr_rst_n,
             dst_event_o => capture_snapshot_valid_usr,
             dst_data_o  => capture_snapshot_usr
         );
@@ -690,9 +711,9 @@ begin
     capture_word_count_usr <= unsigned(capture_snapshot_usr(63 downto 32));
     source_byte_count_usr  <= unsigned(capture_snapshot_usr(31 downto 0));
 
-    process(usr_clk, ip_rst_n)
+    process(usr_clk, usr_rst_n)
     begin
-        if ip_rst_n = '0' then
+        if usr_rst_n = '0' then
             capture_error_meta_usr <= '0';
             capture_error_sync_usr <= '0';
         elsif rising_edge(usr_clk) then
@@ -701,9 +722,9 @@ begin
         end if;
     end process;
 
-    process(usr_clk, ip_rst_n)
+    process(usr_clk, usr_rst_n)
     begin
-        if ip_rst_n = '0' then
+        if usr_rst_n = '0' then
             readout_start_meta_usr <= '0';
             readout_start_sync_usr <= '0';
         elsif rising_edge(usr_clk) then
@@ -720,9 +741,9 @@ begin
         (load_req_count < C_BURST_WORDS) and
         (cap_fifo_rd_empty = '0') else '0';
 
-    process(usr_clk, ip_rst_n)
+    process(usr_clk, usr_rst_n)
     begin
-        if ip_rst_n = '0' then
+        if usr_rst_n = '0' then
             write_state      <= W_WAIT_INIT;
             burst_buffer     <= (others => (others => '0'));
             load_req_count   <= 0;
@@ -860,7 +881,7 @@ begin
         )
         port map (
             clk                => usr_clk,
-            rst_n              => ip_rst_n,
+            rst_n              => usr_rst_n,
             enable_i           => readout_start_sync_usr,
             rd_cmd_valid_i     => line_cmd_valid,
             rd_cmd_ready_o     => line_cmd_ready,
@@ -888,7 +909,8 @@ begin
         port map (
             mem_clk                => usr_clk,
             uart_clk               => clk24,
-            rst_n                  => ip_rst_n,
+            mem_rst_n              => usr_rst_n,
+            uart_rst_n             => rst_n,
             frame_written_i        => readout_start_sync_usr,
             line_ack_i             => line_ack_usr,
             line_retry_i           => '0', -- no host NACK on the one-way stream
@@ -991,9 +1013,9 @@ begin
     --------------------------------------------------------------------------
     -- Read-response index tracking (retained internally for debug/analysis).
     --------------------------------------------------------------------------
-    process(usr_clk, ip_rst_n)
+    process(usr_clk, usr_rst_n)
     begin
-        if ip_rst_n = '0' then
+        if usr_rst_n = '0' then
             read_response_count <= 0;
             readback_index_reg <= (others => '0');
         elsif rising_edge(usr_clk) then
@@ -1059,7 +1081,7 @@ begin
     u_storage_telemetry_cdc : entity work.stable_bus_event_cdc
         generic map (G_WIDTH => 240)
         port map (
-            src_clk => usr_clk, src_rst_n => ip_rst_n,
+            src_clk => usr_clk, src_rst_n => usr_rst_n,
             src_event_i => frame_reader_done, src_data_i => storage_telemetry_src,
             dst_clk => clk24, dst_rst_n => rst_n,
             dst_event_o => storage_telemetry_valid_clk24,
@@ -1077,9 +1099,9 @@ begin
     u_stream_stats_cdc : entity work.stable_bus_event_cdc
         generic map (G_WIDTH => 176)
         port map (
-            src_clk => clk24, src_rst_n => ip_rst_n,
+            src_clk => clk24, src_rst_n => rst_n,
             src_event_i => protocol_done, src_data_i => stream_stats_src,
-            dst_clk => usr_clk, dst_rst_n => ip_rst_n,
+            dst_clk => usr_clk, dst_rst_n => usr_rst_n,
             dst_event_o => stream_stats_valid_usr, dst_data_o => stream_stats_usr
         );
 
@@ -1101,7 +1123,7 @@ begin
         )
         port map (
             clk                   => usr_clk,
-            rst_n                 => ip_rst_n,
+            rst_n                 => usr_rst_n,
             capture_done_i        => capture_snapshot_valid_usr,
             write_done_i          => write_done_reg,
             stream_done_i         => read_pipeline_done,
@@ -1138,9 +1160,9 @@ begin
     -- Address advances once after each completed 8-word burst,
     -- except after the final burst.
     --------------------------------------------------------------------------
-    process(usr_clk, ip_rst_n)
+    process(usr_clk, usr_rst_n)
     begin
-        if ip_rst_n = '0' then
+        if usr_rst_n = '0' then
             write_addr <= (others => '0');
         elsif rising_edge(usr_clk) then
             if (write_state = W_WRITE_DATA) and
