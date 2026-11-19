@@ -24,7 +24,7 @@ entity Camera_HyperRAM_OneFrame is
         G_CMD_INTERVAL_CYCLES     : positive := 21;
         G_WRITE_READ_GAP_CYCLES   : positive := 63;
         G_READ_TIMEOUT_CYCLES     : positive := 100_000;
-        G_UART_PACKET_GAP_CYCLES   : positive := 160_000 -- 20 ms at 8 MHz
+        G_UART_PACKET_GAP_CYCLES   : positive := 400_000 -- 50 ms at 8 MHz
     );
     port (
         -- 8 MHz board clock and global active-low reset.
