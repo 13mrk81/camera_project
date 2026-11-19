@@ -72,12 +72,14 @@ while receivedByteCount < expectedTransferBytes
             lastDataTime = tic;
         end
     else
-        if toc(lastDataTime) >= inactivityTimeout_s
+        % Before the first byte arrives, wait indefinitely for KEY1.
+        % Start both transfer timers only after the FPGA begins transmitting.
+        if receivedByteCount > 0 && toc(lastDataTime) >= inactivityTimeout_s
             fprintf(2, "\nUART inactivity timeout. Captured %d/%d bytes.\n", ...
                 receivedByteCount, expectedTransferBytes);
             break;
         end
-        if toc(totalTime) >= overallTimeout_s
+        if receivedByteCount > 0 && toc(totalTime) >= overallTimeout_s
             fprintf(2, "\nOverall receive timeout. Captured %d/%d bytes.\n", ...
                 receivedByteCount, expectedTransferBytes);
             break;
