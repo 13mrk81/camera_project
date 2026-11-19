@@ -33,7 +33,7 @@ The default frame is 640 x 480. Camera pixels are captured in RGB565 and packed 
 
 ## Data-rate and buffering design
 
-At the 8 MHz clock, the current UART divider is 69 clocks/bit, or approximately 115942 baud. At 640 x 480, a LINE packet is 1289 bytes (1280 RGB565 payload + 9 framing/CRC bytes). With a 25 us inter-byte idle interval and 20 ms inter-packet gaps, estimated transfer time is approximately 78.5 s, excluding capture and HyperRAM write time.
+At the 8 MHz clock, the current UART divider is 69 clocks/bit, or approximately 115942 baud. At 640 x 480, a LINE packet is 1289 bytes (1280 RGB565 payload + 9 framing/CRC bytes). With a 25 us inter-byte idle interval and 20 ms inter-packet gaps, estimated transfer time is approximately 78.52 s, excluding capture and HyperRAM write time.
 
 Output FIFO #2 is 512 x 32 bits, compared with 320 words for one 640-pixel line. The readout engine only requests the next row after the current row packet is physically complete and the local acknowledgement crosses to usr_clk. This is the intended no-overrun flow-control mechanism; the no-reverse-channel link still cannot retransmit a row lost outside the FPGA.
 
@@ -63,5 +63,5 @@ If the session is interrupted, fetch the latest branch head from feature/matlab-
 - READY now advertises bytes_per_pixel=2 and pixel_format=2 (RGB565).
 - Each LINE payload is width*2 bytes; DONE UART payload-byte count is width*height*2.
 - MATLAB stores both exact wire bytes and reconstructed uint16 RGB565 pixels in uart_received_frame.mat.
-- Added matlab/process_gc0308_rgb565_capture.m to compare MSB/LSB byte order and RGB565/BGR565 channel mapping offline.
+- Added gowin_cameradrive/matlab/process_gc0308_rgb565_capture.m to compare MSB/LSB byte order and RGB565/BGR565 channel mapping offline.
 - Static source edits only; compile, simulation, MATLAB execution, and hardware validation remain pending.
