@@ -1,4 +1,4 @@
-# Implementation Status — One-way MATLAB RGB888 Line Stream
+# Implementation Status — One-way MATLAB raw RGB565 Line Stream
 
 Last updated: 2026-11-19
 
@@ -33,7 +33,7 @@ The current branch was inspected before editing. The default frame is 640 x 480.
 
 ## Data-rate and buffering design
 
-At the 8 MHz clock, the current UART divider is 69 clocks/bit, or approximately 115942 baud. At 640 x 480, a LINE packet is 1929 bytes (1920 RGB payload + 9 framing/CRC bytes). With a 25 us inter-byte idle interval and 20 ms inter-packet gaps, estimated transfer time is approximately 112.7 s, excluding capture and HyperRAM write time.
+At the 8 MHz clock, the current UART divider is 69 clocks/bit, or approximately 115942 baud. At 640 x 480, a LINE packet is 1929 bytes (1920 RGB payload + 9 framing/CRC bytes). With a 25 us inter-byte idle interval and 20 ms inter-packet gaps, estimated transfer time is approximately 78.0 s, excluding capture and HyperRAM write time.
 
 Output FIFO #2 is 512 x 32 bits, compared with 320 words for one 640-pixel line. The readout engine only requests the next row after the current row packet is physically complete and the local acknowledgement crosses to usr_clk. This is the intended no-overrun flow-control mechanism; the no-reverse-channel link still cannot retransmit a row lost outside the FPGA.
 
@@ -44,7 +44,7 @@ Output FIFO #2 is 512 x 32 bits, compared with 320 words for one 640-pixel line.
 - [ ] Confirm the CRC implementation against the standard 123456789 -> 0x29B1 vector in HDL and MATLAB.
 - [ ] Simulate a full row, source starvation, readout error mid-row, and ERROR packet resynchronization.
 - [ ] Confirm exact Tang Nano 4K KEY1 pin/bank voltage against the board revision and measure trigger/UART signals.
-- [ ] Verify actual USB-UART baud tolerance and host buffering under a ~113 s transfer; inspect the new MATLAB queue/buffer counters.
+- [ ] Verify actual USB-UART baud tolerance and host buffering under a ~78 s transfer; inspect the new MATLAB queue/buffer counters.
 - [ ] Run Gowin synthesis, timing analysis and bitstream generation.
 - [ ] Test on Tang Nano 4K + GC0308 + HyperRAM and compare a known-color test image.
 
@@ -55,3 +55,13 @@ No GHDL, NVC, MATLAB, or Gowin compiler/IDE was executed as part of this connect
 ## Recovery procedure
 
 If the session is interrupted, fetch the latest branch head from feature/matlab-line-stream, then read this file, DESIGN_NOTES.md, UART_ONE_WAY_PROTOCOL.md, and VALIDATION.md. Do not replay an old patch over newer work.
+
+
+## Raw RGB565 transport update (2026-11-19)
+
+- FPGA readout no longer expands RGB565 into RGB888. It sends the two original bytes of each pixel directly from the HyperRAM FIFO, high byte first.
+- READY now advertises bytes_per_pixel=2 and pixel_format=2 (RGB565).
+- Each LINE payload is width*2 bytes; DONE UART payload-byte count is width*height*2.
+- MATLAB stores both exact wire bytes and reconstructed uint16 RGB565 pixels in uart_received_frame.mat.
+- Added matlab/process_gc0308_rgb565_capture.m to compare MSB/LSB byte order and RGB565/BGR565 channel mapping offline.
+- Static source edits only; compile, simulation, MATLAB execution, and hardware validation remain pending.
