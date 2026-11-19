@@ -2,7 +2,7 @@
 % The FPGA is triggered by the Tang Nano 4K onboard KEY1 pushbutton.
 % This script DOES NOT write any bytes to the UART.
 %
-% UART: 115200 baud, 8N1. FPGA packet gap: 20 ms between complete packets.
+% UART: 115200 baud, 8N1. FPGA packet gap: 20 ms; inter-byte idle: 25 us.
 % Packet: A5 5A TYPE SEQ_LO SEQ_HI LEN_LO LEN_HI PAYLOAD CRC_HI CRC_LO.
 % CRC-16/CCITT-FALSE covers TYPE through PAYLOAD (SOF excluded).
 %
@@ -25,14 +25,17 @@ baudRate = 115200;
 preTriggerTimeout_s = Inf;  % Wait indefinitely for the physical KEY1 press.
 activeTimeout_s = 25;       % FPGA capture/config timeout is 15 s; allow margin.
 maxPayloadBytes = 65535;
+inputBufferBytes = 65536; % >33 complete default LINE packets.
 
 %% Open UART in receive-only mode
 sp = serialport(portName, baudRate, ...
     "DataBits", 8, "Parity", "none", "StopBits", 1, ...
-    "FlowControl", "none", "Timeout", 1);
+    "FlowControl", "none", "Timeout", 1, ...
+    "InputBufferSize", inputBufferBytes);
 flush(sp);
 
-fprintf("UART opened: %s @ %d baud, 8N1 (receive-only)\n", char(portName), baudRate);
+fprintf("UART opened: %s @ %d baud, 8N1 (receive-only), RX buffer=%d bytes\n", ...
+    char(portName), baudRate, sp.InputBufferSize);
 fprintf("No UART commands will be transmitted. Press the board's KEY1 button to start.\n");
 
 rxBuffer = zeros(0, 1, "uint8");
@@ -49,6 +52,9 @@ duplicateLines = 0;
 outOfOrderLines = 0;
 badCrcCandidates = 0;
 discardedBytes = 0;
+totalBytesRead = 0;
+maxDriverQueueBytes = 0;
+maxSoftwareBufferBytes = 0;
 lastErrorCode = uint8(0);
 lastErrorDetail = uint8(0);
 doneStats = struct();
@@ -61,7 +67,10 @@ while true
         packetTimeout = preTriggerTimeout_s;
     end
 
-    [packet, rxBuffer, droppedNow, badNow] = receivePacket(sp, rxBuffer, packetTimeout, maxPayloadBytes);
+    [packet, rxBuffer, droppedNow, badNow, bytesNow, queueMaxNow] = receivePacket(sp, rxBuffer, packetTimeout, maxPayloadBytes);
+    totalBytesRead = totalBytesRead + bytesNow;
+    maxDriverQueueBytes = max(maxDriverQueueBytes, queueMaxNow);
+    maxSoftwareBufferBytes = max(maxSoftwareBufferBytes, numel(rxBuffer));
     discardedBytes = discardedBytes + droppedNow;
     badCrcCandidates = badCrcCandidates + badNow;
 
@@ -215,6 +224,8 @@ fprintf("Valid LINE packets: %d | duplicates: %d | out-of-order: %d\n", ...
     acceptedLines, duplicateLines, outOfOrderLines);
 fprintf("Rejected CRC candidates: %d | discarded bytes during resync: %d\n", ...
     badCrcCandidates, discardedBytes);
+fprintf("UART bytes read: %d | max driver queue: %d | max parser buffer: %d bytes\n", ...
+    totalBytesRead, maxDriverQueueBytes, maxSoftwareBufferBytes);
 
 if ~isempty(img)
     if frameComplete
@@ -237,7 +248,8 @@ if ~isempty(img)
     save("uart_received_frame.mat", "img", "width", "height", ...
         "receivedRows", "frameComplete", "acceptedLines", ...
         "duplicateLines", "outOfOrderLines", "badCrcCandidates", ...
-        "discardedBytes", "doneStats", "gotError", ...
+        "discardedBytes", "doneStats", "gotError", "totalBytesRead", ...
+        "maxDriverQueueBytes", "maxSoftwareBufferBytes", ...
         "lastErrorCode", "lastErrorDetail");
     fprintf("Saved image and receive statistics to uart_received_frame.mat\n");
 else
@@ -245,13 +257,15 @@ else
 end
 
 %% Local functions
-function [packet, buffer, droppedBytes, badCrcCount] = receivePacket(sp, buffer, timeoutSeconds, maxPayloadBytes)
+function [packet, buffer, droppedBytes, badCrcCount, bytesRead, maxQueueBytes] = receivePacket(sp, buffer, timeoutSeconds, maxPayloadBytes)
 % Read in available chunks and extract the earliest CRC-valid packet.
 % Scanning for a later valid SOF allows recovery if a LINE payload was aborted:
 % a nested A5 5A candidate is accepted only after its own complete CRC passes.
     tStart = tic;
     droppedBytes = 0;
     badCrcCount = 0;
+    bytesRead = 0;
+    maxQueueBytes = 0;
 
     while true
         [packet, found, buffer, droppedNow, badNow] = extractValidPacket(buffer, maxPayloadBytes);
@@ -262,9 +276,11 @@ function [packet, buffer, droppedBytes, badCrcCount] = receivePacket(sp, buffer,
         end
 
         available = sp.NumBytesAvailable;
+        maxQueueBytes = max(maxQueueBytes, double(available));
         if available > 0
-            n = min(double(available), 4096);
+            n = min(double(available), 8192);
             chunk = read(sp, n, "uint8");
+            bytesRead = bytesRead + numel(chunk);
             buffer = [buffer; uint8(chunk(:))]; %#ok<AGROW>
         else
             if ~isinf(timeoutSeconds) && toc(tStart) >= timeoutSeconds
