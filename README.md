@@ -37,7 +37,7 @@ Generated synthesis and place-and-route outputs are retained under `gowin_camera
 
 ## Active camera stream protocol
 
-The main gowin_cameradrive camera top uses a one-way UART stream: Tang Nano 4K KEY1 triggers capture, FPGA TX reports stages and sends CRC-protected raw RGB565 rows, and MATLAB is receive-only. See DESIGN_NOTES.md, UART_ONE_WAY_PROTOCOL.md, IMPLEMENTATION_STATUS.md, and VALIDATION.md for the protocol, CDC/buffer assumptions, recovery instructions, and remaining hardware sign-off checks.
+The main gowin_cameradrive camera top uses a one-way UART stream: Tang Nano 4K KEY1 triggers capture, FPGA TX reports stages and sends CRC-protected Gray8 rows derived from the RGB565 frame in HyperRAM, and MATLAB is receive-only. See DESIGN_NOTES.md, UART_ONE_WAY_PROTOCOL.md, IMPLEMENTATION_STATUS.md, and VALIDATION.md for the protocol, CDC/buffer assumptions, recovery instructions, and remaining hardware sign-off checks.
 
 ## Projects
 
