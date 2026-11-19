@@ -10,7 +10,8 @@ entity async_fifo_32 is
         G_ADDR_BITS : positive := 9
     );
     port (
-        rst_n       : in  std_logic;
+        wr_rst_n    : in  std_logic;
+        rd_rst_n    : in  std_logic;
         wr_clk      : in  std_logic;
         wr_en_i     : in  std_logic;
         wr_data_i   : in  std_logic_vector(31 downto 0);
@@ -70,12 +71,12 @@ begin
         report "async_fifo_32 requires G_ADDR_BITS >= 2"
         severity failure;
 
-    process(wr_clk, rst_n)
+    process(wr_clk, wr_rst_n)
         variable next_bin     : ptr_t;
         variable next_gray    : ptr_t;
         variable full_compare : ptr_t;
     begin
-        if rst_n = '0' then
+        if wr_rst_n = '0' then
             wr_bin     <= (others => '0');
             wr_gray    <= (others => '0');
             rd_gray_w1 <= (others => '0');
@@ -106,9 +107,9 @@ begin
         end if;
     end process;
 
-    process(rd_clk, rst_n)
+    process(rd_clk, rd_rst_n)
     begin
-        if rst_n = '0' then
+        if rd_rst_n = '0' then
             rd_bin       <= (others => '0');
             rd_gray      <= (others => '0');
             wr_gray_r1   <= (others => '0');
