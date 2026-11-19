@@ -509,7 +509,11 @@ begin
     -- One-way UART TX physical layer and staged camera stream protocol.
     --------------------------------------------------------------------------
     u_uart_tx : entity work.uart_tx
-        generic map (G_CLK_FREQ_HZ => 8_000_000, G_BAUD_RATE => 115_200)
+        generic map (
+            G_CLK_FREQ_HZ => 8_000_000,
+            G_BAUD_RATE => 115_200,
+            G_INTER_BYTE_GAP_CYCLES => 200 -- 25 us between bytes
+        )
         port map (
             clk => clk8, rst_n => rst_n, data_i => protocol_tx_data,
             data_valid_i => protocol_tx_valid, data_ready_o => protocol_tx_ready,
