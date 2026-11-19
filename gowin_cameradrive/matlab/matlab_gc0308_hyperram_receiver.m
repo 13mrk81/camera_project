@@ -1,4 +1,4 @@
-%% Receive-only GC0308 / HyperRAM RGB888 stream
+%% Receive-only GC0308 / HyperRAM raw RGB565 stream
 % The FPGA is triggered by the Tang Nano 4K onboard KEY1 pushbutton.
 % This script DOES NOT write any bytes to the UART.
 %
@@ -9,12 +9,12 @@
 % Types:
 %   10 STAGE: [stage_code, detail]
 %       01 trigger accepted, 02 camera configured, 03 frame stored
-%   11 READY: [widthLo widthHi heightLo heightHi 03 01] (RGB888)
-%   20 LINE:  seq = zero-based row, payload = RGB triplets R,G,B
+%   11 READY: [widthLo widthHi heightLo heightHi 02 02] (RGB565)
+%   20 LINE:  seq = zero-based row, payload = RGB565 pixel words, MSB byte first
 %   30 DONE:  height(2), lines(2), pixels(4), uart_bytes(4), raw565_crc32(4)
 %   7F ERROR: [error_code, detail]
-% All multi-byte fields are little-endian except the transmitted CRC trailer
-% (CRC high byte first). LINE pixels are left-to-right, each R then G then B.
+% Geometry/statistics fields are little-endian. RGB565 pixel words are sent
+% high byte then low byte, left-to-right. CRC trailer is high byte first.
 
 clc;
 clear sp;
@@ -112,21 +112,22 @@ while true
             bytesPerPixel = double(packet.payload(5));
             pixelFormat = double(packet.payload(6));
 
-            if width < 1 || height < 1 || bytesPerPixel ~= 3 || pixelFormat ~= 1
+            if width < 1 || height < 1 || bytesPerPixel ~= 2 || pixelFormat ~= 2
                 error("Unsupported READY geometry/format: %dx%d, BPP=%d, format=%d.", ...
                     width, height, bytesPerPixel, pixelFormat);
             end
             if width * bytesPerPixel > maxPayloadBytes
-                error("RGB888 line length exceeds the protocol's 16-bit payload length.");
+                error("RGB565 line length exceeds the protocol's 16-bit payload length.");
             end
 
-            img = zeros(height, width, 3, "uint8");
+            raw565Bytes = zeros(height, width * 2, "uint8");
+            raw565Frame = zeros(height, width, "uint16");
             receivedRows = false(height, 1);
             nextExpectedRow = 0;
             frameReady = true;
             receiverState = "RECEIVING_LINES";
-            fprintf("[READY] %d x %d RGB888; %d bytes/line; first line follows.\n", ...
-                width, height, width * 3);
+            fprintf("[READY] %d x %d RGB565; %d bytes/line; first line follows.\n", ...
+                width, height, width * 2);
 
         case hex2dec("20")  % LINE
             if ~frameReady
@@ -135,7 +136,7 @@ while true
             end
 
             row = double(packet.sequence);
-            expectedLineBytes = width * 3;
+            expectedLineBytes = width * 2;
             if row >= height || numel(packet.payload) ~= expectedLineBytes
                 fprintf(2, "Invalid LINE: row=%d, payload=%d, expected=%d.\n", ...
                     row, numel(packet.payload), expectedLineBytes);
@@ -152,12 +153,11 @@ while true
                     nextExpectedRow, row);
             end
 
-            % Wire order is exactly R1,G1,B1,R2,G2,B2,..., left to right.
-            % reshape(3,width).' creates one RGB triplet per matrix row.
-            rgbTriplets = reshape(packet.payload(:), 3, width).';
-            img(row + 1, :, 1) = reshape(rgbTriplets(:, 1), 1, width);
-            img(row + 1, :, 2) = reshape(rgbTriplets(:, 2), 1, width);
-            img(row + 1, :, 3) = reshape(rgbTriplets(:, 3), 1, width);
+            % Preserve raw bytes; each pixel is high byte then low byte.
+            raw565Bytes(row + 1, :) = reshape(packet.payload(:), 1, width * 2);
+            hi = uint16(packet.payload(1:2:end));
+            lo = uint16(packet.payload(2:2:end));
+            raw565Frame(row + 1, :) = bitor(bitshift(hi, 8), lo).';
             receivedRows(row + 1) = true;
             acceptedLines = acceptedLines + 1;
             nextExpectedRow = row + 1;
@@ -183,12 +183,12 @@ while true
                 doneStats.height == height && ...
                 doneStats.lines == height && ...
                 doneStats.pixels == width * height && ...
-                doneStats.uartBytes == width * height * 3 && ...
+                doneStats.uartBytes == width * height * 2 && ...
                 all(receivedRows);
 
             if frameComplete
                 receiverState = "COMPLETE";
-                fprintf("[DONE] Complete frame received: %d/%d rows, %d RGB bytes.\n", ...
+                fprintf("[DONE] Complete frame received: %d/%d rows, %d RGB565 bytes.\n", ...
                     acceptedLines, height, doneStats.uartBytes);
             else
                 receiverState = "INCOMPLETE";
@@ -228,13 +228,12 @@ fprintf("UART bytes read: %d | max driver queue: %d | max parser buffer: %d byte
 
 if ~isempty(img)
     if frameComplete
-        figure("Name", "GC0308 RGB888 frame from FPGA");
-        image(img);
-        axis image off;
-        title(sprintf("GC0308 frame: %d x %d RGB888", width, height));
+        figure("Name", "GC0308 raw RGB565 preview");
+        imshow(decodeRgb565(raw565Frame));
+        title(sprintf("GC0308 raw RGB565: %d x %d", width, height));
     else
-        figure("Name", "Partial GC0308 RGB888 frame");
-        image(img);
+        figure("Name", "Partial GC0308 RGB565 frame");
+        imshow(decodeRgb565(raw565Frame));
         axis image off;
         title(sprintf("Partial frame: %d/%d rows received", acceptedLines, height));
         figure("Name", "Received row map");
@@ -244,7 +243,7 @@ if ~isempty(img)
         title("Rows with valid CRC");
     end
 
-    save("uart_received_frame.mat", "img", "width", "height", ...
+    save("uart_received_frame.mat", "raw565Frame", "raw565Bytes", "width", "height", ...
         "receivedRows", "frameComplete", "acceptedLines", ...
         "duplicateLines", "outOfOrderLines", "badCrcCandidates", ...
         "discardedBytes", "doneStats", "gotError", "totalBytesRead", ...
@@ -410,6 +409,17 @@ function value = readLE32(bytes)
     for k = 1:min(4, numel(bytes))
         value = bitor(value, bitshift(uint32(bytes(k)), 8 * (k - 1)));
     end
+end
+
+function rgb = decodeRgb565(frame)
+    p = uint16(frame);
+    r5 = bitshift(bitand(p, uint16(63488)), -11);
+    g6 = bitshift(bitand(p, uint16(2016)), -5);
+    b5 = bitand(p, uint16(31));
+    r8 = uint8(bitor(bitshift(r5, 3), bitshift(r5, -2)));
+    g8 = uint8(bitor(bitshift(g6, 2), bitshift(g6, -4)));
+    b8 = uint8(bitor(bitshift(b5, 3), bitshift(b5, -2)));
+    rgb = cat(3, r8, g8, b8);
 end
 
 function name = errorName(code)
