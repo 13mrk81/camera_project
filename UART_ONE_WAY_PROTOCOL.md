@@ -96,10 +96,10 @@ For 640 x 480 raw RGB565:
 - LINE packet: 9 + 1,280 = 1,289 bytes per row.
 - All LINE packets: 618,720 bytes.
 - STAGE, READY, and DONE packets add another 73 bytes.
-- UART wire time without inter-byte gaps is approximately 53.0 s at the divider-derived baud.
-- The 25 us inter-byte gaps add approximately 15.36 s for 618,793 transmitted bytes.
+- UART wire time without inter-byte gaps is approximately 53.37 s at the divider-derived baud.
+- The 25 us inter-byte gaps add approximately 15.47 s for 618,793 transmitted bytes.
 - 20 ms quiet gaps between the 484 packet boundaries add 9.68 s.
-- Estimated total transfer time is approximately 78.0 s, excluding camera capture and HyperRAM write time.
+- Estimated total transfer time is approximately 78.52 s, excluding camera capture and HyperRAM write time.
 
 The second asynchronous FIFO has 512 32-bit entries by default. One 640-pixel row requires 320 32-bit RGB565 words, so the FIFO can hold one full row with 192 entries of margin. The reader fills one complete row before setting line-ready. The serializer then drains that row through the UART ready/valid interface. The next row is not read until the current row's LINE packet has fully left the UART and the local acknowledgement crosses to the HyperRAM clock domain.
 
@@ -119,7 +119,7 @@ Reset release remains a separate sign-off item: the top currently holds rst_n hi
 
 ## 6. MATLAB receiver behavior
 
-The MATLAB receiver uses the modern `serialport` API. This API does not expose a documented user-configurable `InputBufferSize`; receive buffering is managed automatically by MATLAB. The script drains available bytes in chunks up to 8,192 bytes into a dynamically growing MATLAB parser buffer, then validates complete packets and CRCs. It records total bytes read, maximum observed driver-queue occupancy, and maximum parser-buffer size. A default 640-pixel LINE packet is 1,929 bytes, so each read chunk can hold at least four complete LINE packets when that many bytes are available.
+The MATLAB receiver uses the modern `serialport` API. This API does not expose a documented user-configurable `InputBufferSize`; receive buffering is managed automatically by MATLAB. The script drains available bytes in chunks up to 8,192 bytes into a dynamically growing MATLAB parser buffer, then validates complete packets and CRCs. It records total bytes read, maximum observed driver-queue occupancy, and maximum parser-buffer size. A default 640-pixel RGB565 LINE packet is 1,289 bytes, so each read chunk can hold at least six complete LINE packets when that many bytes are available.
 
 The MATLAB script:
 1. Opens the serial port and sends no bytes.
