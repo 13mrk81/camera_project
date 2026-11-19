@@ -5,9 +5,8 @@ use ieee.numeric_std.all;
 -- Integration wrapper for the readout half of the architecture:
 -- HyperRAM read-command adapter -> line reader -> FIFO #2 -> RGB serializer.
 --
--- mem_clk is the HyperRAM user clock (usr_clk in the original design).
--- uart_clk may equal mem_clk for the first implementation; if not, the FIFO
--- and line_ready/line_consumed CDC paths are handled explicitly.
+-- mem_clk is the 48 MHz HyperRAM user clock; uart_clk is the 24 MHz system clock.
+-- The output FIFO remains asynchronous, with independent reset release in each domain.
 --
 -- This wrapper deliberately does NOT directly drive the generated Gowin
 -- HyperRAM IP pins. Its abstract valid/ready read-command interface must be
@@ -26,7 +25,8 @@ entity hyperram_line_readout is
     port (
         mem_clk                : in  std_logic;
         uart_clk               : in  std_logic;
-        rst_n                  : in  std_logic;
+        mem_rst_n              : in  std_logic;
+        uart_rst_n             : in  std_logic;
         frame_written_i        : in  std_logic;
         line_ack_i             : in  std_logic; -- local completion, mem_clk domain
         line_retry_i           : in  std_logic; -- tied low in one-way mode
@@ -95,7 +95,8 @@ begin
             G_ADDR_BITS => G_FIFO_ADDR_BITS
         )
         port map (
-            rst_n      => rst_n,
+            wr_rst_n   => mem_rst_n,
+            rd_rst_n   => uart_rst_n,
             wr_clk     => mem_clk,
             wr_en_i    => fifo_wr_en,
             wr_data_i  => fifo_wr_data,
@@ -122,7 +123,7 @@ begin
         )
         port map (
             clk                 => mem_clk,
-            rst_n               => rst_n,
+            rst_n               => mem_rst_n,
             frame_written_i     => frame_written_i,
             rd_cmd_valid_o      => mem_rd_cmd_valid_o,
             rd_cmd_ready_i      => mem_rd_cmd_ready_i,
@@ -155,7 +156,7 @@ begin
         )
         port map (
             uart_clk            => uart_clk,
-            rst_n               => rst_n,
+            rst_n               => uart_rst_n,
             line_ready_i        => line_ready,
             line_ack_i          => line_ack_uart_i,
             line_retry_i        => line_retry_uart_i,
