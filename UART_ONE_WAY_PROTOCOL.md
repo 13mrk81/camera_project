@@ -1,4 +1,4 @@
-# One-way UART Protocol — GC0308 Raw RGB565 Stream
+# One-way UART Protocol — GC0308 Gray8 Stream
 
 ## 1. Link contract
 
@@ -8,7 +8,7 @@ A user presses the Tang Nano 4K onboard KEY1 button. The FPGA synchronizes and d
 
 UART configuration is 8 data bits, no parity, one stop bit (8N1), with the transmitter configured for 115200 baud from an 8 MHz clock. The UART divider is 69 clocks/bit, giving an actual nominal baud of approximately 115942 baud (+0.64% relative to 115200). Confirm the USB-UART adapter tolerates this clock-derived rate on the board.
 
-The FPGA waits 20 ms between complete packets. The UART TX also inserts a 25 us idle-high interval after every byte (including packet-final bytes) before accepting the next byte. This is configurable and is currently 200 clk8 cycles at 8 MHz.
+The FPGA waits 50 ms between complete packets. The UART TX also inserts a 25 us idle-high interval after every byte (including packet-final bytes) before accepting the next byte. This is configurable and is currently 200 clk8 cycles at 8 MHz.
 
 ## 2. Packet framing
 
@@ -46,15 +46,15 @@ Payload is exactly six bytes:
 
 width_lo, width_hi, height_lo, height_hi, bytes_per_pixel, pixel_format
 
-For this project, bytes_per_pixel = 2 and pixel_format = 2 (raw RGB565). The default geometry is 640 x 480.
+For this project, bytes_per_pixel = 1 and pixel_format = 3 (Gray8 BT.601 luma derived from RGB565). The default geometry is 640 x 480.
 
 ### 0x20 — LINE
 
 - SEQUENCE is the zero-based row index.
-- PAYLOAD_LENGTH must equal width * 2.
-- Pixels are serialized from left to right as the original 16-bit RGB565 words read from HyperRAM.
-- Each pixel is sent MSB byte first, then LSB byte: pixel0[15:8], pixel0[7:0], pixel1[15:8], pixel1[7:0], ...
-- No RGB565-to-RGB888 expansion or channel remapping is performed in the FPGA.
+- PAYLOAD_LENGTH must equal width.
+- Gray8 samples are serialized left to right. Each sample is BT.601 luma computed from the corresponding RGB565 pixel read from HyperRAM.
+- Each pixel contributes exactly one Gray8 byte.
+- The HyperRAM contents remain RGB565; grayscale conversion occurs only in the UART readout serializer.
 - CRC16 is computed independently for every line.
 
 MATLAB stores a row only after its packet CRC and row length pass validation. Row sequence is used as the matrix row index, not the order in which bytes happen to arrive.
@@ -68,10 +68,10 @@ Sequence equals the frame height. Payload is exactly 16 bytes:
 | 0..1 | Height | uint16 little-endian |
 | 2..3 | Lines emitted by serializer | uint16 little-endian |
 | 4..7 | Pixels emitted | uint32 little-endian |
-| 8..11 | RGB565 UART payload bytes emitted | uint32 little-endian |
-| 12..15 | Raw RGB565 HyperRAM readback CRC32 | uint32 little-endian |
+| 8..11 | Gray8 UART payload bytes emitted | uint32 little-endian |
+| 12..15 | Gray8 readback CRC32 | uint32 little-endian |
 
-DONE is sent only after the final LINE packet is physically complete, its local readout acknowledgement has been processed by the serializer, and the serializer reports completion. The 20 ms packet gap is observed between the final LINE and DONE.
+DONE is sent only after the final LINE packet is physically complete, its local readout acknowledgement has been processed by the serializer, and the serializer reports completion. The 50 ms packet gap is observed between the final LINE and DONE.
 
 ### 0x7F — ERROR
 
@@ -85,21 +85,21 @@ Payload is exactly [error_code, detail].
 | 0x04 | HyperRAM readout or RGB serializer error |
 | 0x05 | RGB line source starvation timeout |
 
-For a truncated LINE packet, the FPGA waits for the UART transmitter to return to idle, then waits a full 20 ms before sending ERROR. MATLAB scans for a later complete CRC-valid SOF packet, so it can abandon the partial row and still decode the ERROR packet.
+For a truncated LINE packet, the FPGA waits for the UART transmitter to return to idle, then waits a full 50 ms before sending ERROR. MATLAB scans for a later complete CRC-valid SOF packet, so it can abandon the partial row and still decode the ERROR packet.
 
 ## 4. Timing, throughput, and buffering
 
 At 8 MHz, the UART divider is 69 clocks per bit. With 8N1, one byte occupies 10 bit periods, or about 86.25 microseconds. The configured 25 us inter-byte idle interval makes the byte slot approximately 111.25 us; the UART bit rate itself remains approximately 115942 baud.
 
-For 640 x 480 raw RGB565:
-- RGB565 payload: 1,280 bytes per row and 614,400 bytes per frame.
-- LINE packet: 9 + 1,280 = 1,289 bytes per row.
-- All LINE packets: 618,720 bytes.
+For 640 x 480 Gray8:
+- Gray8 payload: 640 bytes per row and 307,200 bytes per frame.
+- LINE packet: 9 + 640 = 649 bytes per row.
+- All LINE packets: 311,520 bytes.
 - STAGE, READY, and DONE packets add another 73 bytes.
-- UART wire time without inter-byte gaps is approximately 53.37 s at the divider-derived baud.
-- The 25 us inter-byte gaps add approximately 15.47 s for 618,793 transmitted bytes.
-- 20 ms quiet gaps between the 484 packet boundaries add 9.68 s.
-- Estimated total transfer time is approximately 78.52 s, excluding camera capture and HyperRAM write time.
+- UART wire time without inter-byte gaps is approximately 26.88 s at the divider-derived baud.
+- The 25 us inter-byte gaps add approximately 7.79 s for 311,593 transmitted bytes.
+- 50 ms quiet gaps between the 484 packet boundaries add 24.2 s.
+- Estimated total transfer time is approximately 59 s, excluding camera capture and HyperRAM write time.
 
 The second asynchronous FIFO has 512 32-bit entries by default. One 640-pixel row requires 320 32-bit RGB565 words, so the FIFO can hold one full row with 192 entries of margin. The reader fills one complete row before setting line-ready. The serializer then drains that row through the UART ready/valid interface. The next row is not read until the current row's LINE packet has fully left the UART and the local acknowledgement crosses to the HyperRAM clock domain.
 
@@ -119,7 +119,7 @@ Reset release remains a separate sign-off item: the top currently holds rst_n hi
 
 ## 6. MATLAB receiver behavior
 
-The MATLAB receiver uses the modern `serialport` API. This API does not expose a documented user-configurable `InputBufferSize`; receive buffering is managed automatically by MATLAB. The script drains available bytes in chunks up to 8,192 bytes into a dynamically growing MATLAB parser buffer, then validates complete packets and CRCs. It records total bytes read, maximum observed driver-queue occupancy, and maximum parser-buffer size. A default 640-pixel RGB565 LINE packet is 1,289 bytes, so each read chunk can hold at least six complete LINE packets when that many bytes are available.
+The MATLAB receiver uses the modern `serialport` API and lets MATLAB manage the driver receive queue. It accumulates incoming chunks in a bounded packet parser, validates each packet CRC16 as soon as the complete packet arrives, and only then copies a LINE payload into the preallocated Gray8 frame matrix. The FPGA inserts a 50 ms quiet interval after each complete packet to provide host-side processing margin.
 
 The MATLAB script:
 1. Opens the serial port and sends no bytes.
@@ -129,6 +129,6 @@ The MATLAB script:
 5. Stores each LINE payload as raw bytes and reconstructs uint16 RGB565 words using the documented MSB-first wire order.
 6. Uses a sliding SOF search and candidate CRC validation to resynchronize after a partial/corrupt packet.
 7. Checks DONE counters and that every expected row arrived before marking the frame complete.
-8. Saves raw RGB565 bytes, reconstructed 16-bit words, row-validity map, and link statistics.
+8. Saves the Gray8 frame, row-validity map, CRC results, and link statistics.
 
 No ACK/NACK or other host-to-FPGA command is part of this protocol.
