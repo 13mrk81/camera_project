@@ -2,7 +2,7 @@ library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 
--- One-shot GC0308 -> RGB565 HyperRAM capture and one-way RGB888 UART stream.
+-- One-shot GC0308 -> RGB565 HyperRAM capture and one-way raw RGB565 UART stream.
 -- An on-board active-low pushbutton triggers capture; MATLAB is receive-only.
 --
 -- Memory format (640x480 defaults):
