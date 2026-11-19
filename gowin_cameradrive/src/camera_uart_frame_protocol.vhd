@@ -6,9 +6,9 @@ use ieee.numeric_std.all;
 -- Packet: A5 5A TYPE SEQ_LO SEQ_HI LEN_LO LEN_HI PAYLOAD CRC_HI CRC_LO.
 -- CRC-16/CCITT-FALSE covers TYPE through the last PAYLOAD byte, not the SOF.
 -- Sequence, length and payload integers are little-endian.
--- Types: 10 STAGE [stage,detail]; 11 READY [width(2),height(2),02,02];
--- 20 LINE [raw RGB565 bytes, MSB first per pixel, sequence=row]; 30 DONE [height(2),
--- lines(2),pixels(4),uart_bytes(4),raw_RGB565_CRC32(4)];
+-- Types: 10 STAGE [stage,detail]; 11 READY [width(2),height(2),01,03];
+-- 20 LINE [Gray8 bytes, sequence=row]; 30 DONE [height(2),
+-- lines(2),pixels(4),uart_bytes(4),Gray8_CRC32(4)];
 -- 7F ERROR [error_code,detail].
 --
 -- A line is internally acknowledged only after CRC_LO's stop bit completes.
@@ -17,7 +17,7 @@ entity camera_uart_frame_protocol is
     generic (
         G_FRAME_WIDTH           : positive := 640;
         G_FRAME_HEIGHT          : positive := 480;
-        G_PACKET_GAP_CYCLES     : positive := 160_000;
+        G_PACKET_GAP_CYCLES     : positive := 400_000;
         G_SOURCE_TIMEOUT_CYCLES : positive := 32_000_000;
         G_FRAME_TIMEOUT_CYCLES  : positive := 120_000_000
     );
@@ -52,7 +52,7 @@ entity camera_uart_frame_protocol is
 end entity;
 
 architecture rtl of camera_uart_frame_protocol is
-    constant C_LINE_BYTES       : positive := G_FRAME_WIDTH * 2;
+    constant C_LINE_BYTES       : positive := G_FRAME_WIDTH;
     constant C_WIDTH_U16        : unsigned(15 downto 0) := to_unsigned(G_FRAME_WIDTH, 16);
     constant C_HEIGHT_U16       : unsigned(15 downto 0) := to_unsigned(G_FRAME_HEIGHT, 16);
     constant C_LINE_BYTES_U16   : unsigned(15 downto 0) := to_unsigned(C_LINE_BYTES, 16);
@@ -139,7 +139,7 @@ begin
     assert G_FRAME_HEIGHT <= 65535
         report "UART protocol: frame height must fit in 16 bits" severity failure;
     assert C_LINE_BYTES <= 65535
-        report "UART protocol: RGB565 line length must fit in 16 bits" severity failure;
+        report "UART protocol: Gray8 line length must fit in 16 bits" severity failure;
     assert G_PACKET_GAP_CYCLES > 0
         report "UART protocol: packet gap must be greater than zero" severity failure;
     assert G_SOURCE_TIMEOUT_CYCLES > 0
@@ -481,7 +481,7 @@ begin
     end process;
 
     -- Byte transmitter. In TX_WAIT_UART_IDLE, wait for the final UART stop bit
-    -- before signaling packet completion or starting the 20 ms quiet interval.
+    -- before signaling packet completion or starting the 50 ms quiet interval.
     process(clk, rst_n)
     begin
         if rst_n = '0' then
@@ -627,8 +627,8 @@ begin
                                         when 1 => tx_data_reg <= std_logic_vector(C_WIDTH_U16(15 downto 8));
                                         when 2 => tx_data_reg <= std_logic_vector(C_HEIGHT_U16(7 downto 0));
                                         when 3 => tx_data_reg <= std_logic_vector(C_HEIGHT_U16(15 downto 8));
-                                        when 4 => tx_data_reg <= x"02"; -- bytes per pixel
-                                        when others => tx_data_reg <= x"02"; -- RGB565 format
+                                        when 4 => tx_data_reg <= x"01"; -- bytes per pixel
+                                        when others => tx_data_reg <= x"03"; -- Gray8 format
                                     end case;
                                 when PKT_DONE =>
                                     case tx_payload_index is
