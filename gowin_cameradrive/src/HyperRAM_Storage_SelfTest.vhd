@@ -39,7 +39,7 @@ entity HyperRAM_Storage_SelfTest is
         O_hpram_cs_n        : out std_logic_vector(0 downto 0);
         O_hpram_reset_n     : out std_logic_vector(0 downto 0)
     );
-end entity;end entity;
+end entity;
 
 architecture rtl of HyperRAM_Storage_SelfTest is
     --------------------------------------------------------------------------
@@ -1068,7 +1068,11 @@ begin
     -- bit5 capture-vs-write CRC, bit6 write-vs-read-ingress CRC,
     -- bit7 capture byte count, bit8 write word count, bit9 read word count,
     -- bit13 means storage checkpoints/counts all passed.
-    process(all)
+    process(capture_error_sync_usr, write_error_reg, reader_error,
+            serializer_error_sync_usr, protocol_error_sync_usr,
+            capture_crc_usr, write_crc_reg, read_ingress_crc_usr,
+            capture_byte_count_usr, write_word_count_u32,
+            read_ingress_word_count_usr)
         variable f : std_logic_vector(15 downto 0);
         variable ok : std_logic;
     begin
