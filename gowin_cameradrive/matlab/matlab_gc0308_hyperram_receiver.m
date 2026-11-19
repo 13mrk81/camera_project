@@ -1,4 +1,4 @@
-%% Receive-only GC0308 / HyperRAM RGB888 stream
+%% Receive-only synthetic RGB565 / HyperRAM RGB888 storage self-test
 % The FPGA is triggered by the Tang Nano 4K onboard KEY1 pushbutton.
 % This script DOES NOT write any bytes to the UART.
 %
@@ -8,7 +8,7 @@
 %
 % Types:
 %   10 STAGE: [stage_code, detail]
-%       01 trigger accepted, 02 camera configured, 03 frame stored
+%       01 trigger accepted, 02 synthetic source ready, 03 frame stored
 %   11 READY: [widthLo widthHi heightLo heightHi 03 01] (RGB888)
 %   20 LINE:  seq = zero-based row, payload = RGB triplets R,G,B
 %   30 DONE:  46-byte report: stream summary, capture/write/read-ingress CRCs,
@@ -87,7 +87,7 @@ while true
                     fprintf("[STAGE 1/3] FPGA accepted KEY1 trigger. Camera setup started.\n");
                 case 2
                     receiverState = "WAIT_FRAME_STORED";
-                    fprintf("[STAGE 2/3] Camera configured and RGB565 mode verified.\n");
+                    fprintf("[STAGE 2/3] Synthetic RGB565 source ready.\n");
                 case 3
                     receiverState = "WAIT_READY";
                     fprintf("[STAGE 3/3] Frame captured and stored in HyperRAM.\n");
