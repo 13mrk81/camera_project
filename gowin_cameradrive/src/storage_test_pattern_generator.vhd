@@ -6,13 +6,14 @@ use ieee.numeric_std.all;
 -- The output is one RGB565 byte per clk_i cycle during active line periods.
 -- Two consecutive bytes form one pixel: MSB first, then LSB.
 --
--- Default timing assumes a 24 MHz byte clock, 1280 active bytes/line,
--- 106 blank cycles/line, and 155232 vertical blank cycles:
---   480 * (1280 + 106) + 155232 = 820512 clocks.
--- At 24 MHz this is about 29.25 frames/s, based on GC0308 default Hb=0x6A
--- and Vb=0x70 values. Verify actual PCLK/blanking on the configured sensor.
--- These blanking values are explicit generics and should be replaced by
--- measured camera timing if exact sensor cadence is required.
+-- Default timing follows the project's GC0308 init table:
+--   P0:0x01=0x32 and P0:0x0F=0x01 -> Hb=0x132=306 PCLKs
+--   P0:0x02=0x0C and P0:0x0F=0x01 -> Vb=0x00C=12 line periods
+--   P0:0x09/0x0A configure a 488-row window; capture retains 480 rows.
+-- Model 8 non-payload window rows plus 12 VBlank rows:
+--   line clocks = 1280 active bytes + 306 HBlank = 1586
+--   frame clocks = 480*1586 + 20*1586 = 793000
+-- At 24 MHz this is about 30.29 frames/s. Confirm against measured DVP timing.
 entity storage_test_pattern_generator is
     generic (
         G_FRAME_WIDTH          : positive := 640;
