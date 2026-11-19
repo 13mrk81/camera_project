@@ -620,10 +620,10 @@ begin
             byte_data_o    => cam_byte_data,
             byte_valid_o   => cam_byte_valid,
             frame_done_o   => cam_frame_done,
-            busy_o         => test_source_busy,
+            busy_o         => open,
             error_o        => test_source_error,
             byte_count_o   => test_source_byte_count,
-            line_count_o   => test_source_line_count
+            line_count_o   => open
         );
 
     -- The synthetic source has no I2C setup phase; satisfy the existing
