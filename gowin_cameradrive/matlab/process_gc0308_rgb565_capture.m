@@ -1,5 +1,7 @@
-%% Offline GC0308 RGB565 byte-order and channel-order analysis
+%% Offline GC0308 RGB565 channel-order analysis (MSB-first)
 % Uses raw bytes captured by matlab_gc0308_hyperram_receiver.m.
+% Assumes the wire format is high byte then low byte for each RGB565 pixel.
+% Tests all six permutations of the decoded R, G and B components.
 % No FPGA/UART transfer is needed for these experiments.
 
 clear;
@@ -21,56 +23,63 @@ wireBytes = uint8(S.raw565Bytes);
 assert(isequal(size(wireBytes), [H, 2*W]), ...
     "Raw byte matrix has an unexpected size.");
 
-% Candidate A: FPGA wire contract, high byte then low byte per pixel.
+% MSB-first: high byte followed by low byte for each pixel.
 hi = uint16(wireBytes(:,1:2:end));
 lo = uint16(wireBytes(:,2:2:end));
 rgb565_msb = bitor(bitshift(hi, 8), lo);
 
-% Candidate B: byte-swapped 16-bit words.
-rgb565_lsb = bitor(bitshift(lo, 8), hi);
+% Extract RGB565 fields and expand each field to 8 bits.
+% The six tests below only permute these three expanded components.
+p = rgb565_msb;
+r5 = bitshift(bitand(p, uint16(63488)), -11);
+g6 = bitshift(bitand(p, uint16(2016)), -5);
+b5 = bitand(p, uint16(31));
 
-candidates = {
-    decode565(rgb565_msb, "RGB"), "MSB-first / RGB565";
-    decode565(rgb565_msb, "BGR"), "MSB-first / BGR565";
-    decode565(rgb565_lsb, "RGB"), "LSB-first / RGB565";
-    decode565(rgb565_lsb, "BGR"), "LSB-first / BGR565"
-};
+r8 = uint8(bitor(bitshift(r5, 3), bitshift(r5, -2)));
+g8 = uint8(bitor(bitshift(g6, 2), bitshift(g6, -4)));
+b8 = uint8(bitor(bitshift(b5, 3), bitshift(b5, -2)));
 
-figure("Name", "GC0308 RGB565 interpretation candidates", "Color", "w");
-for k = 1:size(candidates,1)
-    subplot(2,2,k);
-    imshow(candidates{k,1});
+% All six possible channel permutations.
+channelOrders = ["RGB", "RBG", "GRB", "GBR", "BRG", "BGR"];
+candidates = cell(numel(channelOrders), 2);
+
+figure("Name", "GC0308 RGB565 - MSB-first channel permutations", ...
+    "Color", "w");
+
+for k = 1:numel(channelOrders)
+    order = char(channelOrders(k));
+
+    switch order
+        case "RGB"
+            rgb = cat(3, r8, g8, b8);
+        case "RBG"
+            rgb = cat(3, r8, b8, g8);
+        case "GRB"
+            rgb = cat(3, g8, r8, b8);
+        case "GBR"
+            rgb = cat(3, g8, b8, r8);
+        case "BRG"
+            rgb = cat(3, b8, r8, g8);
+        case "BGR"
+            rgb = cat(3, b8, g8, r8);
+    end
+
+    candidates{k,1} = rgb;
+    candidates{k,2} = "MSB-first / " + channelOrders(k);
+
+    subplot(2,3,k);
+    imshow(rgb);
     title(candidates{k,2}, "Interpreter", "none");
-end
 
-imwrite(candidates{1,1}, "gc0308_msb_rgb565.png");
-imwrite(candidates{2,1}, "gc0308_msb_bgr565.png");
-imwrite(candidates{3,1}, "gc0308_lsb_rgb565.png");
-imwrite(candidates{4,1}, "gc0308_lsb_bgr565.png");
+    outputFile = "gc0308_msb_" + lower(channelOrders(k)) + ".png";
+    imwrite(rgb, outputFile);
+end
 
 save("gc0308_rgb565_offline_candidates.mat", ...
-    "wireBytes", "rgb565_msb", "rgb565_lsb", "candidates", "W", "H");
+    "wireBytes", "rgb565_msb", "r8", "g8", "b8", ...
+    "channelOrders", "candidates", "W", "H");
 
-fprintf("Loaded one captured frame: %d x %d pixels.\n", W, H);
-fprintf("Generated four offline interpretations; no FPGA transfer was performed.\n");
-fprintf("Wire byte order in this revision is high byte then low byte per pixel.\n");
-
-function rgb = decode565(frame, channelOrder)
-    p = uint16(frame);
-    c5a = bitshift(bitand(p, uint16(63488)), -11);
-    c6  = bitshift(bitand(p, uint16(2016)), -5);
-    c5b = bitand(p, uint16(31));
-
-    c8a = uint8(bitor(bitshift(c5a, 3), bitshift(c5a, -2)));
-    g8  = uint8(bitor(bitshift(c6, 2), bitshift(c6, -4)));
-    c8b = uint8(bitor(bitshift(c5b, 3), bitshift(c5b, -2)));
-
-    switch upper(channelOrder)
-        case "RGB"
-            rgb = cat(3, c8a, g8, c8b);
-        case "BGR"
-            rgb = cat(3, c8b, g8, c8a);
-        otherwise
-            error("Unsupported channel order: %s", channelOrder);
-    end
-end
+fprintf("Loaded one captured frame: %d x %d pixels.\\n", W, H);
+fprintf("Generated all six MSB-first channel permutations.\\n");
+fprintf("No FPGA transfer was performed.\\n");
+fprintf("Wire byte order: high byte then low byte per pixel.\\n");
