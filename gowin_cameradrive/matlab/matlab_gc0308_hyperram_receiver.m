@@ -43,7 +43,6 @@ transferStarted = false;
 frameReady = false;
 frameComplete = false;
 gotError = false;
-img = [];
 receivedRows = false(0, 1);
 nextExpectedRow = 0;
 acceptedLines = 0;
@@ -226,7 +225,7 @@ fprintf("Rejected CRC candidates: %d | discarded bytes during resync: %d\n", ...
 fprintf("UART bytes read: %d | max driver queue: %d | max parser buffer: %d bytes\n", ...
     totalBytesRead, maxDriverQueueBytes, maxSoftwareBufferBytes);
 
-if ~isempty(img)
+if exist("raw565Frame", "var")
     if frameComplete
         figure("Name", "GC0308 raw RGB565 preview");
         imshow(decodeRgb565(raw565Frame));
