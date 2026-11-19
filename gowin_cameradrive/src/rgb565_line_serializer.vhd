@@ -4,6 +4,10 @@ use ieee.numeric_std.all;
 
 -- Convert two RGB565 pixels read from one HyperRAM FIFO word into two Gray8
 -- samples. Luma uses BT.601 integer coefficients after channel expansion.
+--
+-- The upstream GC0308 packer emits RGB565 big-endian byte order and places
+-- the first/left pixel in FIFO bits [31:16], the second/right pixel in
+-- FIFO bits [15:0]. Do not byte-swap these halfwords here.
 entity rgb565_line_serializer is
     generic (
         G_FRAME_WIDTH          : positive := 640;
@@ -180,6 +184,8 @@ begin
 
                 when ST_WAIT_WORD =>
                     if fifo_rd_valid_i = '1' then
+                        -- FIFO upper half is the earlier sensor pixel. The
+                        -- packer already assembled each pixel as MSB byte first.
                         gray0 := rgb565_to_gray(fifo_rd_data_i(31 downto 16));
                         gray1 := rgb565_to_gray(fifo_rd_data_i(15 downto 0));
                         gray_pair_reg <= gray0 & gray1;
