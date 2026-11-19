@@ -56,6 +56,7 @@ maxSoftwareBufferBytes = 0;
 lastErrorCode = uint8(0);
 lastErrorDetail = uint8(0);
 doneStats = struct();
+matlabRawCrc32 = uint32(0);
 
 %% Packet receive and frame reconstruction
 while true
@@ -178,12 +179,20 @@ while true
             doneStats.uartBytes = double(readLE(packet.payload(9:12)));
             doneStats.rawRgb565Crc32 = readLE32(packet.payload(13:16));
 
+            % Recompute CRC over the exact received wire-byte order:
+            % row 0 bytes first, then row 1, etc. No RGB conversion here.
+            if frameReady && all(receivedRows)
+                wireByteStream = reshape(raw565Bytes.', [], 1);
+                matlabRawCrc32 = crc32Mpeg2(wireByteStream);
+            end
+
             frameComplete = frameReady && ...
                 doneStats.height == height && ...
                 doneStats.lines == height && ...
                 doneStats.pixels == width * height && ...
                 doneStats.uartBytes == width * height * 2 && ...
-                all(receivedRows);
+                all(receivedRows) && ...
+                matlabRawCrc32 == doneStats.rawRgb565Crc32;
 
             if frameComplete
                 receiverState = "COMPLETE";
@@ -195,6 +204,11 @@ while true
                     acceptedLines, height, doneStats.lines, doneStats.pixels, doneStats.uartBytes);
             end
             fprintf("FPGA raw RGB565 readback CRC32: %08X\n", doneStats.rawRgb565Crc32);
+            if frameReady && all(receivedRows)
+                fprintf("MATLAB received-byte CRC32:       %08X\n", matlabRawCrc32);
+                fprintf("Raw RGB565 byte-stream CRC match: %s\n", ...
+                    string(matlabRawCrc32 == doneStats.rawRgb565Crc32));
+            end
             break;
 
         case hex2dec("7F")  % ERROR
@@ -243,7 +257,7 @@ if exist("raw565Frame", "var")
     end
 
     save("uart_received_frame.mat", "raw565Frame", "raw565Bytes", "width", "height", ...
-        "receivedRows", "frameComplete", "acceptedLines", ...
+        "receivedRows", "frameComplete", "matlabRawCrc32", "acceptedLines", ...
         "duplicateLines", "outOfOrderLines", "badCrcCandidates", ...
         "discardedBytes", "doneStats", "gotError", "totalBytesRead", ...
         "maxDriverQueueBytes", "maxSoftwareBufferBytes", ...
@@ -419,6 +433,25 @@ function rgb = decodeRgb565(frame)
     g8 = uint8(bitor(bitshift(g6, 2), bitshift(g6, -4)));
     b8 = uint8(bitor(bitshift(b5, 3), bitshift(b5, -2)));
     rgb = cat(3, r8, g8, b8);
+end
+
+function crc = crc32Mpeg2(data)
+% CRC-32/MPEG-2 convention used by the FPGA:
+% poly=0x04C11DB7, init=0xFFFFFFFF, MSB-first, xorout=0.
+% This checks the original RGB565 byte stream, before display decoding.
+    crc = uint32(hex2dec("FFFFFFFF"));
+    polynomial = uint32(hex2dec("04C11DB7"));
+    data = uint8(data(:));
+    for n = 1:numel(data)
+        for bitNumber = 7:-1:0
+            inputBit = bitand(bitshift(data(n), -bitNumber), uint8(1));
+            feedback = bitxor(bitget(crc, 32), inputBit);
+            crc = bitshift(crc, 1);
+            if feedback ~= 0
+                crc = bitxor(crc, polynomial);
+            end
+        end
+    end
 end
 
 function name = errorName(code)
