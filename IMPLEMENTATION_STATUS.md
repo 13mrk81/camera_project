@@ -1,48 +1,55 @@
-# Implementation Status — MATLAB Line Stream
+# Implementation Status — One-way MATLAB RGB888 Line Stream
 
-Last updated: 2026-11-16
+Last updated: 2026-11-17
 
 ## Repository safety
-- Working branch: `feature/matlab-line-stream`.
-- Base branch: `main`.
-- All implementation commits target this feature branch only.
-- A final GitHub comparison confirmed the feature branch is ahead of `main` and has no commits missing from `main`; the branch has not been merged.
-- No merge or changes to `main` have been made.
+
+- Working branch: feature/matlab-line-stream (this is the existing branch matching the prior MATLAB-line work; no separate branch named matlab-line exists).
+- Repository: 13mrk81/camera_project.
+- All changes for this implementation are being made on this branch only.
+- No merge or change to main is intended.
 
 ## Baseline inspected
-The current branch baseline and existing UART protocol sources were inspected before editing. The camera design defaults to 640x480. RGB565 is stored as two pixels per 32-bit HyperRAM word. Existing MATLAB code already implements the READY/LINE/DONE protocol, RGB888, CRC-16/CCITT-FALSE and ACK/NACK.
 
-## Completed and saved
-- [x] Created this status log, `DESIGN_NOTES.md`, and `VALIDATION.md`.
-- [x] Added `camera_uart_frame_protocol.vhd`, adapted from the existing UART protocol. START is decoded as byte 0xC1; it triggers capture, then waits for HyperRAM write completion/error before READY.
-- [x] Added `pulse_toggle_cdc.vhd` for sparse control-event crossings.
-- [x] Copied UART RX/TX into `gowin_cameradrive/src` and added all new VHDL files to `HYPER_RAM_CONTROL.gprj`.
-- [x] Replaced raw UART falling-edge camera trigger with decoded START and clk8-to-clk24 CDC.
-- [x] Connected physical UART RX/TX at 8 MHz / 115200 baud / 8N1.
-- [x] Routed RGB888 serializer bytes into the protocol source ready/valid channel.
-- [x] Started HyperRAM readout only after READY has been acknowledged and the first LINE header is sent.
-- [x] Changed the line reader to advance only on host ACK; NACK/ACK timeout rewinds the same line address and retries after FIFO #2 is empty.
-- [x] Changed serializer accounting to checkpoint per-line CRC and counters, commit line count only on ACK, and restore counters on retry.
-- [x] Separated UART-domain ACK/NACK pulses from synchronized HyperRAM-domain ACK/NACK events.
-- [x] Added a bundled final-statistics CDC snapshot to the HyperRAM-domain integrity checker.
-- [x] Added `gowin_cameradrive/matlab/matlab_gc0308_hyperram_receiver.m` for the camera stream, including early ERROR packet handling.
-- [x] Added a bounded FIFO #2 drain timeout to the line reader so a stalled FIFO/CDC produces a reader error instead of an indefinite wait.
-- [x] Completed a source-level review of CRC coverage, RGB565 word order, ACK/NACK retry sequencing, UART handshake, top-level connections and Gowin project entries.
-- [x] Corrected stale UART comments in the top-level source.
+The current branch was inspected before editing. The default frame is 640 x 480. Camera pixels are captured in RGB565, packed two pixels per 32-bit HyperRAM word, then expanded to RGB888 by the line serializer. The original UART protocol required PC-to-FPGA START and per-line ACK/NACK; that host RX dependency is now removed from the active main Gowin top.
 
-## Final review checkpoint
-The final source-level corrections are saved on `feature/matlab-line-stream`. The branch is ahead of `main` and 0 commits behind. This is not a compile/simulation sign-off: all toolchain and board validation items below remain open.
+## Changed in this implementation
 
-## Remaining work
-- [ ] Run a VHDL compiler/elaboration pass and resolve any compile-time issues.
-- [ ] Run protocol-focused simulation: START/capture wait, READY ACK, valid line ACK, NACK retry, ACK timeout retry, final-line ACK, DONE ACK.
-- [ ] Verify CRC and RGB byte order against MATLAB with a known test pattern.
-- [ ] Open the Gowin project and run synthesis, timing analysis, and bitstream generation.
-- [ ] Test on Tang Nano 4K + GC0308 + HyperRAM + USB-UART.
-- [ ] Record board-level results and any timing/throughput adjustments.
+- [x] Replaced UART RX START with Tang Nano 4K onboard KEY1 active-low trigger on FPGA pin 14; two-flop synchronizer and 20 ms debounce generate one trigger pulse.
+- [x] Kept UART TX as the only serial data path. The main top no longer instantiates UART RX or contains RX command/echo/self-test selection.
+- [x] Replaced the stop-and-wait host protocol with common framed packets: A5 5A, type, sequence, length, payload, CRC16.
+- [x] Added STAGE logs for trigger accepted, camera configured, and frame stored; READY, LINE, DONE, and ERROR packet types.
+- [x] Defined CRC-16/CCITT-FALSE over TYPE + sequence + payload length + payload; CRC trailer is high byte first.
+- [x] Defined every RGB888 line as R,G,B triplets for pixels left-to-right; line sequence is the zero-based row number.
+- [x] Added 20 ms inter-packet quiet time, including the final LINE -> DONE boundary and safe ERROR recovery after a truncated line.
+- [x] Changed line advance to a local FPGA acknowledgement only after CRC_LO has completed its UART stop bit and TX returns idle; host ACK/NACK and retransmission are removed.
+- [x] Tied readout retry inputs inactive; retained the existing full-line output FIFO, ready/valid serializer, and Gray-pointer asynchronous FIFO.
+- [x] Added clk24 -> clk8 camera-config status synchronizers and usr_clk -> clk8 reader-error synchronizer.
+- [x] Rewrote MATLAB receiver as receive-only, with packet CRC validation, zero-based row mapping, RGB triplet reconstruction, sliding-SOF resynchronization, DONE counter checks, and ERROR handling.
+- [x] Changed the active Gowin project file list to remove UART RX from the main top build.
+- [x] Changed the UART constraint to FPGA TX pin 32 only and added KEY1 trigger pin 14 with LVCMOS18.
+
+## Data-rate and buffering design
+
+At the 8 MHz clock, the current UART divider is 69 clocks/bit, or approximately 115942 baud. At 640 x 480, a LINE packet is 1929 bytes (1920 RGB payload + 9 framing/CRC bytes). Including all packet bytes and 20 ms gaps, estimated wire transfer time is approximately 89.55 s, excluding capture and HyperRAM write time.
+
+Output FIFO #2 is 512 x 32 bits, compared with 320 words for one 640-pixel line. The readout engine only requests the next row after the current row packet is physically complete and the local acknowledgement crosses to usr_clk. This is the intended no-overrun flow-control mechanism; the no-reverse-channel link still cannot retransmit a row lost outside the FPGA.
+
+## Remaining work — must not be reported as completed
+
+- [ ] Verify all VHDL source syntax and named port maps in Gowin EDA.
+- [ ] Simulate packet header/payload/CRC sequencing and UART-ready/valid timing.
+- [ ] Confirm the CRC implementation against the standard 123456789 -> 0x29B1 vector in HDL and MATLAB.
+- [ ] Simulate a full row, source starvation, readout error mid-row, and ERROR packet resynchronization.
+- [ ] Confirm exact Tang Nano 4K KEY1 pin/bank voltage against the board revision and measure trigger/UART signals.
+- [ ] Verify actual USB-UART baud tolerance and host buffering under a ~90 s transfer.
+- [ ] Run Gowin synthesis, timing analysis and bitstream generation.
+- [ ] Test on Tang Nano 4K + GC0308 + HyperRAM and compare a known-color test image.
 
 ## Known validation limitation
-No GHDL, NVC, Vivado, or Gowin command-line compiler is available in the current execution environment. Reset behavior also remains unverified: the top-level has no external reset input and holds `rst_n` high internally, while the PLL-derived `ip_rst_n` is used across multiple clock domains. A direct Git clone also failed because outbound DNS access to github.com is unavailable. GitHub connector reads/writes work. Therefore, current validation is static source/port-map checking only; no compile, synthesis, simulation, or hardware test is claimed.
+
+No GHDL, NVC, MATLAB, or Gowin compiler/IDE was executed as part of this connector-based edit. No VHDL compilation, simulation, synthesis, bitstream generation, or hardware test is claimed. The top still has an unresolved reset sign-off item: rst_n is held high internally and PLL-derived ip_rst_n is consumed across clock domains. Static checks and protocol reference checks are recorded separately in VALIDATION.md.
 
 ## Recovery procedure
-If work is interrupted, read this file first, then `DESIGN_NOTES.md` and `VALIDATION.md`. Fetch the latest files from `feature/matlab-line-stream` before editing; never apply an old patch blindly.
+
+If the session is interrupted, fetch the latest branch head from feature/matlab-line-stream, then read this file, DESIGN_NOTES.md, UART_ONE_WAY_PROTOCOL.md, and VALIDATION.md. Do not replay an old patch over newer work.

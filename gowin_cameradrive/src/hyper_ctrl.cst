@@ -12,13 +12,14 @@ IO_LOC  "clk8" 35;
 IO_PORT "clk8" IO_TYPE=LVCMOS33 PULL_MODE=NONE;
 
 
-// USB-to-UART adapter wiring:
-// FPGA TX (uart_tx_o) -> adapter RX -> FPGA pin 32
-// FPGA RX (uart_rx_i) <- adapter TX <- FPGA pin 31
+// One-way UART: FPGA TX -> USB-UART adapter RX (adapter TX is not connected).
 IO_LOC  "uart_tx_o" 32;
 IO_PORT "uart_tx_o" IO_TYPE=LVCMOS33 PULL_MODE=NONE;
-IO_LOC  "uart_rx_i" 31;
-IO_PORT "uart_rx_i" IO_TYPE=LVCMOS33 PULL_MODE=NONE;
+
+// Tang Nano 4K onboard KEY1/S1, active-low, FPGA pin 14 (1.8 V bank).
+// The board already provides the pull-up; the debounced press triggers capture.
+IO_LOC  "trigger_n_i" 14;
+IO_PORT "trigger_n_i" IO_TYPE=LVCMOS18 PULL_MODE=NONE;
 
 
 // ------------------------------------------------------------

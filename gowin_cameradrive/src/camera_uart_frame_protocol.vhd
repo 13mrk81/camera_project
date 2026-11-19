@@ -2,131 +2,119 @@ library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 
--- Stop-and-wait UART frame protocol.
+-- One-way FPGA -> MATLAB camera stream. The passive host never transmits.
+-- Packet: A5 5A TYPE SEQ_LO SEQ_HI LEN_LO LEN_HI PAYLOAD CRC_HI CRC_LO.
+-- CRC-16/CCITT-FALSE covers TYPE through the last PAYLOAD byte, not the SOF.
+-- Sequence, length and payload integers are little-endian.
+-- Types: 10 STAGE [stage,detail]; 11 READY [width(2),height(2),03,01];
+-- 20 LINE [RGB888 R,G,B triplets, sequence=row]; 30 DONE [height(2),
+-- lines(2),pixels(4),uart_bytes(4),raw_RGB565_CRC32(4)];
+-- 7F ERROR [error_code,detail].
 --
--- Host -> FPGA:
---   0xC1 : START_TRANSFER
---   0x06 : ACK
---   0x15 : NACK
---
--- FPGA -> host (all multibyte integers are little-endian):
---   READY:  A5 01 width[15:0] height[15:0] bytes_per_pixel pixel_format
---   LINE:  A5 02 line_index[15:0] payload_length[15:0] payload crc16_hi crc16_lo
---   DONE:  A5 03 height[15:0]
---
--- CRC is CRC-16/CCITT-FALSE: poly=0x1021, init=0xFFFF, no reflection,
--- xorout=0. For LINE packets CRC covers TYPE through the final payload byte;
--- the SOF byte 0xA5 and the two CRC bytes are not included.
---
--- The data-source interface is a conventional ready/valid byte stream. A
--- line_start_o pulse starts/restarts the current line source. The source must
--- provide exactly G_FRAME_WIDTH*G_BYTES_PER_PIXEL bytes for that line.
--- A line is retransmitted from its beginning after NACK or ACK timeout.
+-- A line is internally acknowledged only after CRC_LO's stop bit completes.
+-- This is local flow control, not an ACK from MATLAB; no retransmission exists.
 entity camera_uart_frame_protocol is
     generic (
-        G_FRAME_WIDTH             : positive := 256;
-        G_FRAME_HEIGHT            : positive := 4;
-        G_BYTES_PER_PIXEL         : positive := 1;
-        G_PIXEL_FORMAT            : std_logic_vector(7 downto 0) := x"00";
-        G_ACK_TIMEOUT_CYCLES      : positive := 16_000_000; -- 2 s at 8 MHz
-        G_SOURCE_TIMEOUT_CYCLES   : positive := 8_000_000; -- 1 s at 8 MHz
-        G_FRAME_TIMEOUT_CYCLES    : positive := 120_000_000; -- 15 s at 8 MHz
-        G_MAX_RETRIES             : natural  := 3
+        G_FRAME_WIDTH           : positive := 640;
+        G_FRAME_HEIGHT          : positive := 480;
+        G_PACKET_GAP_CYCLES     : positive := 160_000;
+        G_SOURCE_TIMEOUT_CYCLES : positive := 32_000_000;
+        G_FRAME_TIMEOUT_CYCLES  : positive := 120_000_000
     );
     port (
-        clk                 : in  std_logic;
-        rst_n               : in  std_logic;
-
-        -- UART RX byte stream.
-        rx_data_i           : in  std_logic_vector(7 downto 0);
-        rx_valid_i          : in  std_logic;
-
-        -- UART TX ready/valid byte stream.
-        tx_data_o           : out std_logic_vector(7 downto 0);
-        tx_valid_o          : out std_logic;
-        tx_ready_i          : in  std_logic;
-
-        -- Assert after the complete camera frame has been committed to HyperRAM.
-        frame_available_i   : in  std_logic;
-        frame_error_i       : in  std_logic;
-
-        -- One pulse before each line payload, including retransmissions.
-        line_start_o        : out std_logic;
-        line_index_o        : out std_logic_vector(15 downto 0);
-
-        -- Source supplies one byte at a time; data is consumed on
-        -- src_valid_i AND src_ready_o.
-        src_data_i          : in  std_logic_vector(7 downto 0);
-        src_valid_i         : in  std_logic;
-        src_ready_o         : out std_logic;
-
-        transfer_start_o    : out std_logic;
-        line_ack_o          : out std_logic;
-        line_retry_o        : out std_logic;
-        busy_o              : out std_logic;
-        done_o              : out std_logic;
-        error_o             : out std_logic
+        clk                   : in  std_logic;
+        rst_n                 : in  std_logic;
+        trigger_i             : in  std_logic;
+        camera_config_done_i  : in  std_logic;
+        camera_config_pass_i  : in  std_logic;
+        frame_available_i     : in  std_logic;
+        frame_error_i         : in  std_logic;
+        readout_error_i       : in  std_logic;
+        serializer_done_i     : in  std_logic;
+        readback_crc_i        : in  std_logic_vector(31 downto 0);
+        pixel_count_i         : in  unsigned(31 downto 0);
+        uart_byte_count_i     : in  unsigned(31 downto 0);
+        lines_sent_i          : in  unsigned(15 downto 0);
+        tx_data_o             : out std_logic_vector(7 downto 0);
+        tx_valid_o            : out std_logic;
+        tx_ready_i            : in  std_logic;
+        line_start_o          : out std_logic;
+        line_index_o          : out std_logic_vector(15 downto 0);
+        src_data_i            : in  std_logic_vector(7 downto 0);
+        src_valid_i           : in  std_logic;
+        src_ready_o           : out std_logic;
+        transfer_start_o      : out std_logic;
+        line_ack_o            : out std_logic;
+        busy_o                : out std_logic;
+        done_o                : out std_logic;
+        error_o               : out std_logic
     );
 end entity;
 
 architecture rtl of camera_uart_frame_protocol is
-    constant C_SOF        : std_logic_vector(7 downto 0) := x"A5";
-    constant C_TYPE_READY : std_logic_vector(7 downto 0) := x"01";
-    constant C_TYPE_LINE  : std_logic_vector(7 downto 0) := x"02";
-    constant C_TYPE_DONE  : std_logic_vector(7 downto 0) := x"03";
+    constant C_LINE_BYTES       : positive := G_FRAME_WIDTH * 3;
+    constant C_WIDTH_U16        : unsigned(15 downto 0) := to_unsigned(G_FRAME_WIDTH, 16);
+    constant C_HEIGHT_U16       : unsigned(15 downto 0) := to_unsigned(G_FRAME_HEIGHT, 16);
+    constant C_LINE_BYTES_U16   : unsigned(15 downto 0) := to_unsigned(C_LINE_BYTES, 16);
+    constant C_DONE_BYTES_U16   : unsigned(15 downto 0) := to_unsigned(16, 16);
+
+    constant C_TYPE_STAGE : std_logic_vector(7 downto 0) := x"10";
+    constant C_TYPE_READY : std_logic_vector(7 downto 0) := x"11";
+    constant C_TYPE_LINE  : std_logic_vector(7 downto 0) := x"20";
+    constant C_TYPE_DONE  : std_logic_vector(7 downto 0) := x"30";
     constant C_TYPE_ERROR : std_logic_vector(7 downto 0) := x"7F";
-    constant C_CMD_START  : std_logic_vector(7 downto 0) := x"C1";
-    constant C_ACK        : std_logic_vector(7 downto 0) := x"06";
-    constant C_NACK       : std_logic_vector(7 downto 0) := x"15";
 
-    constant C_PAYLOAD_BYTES : positive := G_FRAME_WIDTH * G_BYTES_PER_PIXEL;
-    constant C_WIDTH_U16     : unsigned(15 downto 0) := to_unsigned(G_FRAME_WIDTH, 16);
-    constant C_HEIGHT_U16    : unsigned(15 downto 0) := to_unsigned(G_FRAME_HEIGHT, 16);
-    constant C_LENGTH_U16    : unsigned(15 downto 0) := to_unsigned(C_PAYLOAD_BYTES, 16);
-
-    type state_t is (
-        ST_IDLE,
-        ST_SEND_START_ACK,
-        ST_WAIT_FRAME,
-        ST_SEND_READY,
-        ST_WAIT_READY_ACK,
-        ST_SEND_LINE_HEADER,
-        ST_SEND_LINE_DATA,
-        ST_SEND_CRC_HI,
-        ST_SEND_CRC_LO,
-        ST_WAIT_LINE_ACK,
-        ST_SEND_DONE,
-        ST_WAIT_DONE_ACK,
-        ST_SEND_ERROR,
-        ST_DONE,
-        ST_ERROR
+    type packet_kind_t is (PKT_STAGE, PKT_READY, PKT_LINE, PKT_DONE, PKT_ERROR);
+    type tx_state_t is (
+        TX_IDLE, TX_SOF_0, TX_SOF_1, TX_TYPE, TX_SEQ_LO, TX_SEQ_HI,
+        TX_LEN_LO, TX_LEN_HI, TX_PAYLOAD, TX_CRC_HI, TX_CRC_LO,
+        TX_WAIT_UART_IDLE
+    );
+    type ctrl_state_t is (
+        C_IDLE, C_TRIGGER_PACKET, C_GAP_TO_CONFIG, C_WAIT_CAMERA_CONFIG,
+        C_CONFIG_PACKET, C_GAP_TO_FRAME, C_WAIT_FRAME, C_FRAME_STORED_PACKET,
+        C_GAP_TO_READY, C_READY_PACKET, C_GAP_TO_FIRST_LINE, C_LINE_PACKET,
+        C_GAP_TO_NEXT_LINE, C_GAP_TO_DONE, C_WAIT_SERIALIZER_DONE, C_DONE_PACKET,
+        C_ERROR_GAP, C_ERROR_PACKET, C_DONE, C_ERROR
     );
 
-    signal state                  : state_t := ST_IDLE;
-    signal tx_data_reg            : std_logic_vector(7 downto 0) := (others => '0');
-    signal tx_valid_reg           : std_logic := '0';
-    signal line_start_reg         : std_logic := '0';
-    signal transfer_start_reg     : std_logic := '0';
-    signal line_ack_reg            : std_logic := '0';
-    signal line_retry_reg          : std_logic := '0';
-    signal frame_timer             : natural range 0 to G_FRAME_TIMEOUT_CYCLES := 0;
-    signal error_reg              : std_logic := '0';
+    signal ctrl_state          : ctrl_state_t := C_IDLE;
+    signal line_index_reg      : natural range 0 to G_FRAME_HEIGHT - 1 := 0;
+    signal gap_count           : natural range 0 to G_PACKET_GAP_CYCLES := 0;
+    signal stage_timer         : natural range 0 to G_FRAME_TIMEOUT_CYCLES := 0;
+    signal done_reg            : std_logic := '0';
+    signal error_reg           : std_logic := '0';
 
-    signal ready_index            : natural range 0 to 7 := 0;
-    signal line_header_index      : natural range 0 to 5 := 0;
-    signal done_index             : natural range 0 to 3 := 0;
-    signal error_index            : natural range 0 to 2 := 0;
-    signal error_code_reg         : std_logic_vector(7 downto 0) := x"01";
-    signal line_index             : natural range 0 to G_FRAME_HEIGHT - 1 := 0;
-    signal payload_count          : natural range 0 to C_PAYLOAD_BYTES - 1 := 0;
-    signal last_payload_pending   : std_logic := '0';
+    signal packet_start_reg    : std_logic := '0';
+    signal packet_kind_desc    : packet_kind_t := PKT_STAGE;
+    signal packet_seq_desc     : unsigned(15 downto 0) := (others => '0');
+    signal packet_len_desc     : unsigned(15 downto 0) := (others => '0');
+    signal stage_code_desc     : std_logic_vector(7 downto 0) := (others => '0');
+    signal stage_detail_desc   : std_logic_vector(7 downto 0) := (others => '0');
+    signal error_code_desc     : std_logic_vector(7 downto 0) := (others => '0');
+    signal error_detail_desc   : std_logic_vector(7 downto 0) := (others => '0');
 
-    signal crc_reg                : unsigned(15 downto 0) := x"FFFF";
-    signal ack_timer              : natural range 0 to G_ACK_TIMEOUT_CYCLES := 0;
-    signal source_timer           : natural range 0 to G_SOURCE_TIMEOUT_CYCLES := 0;
-    signal retry_count            : natural range 0 to G_MAX_RETRIES := 0;
-    signal line_index_u16         : unsigned(15 downto 0);
-    signal src_ready_int          : std_logic;
+    signal tx_state            : tx_state_t := TX_IDLE;
+    signal tx_kind             : packet_kind_t := PKT_STAGE;
+    signal tx_seq              : unsigned(15 downto 0) := (others => '0');
+    signal tx_length           : unsigned(15 downto 0) := (others => '0');
+    signal tx_payload_index    : natural range 0 to C_LINE_BYTES := 0;
+    signal tx_stage_code       : std_logic_vector(7 downto 0) := (others => '0');
+    signal tx_stage_detail     : std_logic_vector(7 downto 0) := (others => '0');
+    signal tx_error_code       : std_logic_vector(7 downto 0) := (others => '0');
+    signal tx_error_detail     : std_logic_vector(7 downto 0) := (others => '0');
+    signal crc_reg             : unsigned(15 downto 0) := x"FFFF";
+    signal tx_data_reg         : std_logic_vector(7 downto 0) := (others => '0');
+    signal tx_valid_reg        : std_logic := '0';
+    signal packet_done_reg     : std_logic := '0';
+    signal source_fault_reg    : std_logic := '0';
+    signal source_fault_code   : std_logic_vector(7 downto 0) := x"05";
+    signal source_timer        : natural range 0 to G_SOURCE_TIMEOUT_CYCLES := 0;
+    signal src_ready_int       : std_logic;
+
+    signal transfer_start_reg  : std_logic := '0';
+    signal line_start_reg      : std_logic := '0';
+    signal line_ack_reg        : std_logic := '0';
 
     function crc16_update(
         crc_in  : unsigned(15 downto 0);
@@ -144,348 +132,547 @@ architecture rtl of camera_uart_frame_protocol is
         end loop;
         return c;
     end function;
+
 begin
     assert G_FRAME_WIDTH <= 65535
         report "UART protocol: frame width must fit in 16 bits" severity failure;
     assert G_FRAME_HEIGHT <= 65535
         report "UART protocol: frame height must fit in 16 bits" severity failure;
-    assert C_PAYLOAD_BYTES <= 65535
-        report "UART protocol: bytes per line must fit in 16 bits" severity failure;
-    assert G_BYTES_PER_PIXEL <= 255
-        report "UART protocol: bytes per pixel must fit in 8 bits" severity failure;
+    assert C_LINE_BYTES <= 65535
+        report "UART protocol: RGB888 line length must fit in 16 bits" severity failure;
+    assert G_PACKET_GAP_CYCLES > 0
+        report "UART protocol: packet gap must be greater than zero" severity failure;
+    assert G_SOURCE_TIMEOUT_CYCLES > 0
+        report "UART protocol: source timeout must be greater than zero" severity failure;
 
-    tx_data_o       <= tx_data_reg;
-    tx_valid_o      <= tx_valid_reg;
-    line_start_o    <= line_start_reg;
-    line_index_o    <= std_logic_vector(line_index_u16);
+    tx_data_o        <= tx_data_reg;
+    tx_valid_o       <= tx_valid_reg;
+    src_ready_o      <= src_ready_int;
+    src_ready_int    <= '1' when
+        (tx_state = TX_PAYLOAD) and (tx_kind = PKT_LINE) and
+        (tx_valid_reg = '0') and (tx_ready_i = '1') and
+        (readout_error_i = '0') else '0';
+    line_start_o     <= line_start_reg;
+    line_index_o     <= std_logic_vector(to_unsigned(line_index_reg, 16));
     transfer_start_o <= transfer_start_reg;
     line_ack_o       <= line_ack_reg;
-    line_retry_o     <= line_retry_reg;
-    busy_o          <= '0' when (state = ST_IDLE or state = ST_DONE or state = ST_ERROR) else '1';
-    done_o          <= '1' when state = ST_DONE else '0';
-    error_o         <= error_reg;
+    busy_o           <= '0' when (ctrl_state = C_IDLE or ctrl_state = C_DONE or ctrl_state = C_ERROR) else '1';
+    done_o           <= done_reg;
+    error_o          <= error_reg;
 
-    src_ready_int <= '1' when
-        (state = ST_SEND_LINE_DATA) and
-        (tx_valid_reg = '0') and
-        (tx_ready_i = '1')
-        else '0';
-    src_ready_o <= src_ready_int;
-
-    line_index_u16 <= to_unsigned(line_index, 16);
-
-    process(clk)
+    -- Camera and capture sequencer.
+    process(clk, rst_n)
     begin
-        if rising_edge(clk) then
-            if rst_n = '0' then
-                state                <= ST_IDLE;
-                tx_data_reg          <= (others => '0');
-                tx_valid_reg         <= '0';
-                line_start_reg       <= '0';
-                transfer_start_reg   <= '0';
-                line_ack_reg          <= '0';
-                line_retry_reg        <= '0';
-                frame_timer           <= 0;
-                error_reg            <= '0';
-                ready_index          <= 0;
-                line_header_index    <= 0;
-                done_index           <= 0;
-                error_index          <= 0;
-                error_code_reg       <= x"01";
-                line_index           <= 0;
-                payload_count        <= 0;
-                last_payload_pending <= '0';
-                crc_reg              <= x"FFFF";
-                ack_timer            <= 0;
-                source_timer         <= 0;
-                retry_count          <= 0;
-            else
-                line_start_reg     <= '0';
-                transfer_start_reg <= '0';
-                line_ack_reg        <= '0';
-                line_retry_reg      <= '0';
+        if rst_n = '0' then
+            ctrl_state          <= C_IDLE;
+            line_index_reg      <= 0;
+            gap_count           <= 0;
+            stage_timer         <= 0;
+            packet_start_reg    <= '0';
+            packet_kind_desc    <= PKT_STAGE;
+            packet_seq_desc     <= (others => '0');
+            packet_len_desc     <= (others => '0');
+            stage_code_desc     <= (others => '0');
+            stage_detail_desc   <= (others => '0');
+            error_code_desc     <= (others => '0');
+            error_detail_desc   <= (others => '0');
+            transfer_start_reg  <= '0';
+            line_start_reg      <= '0';
+            line_ack_reg        <= '0';
+            done_reg            <= '0';
+            error_reg           <= '0';
+        elsif rising_edge(clk) then
+            packet_start_reg   <= '0';
+            transfer_start_reg <= '0';
+            line_start_reg     <= '0';
+            line_ack_reg       <= '0';
 
-                -- A pending byte is removed from the protocol engine only
-                -- when the UART TX accepts it (valid AND ready).
-                if tx_valid_reg = '1' then
-                    if tx_ready_i = '1' then
-                        tx_valid_reg <= '0';
-                        case state is
-                            when ST_SEND_START_ACK =>
-                                state <= ST_WAIT_FRAME;
-                                frame_timer <= 0;
-
-                            when ST_SEND_READY =>
-                                if ready_index = 7 then
-                                    state <= ST_WAIT_READY_ACK;
-                                    ack_timer <= 0;
-                                else
-                                    ready_index <= ready_index + 1;
-                                end if;
-
-                            when ST_SEND_LINE_HEADER =>
-                                if line_header_index >= 1 then
-                                    crc_reg <= crc16_update(crc_reg, tx_data_reg);
-                                end if;
-                                if line_header_index = 5 then
-                                    state <= ST_SEND_LINE_DATA;
-                                    line_start_reg <= '1';
-                                    payload_count <= 0;
-                                    source_timer <= 0;
-                                    last_payload_pending <= '0';
-                                else
-                                    line_header_index <= line_header_index + 1;
-                                end if;
-
-                            when ST_SEND_LINE_DATA =>
-                                if last_payload_pending = '1' then
-                                    last_payload_pending <= '0';
-                                    state <= ST_SEND_CRC_HI;
-                                end if;
-
-                            when ST_SEND_CRC_HI =>
-                                state <= ST_SEND_CRC_LO;
-
-                            when ST_SEND_CRC_LO =>
-                                state <= ST_WAIT_LINE_ACK;
-                                ack_timer <= 0;
-
-                            when ST_SEND_DONE =>
-                                if done_index = 3 then
-                                    state <= ST_WAIT_DONE_ACK;
-                                    ack_timer <= 0;
-                                else
-                                    done_index <= done_index + 1;
-                                end if;
-
-                            when ST_SEND_ERROR =>
-                                if error_index = 2 then
-                                    state <= ST_ERROR;
-                                else
-                                    error_index <= error_index + 1;
-                                end if;
-
-                            when others => null;
-                        end case;
+            case ctrl_state is
+                when C_IDLE =>
+                    if trigger_i = '1' then
+                        transfer_start_reg <= '1';
+                        line_index_reg <= 0;
+                        packet_kind_desc <= PKT_STAGE;
+                        packet_seq_desc <= (others => '0');
+                        packet_len_desc <= to_unsigned(2, 16);
+                        stage_code_desc <= x"01"; -- TRIGGER_ACCEPTED
+                        stage_detail_desc <= x"00";
+                        packet_start_reg <= '1';
+                        ctrl_state <= C_TRIGGER_PACKET;
                     end if;
 
-                else
-                    case state is
-                        when ST_IDLE =>
-                            if (rx_valid_i = '1') and (rx_data_i = C_CMD_START) then
-                                -- Immediate command-level handshake: tell the host
-                                -- START was decoded before camera/HyperRAM processing.
-                                transfer_start_reg <= '1';
-                                tx_data_reg <= C_ACK;
-                                tx_valid_reg <= '1';
-                                ready_index <= 0;
-                                retry_count <= 0;
-                                frame_timer <= 0;
-                                state <= ST_SEND_START_ACK;
-                            end if;
+                when C_TRIGGER_PACKET =>
+                    if packet_done_reg = '1' then
+                        gap_count <= 0;
+                        ctrl_state <= C_GAP_TO_CONFIG;
+                    end if;
 
-                        when ST_WAIT_FRAME =>
-                            if frame_error_i = '1' then
-                                error_reg <= '1';
-                                error_code_reg <= x"02";
-                                error_index <= 0;
-                                state <= ST_SEND_ERROR;
-                            elsif frame_available_i = '1' then
-                                ready_index <= 0;
-                                state <= ST_SEND_READY;
-                            elsif frame_timer = G_FRAME_TIMEOUT_CYCLES - 1 then
-                                error_reg <= '1';
-                                error_code_reg <= x"03";
-                                error_index <= 0;
-                                state <= ST_SEND_ERROR;
-                            else
-                                frame_timer <= frame_timer + 1;
-                            end if;
+                when C_GAP_TO_CONFIG =>
+                    if gap_count = G_PACKET_GAP_CYCLES - 1 then
+                        gap_count <= 0;
+                        stage_timer <= 0;
+                        ctrl_state <= C_WAIT_CAMERA_CONFIG;
+                    else
+                        gap_count <= gap_count + 1;
+                    end if;
 
-                        when ST_SEND_READY =>
-                            case ready_index is
-                                when 0 => tx_data_reg <= C_SOF;
-                                when 1 => tx_data_reg <= C_TYPE_READY;
-                                when 2 => tx_data_reg <= std_logic_vector(C_WIDTH_U16(7 downto 0));
-                                when 3 => tx_data_reg <= std_logic_vector(C_WIDTH_U16(15 downto 8));
-                                when 4 => tx_data_reg <= std_logic_vector(C_HEIGHT_U16(7 downto 0));
-                                when 5 => tx_data_reg <= std_logic_vector(C_HEIGHT_U16(15 downto 8));
-                                when 6 => tx_data_reg <= std_logic_vector(to_unsigned(G_BYTES_PER_PIXEL, 8));
-                                when others => tx_data_reg <= G_PIXEL_FORMAT;
-                            end case;
-                            tx_valid_reg <= '1';
+                when C_WAIT_CAMERA_CONFIG =>
+                    if camera_config_done_i = '1' then
+                        if camera_config_pass_i = '1' then
+                            packet_kind_desc <= PKT_STAGE;
+                            packet_seq_desc <= (others => '0');
+                            packet_len_desc <= to_unsigned(2, 16);
+                            stage_code_desc <= x"02"; -- CAMERA_CONFIGURED
+                            stage_detail_desc <= x"00";
+                            packet_start_reg <= '1';
+                            ctrl_state <= C_CONFIG_PACKET;
+                        else
+                            packet_kind_desc <= PKT_ERROR;
+                            packet_seq_desc <= (others => '0');
+                            packet_len_desc <= to_unsigned(2, 16);
+                            error_code_desc <= x"01"; -- CAMERA_CONFIG
+                            error_detail_desc <= x"01";
+                            gap_count <= 0;
+                            error_reg <= '1';
+                            ctrl_state <= C_ERROR_GAP;
+                        end if;
+                    elsif stage_timer = G_FRAME_TIMEOUT_CYCLES - 1 then
+                        packet_kind_desc <= PKT_ERROR;
+                        packet_seq_desc <= (others => '0');
+                        packet_len_desc <= to_unsigned(2, 16);
+                        error_code_desc <= x"03"; -- STAGE_TIMEOUT
+                        error_detail_desc <= x"01"; -- camera configuration
+                        gap_count <= 0;
+                        error_reg <= '1';
+                        ctrl_state <= C_ERROR_GAP;
+                    else
+                        stage_timer <= stage_timer + 1;
+                    end if;
 
-                        when ST_WAIT_READY_ACK =>
-                            if rx_valid_i = '1' and rx_data_i = C_ACK then
-                                line_index <= 0;
-                                line_header_index <= 0;
-                                payload_count <= 0;
-                                crc_reg <= x"FFFF";
-                                retry_count <= 0;
-                                state <= ST_SEND_LINE_HEADER;
-                            elsif rx_valid_i = '1' and rx_data_i = C_NACK then
-                                if retry_count < G_MAX_RETRIES then
-                                    retry_count <= retry_count + 1;
-                                    ready_index <= 0;
-                                    state <= ST_SEND_READY;
-                                else
-                                    error_reg <= '1';
-                                    error_index <= 0;
-                                    state <= ST_SEND_ERROR;
-                                end if;
-                                ack_timer <= 0;
-                            elsif ack_timer < G_ACK_TIMEOUT_CYCLES then
-                                ack_timer <= ack_timer + 1;
-                            else
-                                if retry_count < G_MAX_RETRIES then
-                                    retry_count <= retry_count + 1;
-                                    ready_index <= 0;
-                                    state <= ST_SEND_READY;
-                                else
-                                    error_reg <= '1';
-                                    error_index <= 0;
-                                    state <= ST_SEND_ERROR;
-                                end if;
-                                ack_timer <= 0;
-                            end if;
+                when C_CONFIG_PACKET =>
+                    if packet_done_reg = '1' then
+                        gap_count <= 0;
+                        ctrl_state <= C_GAP_TO_FRAME;
+                    end if;
 
-                        when ST_SEND_LINE_HEADER =>
-                            case line_header_index is
-                                when 0 => tx_data_reg <= C_SOF;
-                                when 1 => tx_data_reg <= C_TYPE_LINE;
-                                when 2 => tx_data_reg <= std_logic_vector(line_index_u16(7 downto 0));
-                                when 3 => tx_data_reg <= std_logic_vector(line_index_u16(15 downto 8));
-                                when 4 => tx_data_reg <= std_logic_vector(C_LENGTH_U16(7 downto 0));
-                                when others => tx_data_reg <= std_logic_vector(C_LENGTH_U16(15 downto 8));
-                            end case;
-                            tx_valid_reg <= '1';
+                when C_GAP_TO_FRAME =>
+                    if gap_count = G_PACKET_GAP_CYCLES - 1 then
+                        gap_count <= 0;
+                        stage_timer <= 0;
+                        ctrl_state <= C_WAIT_FRAME;
+                    else
+                        gap_count <= gap_count + 1;
+                    end if;
 
-                        when ST_SEND_LINE_DATA =>
-                            if src_valid_i = '1' and src_ready_int = '1' then
-                                tx_data_reg <= src_data_i;
-                                tx_valid_reg <= '1';
-                                crc_reg <= crc16_update(crc_reg, src_data_i);
-                                source_timer <= 0;
-                                if payload_count = C_PAYLOAD_BYTES - 1 then
-                                    last_payload_pending <= '1';
-                                else
-                                    payload_count <= payload_count + 1;
-                                end if;
-                            elsif source_timer < G_SOURCE_TIMEOUT_CYCLES then
-                                source_timer <= source_timer + 1;
-                            else
-                                error_reg <= '1';
-                                    error_index <= 0;
-                                    state <= ST_SEND_ERROR;
-                            end if;
+                when C_WAIT_FRAME =>
+                    if frame_error_i = '1' then
+                        packet_kind_desc <= PKT_ERROR;
+                        packet_seq_desc <= (others => '0');
+                        packet_len_desc <= to_unsigned(2, 16);
+                        error_code_desc <= x"02"; -- CAPTURE_OR_HYPERRAM_WRITE
+                        error_detail_desc <= x"00";
+                        gap_count <= 0;
+                        error_reg <= '1';
+                        ctrl_state <= C_ERROR_GAP;
+                    elsif frame_available_i = '1' then
+                        packet_kind_desc <= PKT_STAGE;
+                        packet_seq_desc <= (others => '0');
+                        packet_len_desc <= to_unsigned(2, 16);
+                        stage_code_desc <= x"03"; -- FRAME_STORED
+                        stage_detail_desc <= x"00";
+                        packet_start_reg <= '1';
+                        ctrl_state <= C_FRAME_STORED_PACKET;
+                    elsif stage_timer = G_FRAME_TIMEOUT_CYCLES - 1 then
+                        packet_kind_desc <= PKT_ERROR;
+                        packet_seq_desc <= (others => '0');
+                        packet_len_desc <= to_unsigned(2, 16);
+                        error_code_desc <= x"03"; -- STAGE_TIMEOUT
+                        error_detail_desc <= x"02"; -- frame capture/write
+                        gap_count <= 0;
+                        error_reg <= '1';
+                        ctrl_state <= C_ERROR_GAP;
+                    else
+                        stage_timer <= stage_timer + 1;
+                    end if;
 
-                        when ST_SEND_CRC_HI =>
-                            tx_data_reg <= std_logic_vector(crc_reg(15 downto 8));
-                            tx_valid_reg <= '1';
+                when C_FRAME_STORED_PACKET =>
+                    if packet_done_reg = '1' then
+                        gap_count <= 0;
+                        ctrl_state <= C_GAP_TO_READY;
+                    end if;
 
-                        when ST_SEND_CRC_LO =>
-                            tx_data_reg <= std_logic_vector(crc_reg(7 downto 0));
-                            tx_valid_reg <= '1';
+                when C_GAP_TO_READY =>
+                    if gap_count = G_PACKET_GAP_CYCLES - 1 then
+                        gap_count <= 0;
+                        packet_kind_desc <= PKT_READY;
+                        packet_seq_desc <= (others => '0');
+                        packet_len_desc <= to_unsigned(6, 16);
+                        packet_start_reg <= '1';
+                        ctrl_state <= C_READY_PACKET;
+                    else
+                        gap_count <= gap_count + 1;
+                    end if;
 
-                        when ST_WAIT_LINE_ACK =>
-                            if rx_valid_i = '1' and rx_data_i = C_ACK then
-                                line_ack_reg <= '1';
-                                retry_count <= 0;
-                                if line_index = G_FRAME_HEIGHT - 1 then
-                                    done_index <= 0;
-                                    state <= ST_SEND_DONE;
-                                else
-                                    line_index <= line_index + 1;
-                                    line_header_index <= 0;
-                                    payload_count <= 0;
-                                    crc_reg <= x"FFFF";
-                                    state <= ST_SEND_LINE_HEADER;
-                                end if;
-                                ack_timer <= 0;
-                            elsif rx_valid_i = '1' and rx_data_i = C_NACK then
-                                if retry_count < G_MAX_RETRIES then
-                                    line_retry_reg <= '1';
-                                    retry_count <= retry_count + 1;
-                                    line_header_index <= 0;
-                                    payload_count <= 0;
-                                    crc_reg <= x"FFFF";
-                                    state <= ST_SEND_LINE_HEADER;
-                                else
-                                    error_reg <= '1';
-                                    error_index <= 0;
-                                    state <= ST_SEND_ERROR;
-                                end if;
-                                ack_timer <= 0;
-                            elsif ack_timer < G_ACK_TIMEOUT_CYCLES then
-                                ack_timer <= ack_timer + 1;
-                            else
-                                if retry_count < G_MAX_RETRIES then
-                                    line_retry_reg <= '1';
-                                    retry_count <= retry_count + 1;
-                                    line_header_index <= 0;
-                                    payload_count <= 0;
-                                    crc_reg <= x"FFFF";
-                                    state <= ST_SEND_LINE_HEADER;
-                                else
-                                    error_reg <= '1';
-                                    error_index <= 0;
-                                    state <= ST_SEND_ERROR;
-                                end if;
-                                ack_timer <= 0;
-                            end if;
+                when C_READY_PACKET =>
+                    if packet_done_reg = '1' then
+                        gap_count <= 0;
+                        ctrl_state <= C_GAP_TO_FIRST_LINE;
+                    end if;
 
-                        when ST_SEND_DONE =>
-                            case done_index is
-                                when 0 => tx_data_reg <= C_SOF;
-                                when 1 => tx_data_reg <= C_TYPE_DONE;
-                                when 2 => tx_data_reg <= std_logic_vector(C_HEIGHT_U16(7 downto 0));
-                                when others => tx_data_reg <= std_logic_vector(C_HEIGHT_U16(15 downto 8));
-                            end case;
-                            tx_valid_reg <= '1';
+                when C_GAP_TO_FIRST_LINE =>
+                    if readout_error_i = '1' then
+                        packet_kind_desc <= PKT_ERROR;
+                        packet_seq_desc <= to_unsigned(line_index_reg, 16);
+                        packet_len_desc <= to_unsigned(2, 16);
+                        error_code_desc <= x"04"; -- HYPERRAM_READ_OR_SERIALIZER
+                        error_detail_desc <= x"00";
+                        gap_count <= 0;
+                        error_reg <= '1';
+                        ctrl_state <= C_ERROR_GAP;
+                    elsif gap_count = G_PACKET_GAP_CYCLES - 1 then
+                        gap_count <= 0;
+                        packet_kind_desc <= PKT_LINE;
+                        packet_seq_desc <= to_unsigned(line_index_reg, 16);
+                        packet_len_desc <= C_LINE_BYTES_U16;
+                        packet_start_reg <= '1';
+                        line_start_reg <= '1';
+                        ctrl_state <= C_LINE_PACKET;
+                    else
+                        gap_count <= gap_count + 1;
+                    end if;
 
-                        when ST_WAIT_DONE_ACK =>
-                            if rx_valid_i = '1' and rx_data_i = C_ACK then
-                                state <= ST_DONE;
-                            elsif rx_valid_i = '1' and rx_data_i = C_NACK then
-                                if retry_count < G_MAX_RETRIES then
-                                    retry_count <= retry_count + 1;
-                                    done_index <= 0;
-                                    state <= ST_SEND_DONE;
-                                else
-                                    error_reg <= '1';
-                                    error_index <= 0;
-                                    state <= ST_SEND_ERROR;
-                                end if;
-                                ack_timer <= 0;
-                            elsif ack_timer < G_ACK_TIMEOUT_CYCLES then
-                                ack_timer <= ack_timer + 1;
-                            else
-                                if retry_count < G_MAX_RETRIES then
-                                    retry_count <= retry_count + 1;
-                                    done_index <= 0;
-                                    state <= ST_SEND_DONE;
-                                else
-                                    error_reg <= '1';
-                                    error_index <= 0;
-                                    state <= ST_SEND_ERROR;
-                                end if;
-                                ack_timer <= 0;
-                            end if;
+                when C_LINE_PACKET =>
+                    if source_fault_reg = '1' then
+                        packet_kind_desc <= PKT_ERROR;
+                        packet_seq_desc <= to_unsigned(line_index_reg, 16);
+                        packet_len_desc <= to_unsigned(2, 16);
+                        error_code_desc <= source_fault_code;
+                        error_detail_desc <= std_logic_vector(to_unsigned(line_index_reg mod 256, 8));
+                        gap_count <= 0;
+                        error_reg <= '1';
+                        ctrl_state <= C_ERROR_GAP;
+                    elsif packet_done_reg = '1' then
+                        -- Local ACK only: the physical UART stop bit is complete.
+                        line_ack_reg <= '1';
+                        if line_index_reg = G_FRAME_HEIGHT - 1 then
+                            gap_count <= 0;
+                            ctrl_state <= C_GAP_TO_DONE;
+                        else
+                            line_index_reg <= line_index_reg + 1;
+                            gap_count <= 0;
+                            ctrl_state <= C_GAP_TO_NEXT_LINE;
+                        end if;
+                    end if;
 
-                        when ST_SEND_ERROR =>
-                            case error_index is
-                                when 0 => tx_data_reg <= C_SOF;
-                                when 1 => tx_data_reg <= C_TYPE_ERROR;
-                                when others => tx_data_reg <= error_code_reg;
-                            end case;
-                            tx_valid_reg <= '1';
+                when C_GAP_TO_NEXT_LINE =>
+                    if readout_error_i = '1' then
+                        packet_kind_desc <= PKT_ERROR;
+                        packet_seq_desc <= to_unsigned(line_index_reg, 16);
+                        packet_len_desc <= to_unsigned(2, 16);
+                        error_code_desc <= x"04";
+                        error_detail_desc <= std_logic_vector(to_unsigned(line_index_reg mod 256, 8));
+                        gap_count <= 0;
+                        error_reg <= '1';
+                        ctrl_state <= C_ERROR_GAP;
+                    elsif gap_count = G_PACKET_GAP_CYCLES - 1 then
+                        gap_count <= 0;
+                        packet_kind_desc <= PKT_LINE;
+                        packet_seq_desc <= to_unsigned(line_index_reg, 16);
+                        packet_len_desc <= C_LINE_BYTES_U16;
+                        packet_start_reg <= '1';
+                        line_start_reg <= '1';
+                        ctrl_state <= C_LINE_PACKET;
+                    else
+                        gap_count <= gap_count + 1;
+                    end if;
 
-                        when ST_DONE => null;
-                        when ST_ERROR => null;
-                    end case;
-                end if;
-            end if;
+                when C_GAP_TO_DONE =>
+                    if readout_error_i = '1' then
+                        packet_kind_desc <= PKT_ERROR;
+                        packet_seq_desc <= to_unsigned(line_index_reg, 16);
+                        packet_len_desc <= to_unsigned(2, 16);
+                        error_code_desc <= x"04";
+                        error_detail_desc <= x"FF";
+                        gap_count <= 0;
+                        error_reg <= '1';
+                        ctrl_state <= C_ERROR_GAP;
+                    elsif gap_count = G_PACKET_GAP_CYCLES - 1 then
+                        gap_count <= 0;
+                        if serializer_done_i = '1' then
+                            packet_kind_desc <= PKT_DONE;
+                            packet_seq_desc <= C_HEIGHT_U16;
+                            packet_len_desc <= C_DONE_BYTES_U16;
+                            packet_start_reg <= '1';
+                            ctrl_state <= C_DONE_PACKET;
+                        else
+                            stage_timer <= 0;
+                            ctrl_state <= C_WAIT_SERIALIZER_DONE;
+                        end if;
+                    else
+                        gap_count <= gap_count + 1;
+                    end if;
+
+                when C_ERROR_GAP =>
+                    -- Start counting only after the UART is physically idle.
+                    -- This also gives a truncated LINE packet a quiet interval.
+                    if tx_ready_i = '1' then
+                        if gap_count = G_PACKET_GAP_CYCLES - 1 then
+                            gap_count <= 0;
+                            packet_start_reg <= '1';
+                            ctrl_state <= C_ERROR_PACKET;
+                        else
+                            gap_count <= gap_count + 1;
+                        end if;
+                    else
+                        gap_count <= 0;
+                    end if;
+
+                when C_WAIT_SERIALIZER_DONE =>
+                    if readout_error_i = '1' then
+                        packet_kind_desc <= PKT_ERROR;
+                        packet_seq_desc <= to_unsigned(line_index_reg, 16);
+                        packet_len_desc <= to_unsigned(2, 16);
+                        error_code_desc <= x"04";
+                        error_detail_desc <= x"FF"; -- serializer completion timeout/error
+                        gap_count <= 0;
+                        error_reg <= '1';
+                        ctrl_state <= C_ERROR_GAP;
+                    elsif serializer_done_i = '1' then
+                        packet_kind_desc <= PKT_DONE;
+                        packet_seq_desc <= C_HEIGHT_U16;
+                        packet_len_desc <= C_DONE_BYTES_U16;
+                        packet_start_reg <= '1';
+                        ctrl_state <= C_DONE_PACKET;
+                    elsif stage_timer = G_SOURCE_TIMEOUT_CYCLES - 1 then
+                        packet_kind_desc <= PKT_ERROR;
+                        packet_seq_desc <= to_unsigned(line_index_reg, 16);
+                        packet_len_desc <= to_unsigned(2, 16);
+                        error_code_desc <= x"04";
+                        error_detail_desc <= x"FE"; -- serializer completion timeout
+                        gap_count <= 0;
+                        error_reg <= '1';
+                        ctrl_state <= C_ERROR_GAP;
+                    else
+                        stage_timer <= stage_timer + 1;
+                    end if;
+
+                when C_DONE_PACKET =>
+                    if packet_done_reg = '1' then
+                        done_reg <= '1';
+                        ctrl_state <= C_DONE;
+                    end if;
+
+                when C_ERROR_PACKET =>
+                    if packet_done_reg = '1' then
+                        ctrl_state <= C_ERROR;
+                    end if;
+
+                when C_DONE =>
+                    ctrl_state <= C_DONE;
+
+                when C_ERROR =>
+                    ctrl_state <= C_ERROR;
+
+                when others =>
+                    error_reg <= '1';
+                    ctrl_state <= C_ERROR;
+            end case;
         end if;
     end process;
 
+    -- Byte transmitter. In TX_WAIT_UART_IDLE, wait for the final UART stop bit
+    -- before signaling packet completion or starting the 20 ms quiet interval.
+    process(clk, rst_n)
+    begin
+        if rst_n = '0' then
+            tx_state          <= TX_IDLE;
+            tx_kind           <= PKT_STAGE;
+            tx_seq            <= (others => '0');
+            tx_length         <= (others => '0');
+            tx_payload_index  <= 0;
+            tx_stage_code     <= (others => '0');
+            tx_stage_detail   <= (others => '0');
+            tx_error_code     <= (others => '0');
+            tx_error_detail   <= (others => '0');
+            crc_reg           <= x"FFFF";
+            tx_data_reg       <= (others => '0');
+            tx_valid_reg      <= '0';
+            packet_done_reg   <= '0';
+            source_fault_reg  <= '0';
+            source_fault_code <= x"05";
+            source_timer      <= 0;
+        elsif rising_edge(clk) then
+            packet_done_reg  <= '0';
+            source_fault_reg <= '0';
+
+            if (tx_state = TX_IDLE) and (packet_start_reg = '1') then
+                tx_kind           <= packet_kind_desc;
+                tx_seq            <= packet_seq_desc;
+                tx_length         <= packet_len_desc;
+                tx_stage_code     <= stage_code_desc;
+                tx_stage_detail   <= stage_detail_desc;
+                tx_error_code     <= error_code_desc;
+                tx_error_detail   <= error_detail_desc;
+                tx_payload_index  <= 0;
+                crc_reg           <= x"FFFF";
+                source_timer      <= 0;
+                tx_state          <= TX_SOF_0;
+
+            elsif tx_valid_reg = '1' then
+                if tx_ready_i = '1' then
+                    tx_valid_reg <= '0';
+                    case tx_state is
+                        when TX_SOF_0 =>
+                            tx_state <= TX_SOF_1;
+                        when TX_SOF_1 =>
+                            tx_state <= TX_TYPE;
+                        when TX_TYPE =>
+                            crc_reg <= crc16_update(crc_reg, tx_data_reg);
+                            tx_state <= TX_SEQ_LO;
+                        when TX_SEQ_LO =>
+                            crc_reg <= crc16_update(crc_reg, tx_data_reg);
+                            tx_state <= TX_SEQ_HI;
+                        when TX_SEQ_HI =>
+                            crc_reg <= crc16_update(crc_reg, tx_data_reg);
+                            tx_state <= TX_LEN_LO;
+                        when TX_LEN_LO =>
+                            crc_reg <= crc16_update(crc_reg, tx_data_reg);
+                            tx_state <= TX_LEN_HI;
+                        when TX_LEN_HI =>
+                            crc_reg <= crc16_update(crc_reg, tx_data_reg);
+                            tx_payload_index <= 0;
+                            tx_state <= TX_PAYLOAD;
+                        when TX_PAYLOAD =>
+                            crc_reg <= crc16_update(crc_reg, tx_data_reg);
+                            if tx_payload_index = (to_integer(tx_length) - 1) then
+                                tx_state <= TX_CRC_HI;
+                            else
+                                tx_payload_index <= tx_payload_index + 1;
+                            end if;
+                        when TX_CRC_HI =>
+                            tx_state <= TX_CRC_LO;
+                        when TX_CRC_LO =>
+                            tx_state <= TX_WAIT_UART_IDLE;
+                        when others =>
+                            null;
+                    end case;
+                end if;
+
+            else
+                case tx_state is
+                    when TX_IDLE =>
+                        null;
+                    when TX_SOF_0 =>
+                        tx_data_reg <= x"A5";
+                        tx_valid_reg <= '1';
+                    when TX_SOF_1 =>
+                        tx_data_reg <= x"5A";
+                        tx_valid_reg <= '1';
+                    when TX_TYPE =>
+                        case tx_kind is
+                            when PKT_STAGE => tx_data_reg <= C_TYPE_STAGE;
+                            when PKT_READY => tx_data_reg <= C_TYPE_READY;
+                            when PKT_LINE  => tx_data_reg <= C_TYPE_LINE;
+                            when PKT_DONE  => tx_data_reg <= C_TYPE_DONE;
+                            when PKT_ERROR => tx_data_reg <= C_TYPE_ERROR;
+                        end case;
+                        tx_valid_reg <= '1';
+                    when TX_SEQ_LO =>
+                        tx_data_reg <= std_logic_vector(tx_seq(7 downto 0));
+                        tx_valid_reg <= '1';
+                    when TX_SEQ_HI =>
+                        tx_data_reg <= std_logic_vector(tx_seq(15 downto 8));
+                        tx_valid_reg <= '1';
+                    when TX_LEN_LO =>
+                        tx_data_reg <= std_logic_vector(tx_length(7 downto 0));
+                        tx_valid_reg <= '1';
+                    when TX_LEN_HI =>
+                        tx_data_reg <= std_logic_vector(tx_length(15 downto 8));
+                        tx_valid_reg <= '1';
+                    when TX_PAYLOAD =>
+                        if tx_kind = PKT_LINE then
+                            if readout_error_i = '1' then
+                                source_fault_reg <= '1';
+                                source_fault_code <= x"04";
+                                source_timer <= 0;
+                                tx_state <= TX_IDLE;
+                            elsif (src_valid_i = '1') and (src_ready_int = '1') then
+                                tx_data_reg <= src_data_i;
+                                tx_valid_reg <= '1';
+                                source_timer <= 0;
+                            elsif tx_ready_i = '1' then
+                                if source_timer = G_SOURCE_TIMEOUT_CYCLES - 1 then
+                                    source_fault_reg <= '1';
+                                    source_fault_code <= x"05";
+                                    source_timer <= 0;
+                                    tx_state <= TX_IDLE;
+                                else
+                                    source_timer <= source_timer + 1;
+                                end if;
+                            else
+                                source_timer <= 0;
+                            end if;
+                        else
+                            source_timer <= 0;
+                            case tx_kind is
+                                when PKT_STAGE =>
+                                    if tx_payload_index = 0 then
+                                        tx_data_reg <= tx_stage_code;
+                                    else
+                                        tx_data_reg <= tx_stage_detail;
+                                    end if;
+                                when PKT_READY =>
+                                    case tx_payload_index is
+                                        when 0 => tx_data_reg <= std_logic_vector(C_WIDTH_U16(7 downto 0));
+                                        when 1 => tx_data_reg <= std_logic_vector(C_WIDTH_U16(15 downto 8));
+                                        when 2 => tx_data_reg <= std_logic_vector(C_HEIGHT_U16(7 downto 0));
+                                        when 3 => tx_data_reg <= std_logic_vector(C_HEIGHT_U16(15 downto 8));
+                                        when 4 => tx_data_reg <= x"03";
+                                        when others => tx_data_reg <= x"01";
+                                    end case;
+                                when PKT_DONE =>
+                                    case tx_payload_index is
+                                        when 0  => tx_data_reg <= std_logic_vector(C_HEIGHT_U16(7 downto 0));
+                                        when 1  => tx_data_reg <= std_logic_vector(C_HEIGHT_U16(15 downto 8));
+                                        when 2  => tx_data_reg <= std_logic_vector(lines_sent_i(7 downto 0));
+                                        when 3  => tx_data_reg <= std_logic_vector(lines_sent_i(15 downto 8));
+                                        when 4  => tx_data_reg <= std_logic_vector(pixel_count_i(7 downto 0));
+                                        when 5  => tx_data_reg <= std_logic_vector(pixel_count_i(15 downto 8));
+                                        when 6  => tx_data_reg <= std_logic_vector(pixel_count_i(23 downto 16));
+                                        when 7  => tx_data_reg <= std_logic_vector(pixel_count_i(31 downto 24));
+                                        when 8  => tx_data_reg <= std_logic_vector(uart_byte_count_i(7 downto 0));
+                                        when 9  => tx_data_reg <= std_logic_vector(uart_byte_count_i(15 downto 8));
+                                        when 10 => tx_data_reg <= std_logic_vector(uart_byte_count_i(23 downto 16));
+                                        when 11 => tx_data_reg <= std_logic_vector(uart_byte_count_i(31 downto 24));
+                                        when 12 => tx_data_reg <= readback_crc_i(7 downto 0);
+                                        when 13 => tx_data_reg <= readback_crc_i(15 downto 8);
+                                        when 14 => tx_data_reg <= readback_crc_i(23 downto 16);
+                                        when others => tx_data_reg <= readback_crc_i(31 downto 24);
+                                    end case;
+                                when PKT_ERROR =>
+                                    if tx_payload_index = 0 then
+                                        tx_data_reg <= tx_error_code;
+                                    else
+                                        tx_data_reg <= tx_error_detail;
+                                    end if;
+                                when PKT_LINE =>
+                                    tx_data_reg <= (others => '0');
+                            end case;
+                            tx_valid_reg <= '1';
+                        end if;
+                    when TX_CRC_HI =>
+                        tx_data_reg <= std_logic_vector(crc_reg(15 downto 8));
+                        tx_valid_reg <= '1';
+                    when TX_CRC_LO =>
+                        tx_data_reg <= std_logic_vector(crc_reg(7 downto 0));
+                        tx_valid_reg <= '1';
+                    when TX_WAIT_UART_IDLE =>
+                        if tx_ready_i = '1' then
+                            packet_done_reg <= '1';
+                            tx_state <= TX_IDLE;
+                        end if;
+                end case;
+            end if;
+        end if;
+    end process;
 end architecture;

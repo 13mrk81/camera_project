@@ -1,59 +1,76 @@
-# Design Notes — Camera to MATLAB UART Line Stream
+# Design Notes — One-way Camera to MATLAB RGB888 Stream
 
 ## Data path
-GC0308 -> camera interface -> RGB565 packer -> capture FIFO #1 -> HyperRAM write
--> HyperRAM line read -> async FIFO #2 -> RGB565-to-RGB888 serializer
--> UART stop-and-wait protocol -> MATLAB receiver.
 
-Two RGB565 pixels are packed into each 32-bit HyperRAM word. UART payload is RGB888, three bytes per pixel, R-G-B order.
+GC0308 DVP -> camera configuration/capture logic -> RGB565 packer -> asynchronous capture FIFO #1 -> HyperRAM write -> HyperRAM line reader -> asynchronous output FIFO #2 -> RGB565-to-RGB888 serializer -> packet/CRC engine -> UART TX -> USB-UART adapter -> MATLAB.
 
-## Host protocol
-- Host: START=0xC1, ACK=0x06, NACK=0x15.
-- READY: A5 01 widthLo widthHi heightLo heightHi BPP format.
-- LINE: A5 02 rowLo rowHi lengthLo lengthHi payload CRC_hi CRC_lo.
-- DONE: A5 03 heightLo heightHi.
-- CRC: CRC-16/CCITT-FALSE, init FFFF, polynomial 1021, no reflection/xorout. LINE CRC covers TYPE through payload; excludes SOF and CRC bytes.
-- Camera mode: BPP=3, pixel format=1.
-- MATLAB acknowledges READY, each valid LINE, and DONE.
+Two RGB565 pixels are stored per 32-bit HyperRAM word. The serializer expands each pixel independently to RGB888. The transmitted byte order is invariant: for pixels x=0..width-1, emit R(x), then G(x), then B(x). Pixels are left-to-right and rows are numbered from zero.
 
-## Sequencing implemented
-1. UART RX decodes the complete START byte before the camera trigger.
-2. START pulse crosses clk8 -> clk24 through a toggle synchronizer.
-3. Protocol waits for complete capture and HyperRAM write completion before sending READY. Capture/write error and frame timeout produce ERROR.
-4. Readout is enabled only after READY ACK and the first LINE header.
-5. For each row, HyperRAM fills FIFO #2; serializer emits RGB888 bytes through protocol ready/valid.
-6. Protocol waits for host ACK/NACK after the complete LINE packet. ACK advances the line reader; NACK or ACK timeout requests a reread of the same row.
-7. Serializer checkpoints CRC and byte/word/pixel counters at row start. ACK commits the row count; NACK/timeout restores the checkpoint.
-8. DONE is sent after the final row ACK and protocol DONE state is entered only after host ACK of DONE.
-9. Final serializer statistics cross clk8 -> usr_clk as one bundled snapshot after protocol DONE, for the integrity checker.
+## Trigger and link direction
 
-## Clock domains
-- clk8: UART RX, UART TX, protocol FSM, RGB serializer/FIFO #2 read side.
+- Tang Nano 4K onboard KEY1/S1 is the trigger input, active-low on FPGA pin 14.
+- The input is two-flop synchronized, debounced for 20 ms in clk8, and converted to one pulse on a stable press.
+- The pulse crosses clk8 -> clk24 through pulse_toggle_cdc and starts the camera configuration sequence.
+- UART is strictly one-way: FPGA TX (pin 32) -> USB-UART adapter RX. Adapter TX is not wired to the FPGA. MATLAB never writes a byte.
+- UART uses 8N1, 8 MHz source clock and divider 69 (about 115942 baud). Complete packets have a 20 ms inter-packet quiet interval.
+
+## Packet protocol
+
+See UART_ONE_WAY_PROTOCOL.md for the normative field definitions, CRC coverage, payload order, stage and error codes, throughput estimate, and MATLAB recovery behavior.
+
+Packet format: A5 5A TYPE SEQ_LO SEQ_HI LEN_LO LEN_HI PAYLOAD CRC_HI CRC_LO.
+
+Types:
+- 0x10 STAGE: trigger accepted, camera configured, frame stored.
+- 0x11 READY: geometry and RGB888 format.
+- 0x20 LINE: zero-based row sequence and RGB888 row payload.
+- 0x30 DONE: frame/serializer counters and raw RGB565 readback CRC32.
+- 0x7F ERROR: error code and detail.
+
+CRC16 is CRC-16/CCITT-FALSE over TYPE, sequence, length, and payload. CRC is emitted high byte first. Each LINE has an independent CRC.
+
+There is no host ACK, NACK, or retransmission. CRC and sequence numbers detect corruption or missing rows; they cannot repair them. A partial LINE is abandoned by MATLAB when it finds a subsequent complete packet with a valid CRC. The FPGA waits for UART idle and a 20 ms quiet interval before sending the corresponding ERROR packet.
+
+## Sequencing
+
+1. KEY1 press produces one debounced trigger.
+2. FPGA emits STAGE TRIGGER_ACCEPTED and starts camera setup through clk8-to-clk24 event CDC.
+3. After camera setup and RGB565 register verification, FPGA emits STAGE CAMERA_CONFIGURED.
+4. Capture and HyperRAM write proceed. Error or timeout produces ERROR; successful write emits STAGE FRAME_STORED.
+5. FPGA emits READY. After the 20 ms gap it starts the first LINE packet and enables the sticky HyperRAM readout-start level.
+6. The line reader reads one complete row into FIFO #2. The serializer supplies RGB888 bytes only when the packet engine asserts source-ready.
+7. Packet engine sends payload and per-row CRC16. Completion is not declared until CRC low byte's UART stop bit is complete and TX returns to idle.
+8. The protocol then generates a local one-cycle line acknowledgement. It crosses to usr_clk through a toggle CDC and advances the HyperRAM reader; it also advances the clk8 serializer. This is internal hardware flow control, never a host ACK.
+9. The FPGA waits 20 ms and then sends the next row. After the final row it waits for serializer completion, observes the packet gap, and emits DONE.
+10. A stable 176-bit statistics bundle crosses clk8 -> usr_clk after DONE for the existing frame-integrity checker.
+
+## Data integrity and buffering
+
+- Output FIFO #2 depth is 512 32-bit words by default; a 640-pixel row uses 320 words. The existing static assertion requires FIFO depth to be at least one complete row.
+- The line reader fills the row before asserting line-ready and waits for the local line acknowledgement before advancing.
+- UART ready/valid holds source bytes until accepted. No serializer byte is consumed while the UART byte channel is not ready.
+- Source starvation is bounded by a 4 s timeout. Readout/serializer errors also terminate the row and produce an ERROR packet after a safe UART-idle interval.
+- A 20 ms packet gap is much longer than UART byte time and is applied between all complete packets, including final LINE -> DONE. Error recovery after a partial LINE uses the same quiet interval.
+- CRC is detection only. With no reverse channel, no line retransmission is possible.
+
+## Clock domains and CDC
+
+- clk8: KEY1 synchronizer/debounce, UART TX, protocol controller, RGB serializer/FIFO #2 read side.
 - clk24: camera configuration/control.
-- cam_pclk: camera byte capture, RGB565 packer, FIFO #1 write side.
-- usr_clk: HyperRAM write/read engines, FIFO #1 read side, FIFO #2 write side, integrity checker.
-- Single events use `pulse_toggle_cdc`; readout enable and sticky status levels use two-flop synchronization; final multi-bit stats use `stable_bus_event_cdc`.
+- cam_pclk: DVP sampling, RGB565 packer, FIFO #1 write side.
+- usr_clk: HyperRAM read/write engines, FIFO #1 read side, FIFO #2 write side, integrity checker.
+- KEY1 crosses only through clk8 synchronizer flops; the resulting pulse crosses clk8 -> clk24 through pulse_toggle_cdc.
+- camera configuration done/pass: clk24 -> clk8 two-flop synchronizers.
+- reader error: usr_clk -> clk8 two-flop synchronizer; serializer error is already clk8.
+- local line-complete pulse: clk8 -> usr_clk toggle synchronizer.
+- async FIFOs use Gray-coded pointers and two-flop pointer synchronizers.
+- final statistics use the existing stable-bus event CDC.
 
-## Retry/address behavior
-- A line contains `G_FRAME_WIDTH/2` 32-bit words and `C_BURSTS_PER_LINE` bursts.
-- Reader address advances by the configured burst stride after each completed burst.
-- On retry, reader restores:
-  `G_BASE_ADDR + line_index * C_BURSTS_PER_LINE * G_BURST_ADDR_STRIDE`.
-- Reader deasserts line_ready, waits for FIFO #2 to become empty, then reads the same line again.
-- FIFO-drain wait is bounded by the configured read timeout; a stuck FIFO/CDC now raises reader error instead of hanging indefinitely.
-- Reader increments line_index only on host ACK.
+## Known engineering limits and sign-off items
 
-## Timeout configuration in top
-- UART ACK timeout: 16,000,000 clk8 cycles = 2 s.
-- Source timeout: 8,000,000 clk8 cycles = 1 s.
-- Capture + HyperRAM frame timeout: 120,000,000 clk8 cycles = 15 s.
-- Maximum line retries: 3.
-These are initial design values and should be validated on the board.
-
-## Important remaining engineering checks
-- Verify generated Gowin HyperRAM IP command acceptance, address units, response cadence and read adapter behavior against the exact generated IP example.
-- Verify actual camera output geometry/format and that camera PCLK timing matches the packer assumptions.
-- Verify Gowin supports the selected project file paths and VHDL constructs.
-- Review reset strategy before hardware sign-off: the top has no external reset port and currently holds `rst_n` high internally. Confirm Gowin power-up initialization for all state/FIFO registers and ensure `ip_rst_n` deassertion is safe in each affected clock domain (`clk8`, `usr_clk`, and any camera domain). Add domain-synchronous reset release or an explicit board reset if required.
-- Check clock constraints for clk8, clk24, clk96, usr_clk and cam_pclk.
-- Check UART physical pin constraints and USB-UART voltage/logic compatibility.
+- The generated Gowin HyperRAM IP command acceptance, address units, response cadence and read adapter behavior still require confirmation against the generated example and board measurement.
+- Camera DVP geometry and PCLK sampling assumptions require hardware verification.
+- The UART baud divider is 69 clocks/bit (about 115942 baud), not exactly 115200; verify adapter tolerance with a scope/logic analyzer.
+- The host has no reverse backpressure. A cable disconnect or PC/driver overflow results in missing data detectable by CRC/sequence/DONE, but not retransmittable.
+- Reset release remains unverified: top-level rst_n is held high internally, while ip_rst_n is PLL-derived in clk24 and used in other domains. Add domain-synchronous reset release or a board reset before sign-off.
+- Check generated IP binding, clock constraints, Gowin VHDL elaboration, timing closure, UART waveform, trigger pin voltage, and full board capture.

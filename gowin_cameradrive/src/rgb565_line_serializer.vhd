@@ -57,7 +57,7 @@ architecture rtl of rgb565_line_serializer is
         ST_SEND_R,
         ST_SEND_G,
         ST_SEND_B,
-        ST_WAIT_HOST_ACK,
+        ST_WAIT_LINE_COMMIT,
         ST_WAIT_LINE_DROP,
         ST_WAIT_RETRY_DROP,
         ST_FRAME_DONE,
@@ -90,7 +90,8 @@ architecture rtl of rgb565_line_serializer is
     signal pixel_count_reg   : unsigned(31 downto 0) := (others => '0');
     signal uart_byte_count_reg : unsigned(31 downto 0) := (others => '0');
 
-    -- Per-line checkpoint: statistics become permanent only after host ACK.
+    -- Per-line checkpoint retained for diagnostics/future retry support; in the one-way
+    -- stream, the local line-complete pulse commits the current row.
     signal crc_checkpoint             : std_logic_vector(31 downto 0) := x"FFFFFFFF";
     signal raw_byte_checkpoint        : unsigned(31 downto 0) := (others => '0');
     signal word_count_checkpoint      : unsigned(31 downto 0) := (others => '0');
@@ -280,15 +281,15 @@ begin
                         else
                             if words_this_line = C_WORDS_PER_LINE then
                                 line_consumed_reg <= '0';
-                                state <= ST_WAIT_HOST_ACK;
+                                state <= ST_WAIT_LINE_COMMIT;
                             else
                                 state <= ST_REQUEST_WORD;
                             end if;
                         end if;
                     end if;
 
-                when ST_WAIT_HOST_ACK =>
-                    if line_ack_i = '1' then
+                when ST_WAIT_LINE_COMMIT =>
+                    if line_ack_i = '1' then -- Local protocol completion; no host ACK.
                         if lines_completed < G_FRAME_HEIGHT then
                             lines_completed <= lines_completed + 1;
                         end if;
@@ -296,7 +297,7 @@ begin
                             frame_done_reg <= '1';
                         end if;
                         state <= ST_WAIT_LINE_DROP;
-                    elsif line_retry_i = '1' then
+                    elsif line_retry_i = '1' then -- Tied low in the one-way top.
                         crc_reg <= crc_checkpoint;
                         raw_byte_count_reg <= raw_byte_checkpoint;
                         word_count_reg <= word_count_checkpoint;

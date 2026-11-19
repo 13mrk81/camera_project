@@ -2,8 +2,8 @@ library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 
--- One-shot GC0308 -> raw RGB565 HyperRAM capture and stop-and-wait UART readback.
--- UART RX decodes the complete 0xC1 START command; UART TX streams RGB888 rows.
+-- One-shot GC0308 -> RGB565 HyperRAM capture and one-way RGB888 UART stream.
+-- An on-board active-low pushbutton triggers capture; MATLAB is receive-only.
 --
 -- Memory format (640x480 defaults):
 --   4 original RGB565 bytes per 32-bit user word
@@ -24,18 +24,15 @@ entity Camera_HyperRAM_OneFrame is
         G_CMD_INTERVAL_CYCLES     : positive := 21;
         G_WRITE_READ_GAP_CYCLES   : positive := 63;
         G_READ_TIMEOUT_CYCLES     : positive := 100_000;
-        -- Enable the autonomous UART TX test pattern (highest priority).
-        G_UART_SELF_TEST          : boolean := false;
-        -- Echo only the decoded START command (0xC1), without starting capture.
-        G_UART_ECHO_TEST          : boolean := true
+        G_UART_PACKET_GAP_CYCLES   : positive := 160_000 -- 20 ms at 8 MHz
     );
     port (
         -- 8 MHz board clock and global active-low reset.
         clk8                : in  std_logic;
 
-        -- UART RX input: complete 0xC1 START command.
-        uart_rx_i           : in  std_logic;
-        -- UART TX output: READY/LINE/DONE/ERROR protocol packets and payload.
+        -- Tang Nano 4K KEY1: active-low on-board pushbutton trigger.
+        trigger_n_i         : in  std_logic;
+        -- FPGA -> MATLAB UART TX only; no host-to-FPGA UART data.
         uart_tx_o           : out std_logic;
 
         -- GC0308 connections.
@@ -72,6 +69,7 @@ architecture rtl of Camera_HyperRAM_OneFrame is
     constant C_TOTAL_BURSTS          : positive := C_TOTAL_WORDS / C_BURST_WORDS;
     constant C_ADDR_STEP             : unsigned(21 downto 0) := to_unsigned(16, 22);
     constant C_PLL_STABLE_CYCLES     : positive := 48_000; -- 2 ms at 24 MHz
+    constant C_TRIGGER_DEBOUNCE_CYCLES : positive := 160_000; -- 20 ms at 8 MHz
     constant C_MIN_GAP_CYCLES        : positive := G_CMD_INTERVAL_CYCLES - C_BURST_WORDS;
 
     type burst_buffer_t is array (0 to C_BURST_WORDS - 1) of std_logic_vector(31 downto 0);
@@ -186,44 +184,46 @@ architecture rtl of Camera_HyperRAM_OneFrame is
     signal mem_data_mask_i    : std_logic_vector(3 downto 0) := (others => '0');
 
     --------------------------------------------------------------------------
-    -- Decoded UART START event and camera_interface stream.
+    -- Debounced KEY1 trigger, one-way UART TX protocol and CDC status levels.
     --------------------------------------------------------------------------
     signal camera_start_pulse : std_logic;
     signal protocol_transfer_start : std_logic;
     signal protocol_line_start : std_logic;
     signal protocol_line_index : std_logic_vector(15 downto 0);
 
-    signal rx_data             : std_logic_vector(7 downto 0);
-    signal rx_valid            : std_logic;
-    signal protocol_rx_valid   : std_logic;
-    signal rx_framing_error    : std_logic;
-    signal uart_echo_pending   : std_logic := '0';
-    signal protocol_tx_data    : std_logic_vector(7 downto 0);
-    signal protocol_tx_valid   : std_logic;
-    signal protocol_tx_ready   : std_logic;
-    signal uart_tx_mux_data   : std_logic_vector(7 downto 0);
-    signal uart_tx_mux_valid  : std_logic;
-    signal uart_test_data     : std_logic_vector(7 downto 0) := (others => '0');
-    signal uart_test_valid    : std_logic := '0';
-    signal uart_test_index    : natural range 0 to 11 := 0;
-    signal uart_test_pause    : std_logic := '0';
-    signal uart_test_pause_count : natural range 0 to 8_000_000 := 0;
-    signal protocol_src_ready  : std_logic;
-    signal protocol_busy       : std_logic;
-    signal protocol_done       : std_logic;
-    signal protocol_error      : std_logic;
-    signal protocol_line_ack   : std_logic;
-    signal protocol_line_retry : std_logic;
-    signal line_ack_usr        : std_logic;
-    signal line_retry_usr      : std_logic;
-    signal write_done_meta_8   : std_logic := '0';
-    signal write_done_sync_8   : std_logic := '0';
+    signal trigger_meta       : std_logic := '1';
+    signal trigger_sync       : std_logic := '1';
+    signal trigger_stable     : std_logic := '1';
+    signal trigger_pulse      : std_logic := '0';
+    signal trigger_count      : natural range 0 to C_TRIGGER_DEBOUNCE_CYCLES := 0;
+
+    signal protocol_tx_data   : std_logic_vector(7 downto 0);
+    signal protocol_tx_valid  : std_logic;
+    signal protocol_tx_ready  : std_logic;
+    signal protocol_src_ready : std_logic;
+    signal protocol_busy      : std_logic;
+    signal protocol_done      : std_logic;
+    signal protocol_error     : std_logic;
+    signal protocol_line_ack  : std_logic;
+    signal line_ack_usr       : std_logic;
+
+    signal write_done_meta_8  : std_logic := '0';
+    signal write_done_sync_8  : std_logic := '0';
     signal frame_error_meta_8 : std_logic := '0';
-    signal frame_error_sync_8 : std_logic := '0';
+    signal frame_error_sync_8: std_logic := '0';
+
+    signal cam_config_done_meta_8 : std_logic := '0';
+    signal cam_config_done_sync_8 : std_logic := '0';
+    signal cam_config_pass_meta_8 : std_logic := '0';
+    signal cam_config_pass_sync_8 : std_logic := '0';
+    signal reader_error_meta_8    : std_logic := '0';
+    signal reader_error_sync_8    : std_logic := '0';
+    signal readout_error_8        : std_logic;
+
     signal serializer_error_meta_usr : std_logic := '0';
     signal serializer_error_sync_usr : std_logic := '0';
-    signal protocol_error_meta_usr : std_logic := '0';
-    signal protocol_error_sync_usr : std_logic := '0';
+    signal protocol_error_meta_usr   : std_logic := '0';
+    signal protocol_error_sync_usr   : std_logic := '0';
 
     signal cam_clk_i          : std_logic;
     signal cam_byte_data      : std_logic_vector(7 downto 0);
@@ -279,6 +279,14 @@ architecture rtl of Camera_HyperRAM_OneFrame is
     attribute async_reg of serializer_error_sync_usr : signal is "true";
     attribute async_reg of protocol_error_meta_usr : signal is "true";
     attribute async_reg of protocol_error_sync_usr : signal is "true";
+    attribute async_reg of trigger_meta : signal is "true";
+    attribute async_reg of trigger_sync : signal is "true";
+    attribute async_reg of cam_config_done_meta_8 : signal is "true";
+    attribute async_reg of cam_config_done_sync_8 : signal is "true";
+    attribute async_reg of cam_config_pass_meta_8 : signal is "true";
+    attribute async_reg of cam_config_pass_sync_8 : signal is "true";
+    attribute async_reg of reader_error_meta_8 : signal is "true";
+    attribute async_reg of reader_error_sync_8 : signal is "true";
 
     --------------------------------------------------------------------------
     -- Capture FIFO -> HyperRAM write engine.
@@ -467,132 +475,71 @@ begin
     ip_rst_n <= rst_n and pll_stable;
 
     --------------------------------------------------------------------------
-    -- Optional autonomous UART TX self-test.
-    -- Sends "UART TX OK" followed by CR/LF once per second. This isolates
-    -- the FPGA clock, UART transmitter, TX pin constraint and USB-UART RX path
-    -- from the host command decoder, camera and HyperRAM.
+    -- KEY1 active-low trigger: synchronize, debounce for 20 ms, and emit one
+    -- clk8 pulse on a stable high-to-low transition.
     --------------------------------------------------------------------------
-    g_uart_self_tes : if G_UART_SELF_TEST generate
-        process(clk8)
-        begin
-            if rising_edge(clk8) then
-                if rst_n = '0' then
-                    uart_test_data       <= (others => '0');
-                    uart_test_valid      <= '0';
-                    uart_test_index      <= 0;
-                    uart_test_pause      <= '0';
-                    uart_test_pause_count <= 0;
-                else
-                    if uart_test_valid = '1' then
-                        if protocol_tx_ready = '1' then
-                            uart_test_valid <= '0';
-                            if uart_test_index = 11 then
-                                uart_test_index <= 0;
-                                uart_test_pause <= '1';
-                                uart_test_pause_count <= 0;
-                            else
-                                uart_test_index <= uart_test_index + 1;
-                            end if;
-                        end if;
-                    elsif uart_test_pause = '1' then
-                        if uart_test_pause_count = 7_999_999 then
-                            uart_test_pause_count <= 0;
-                            uart_test_pause <= '0';
-                        else
-                            uart_test_pause_count <= uart_test_pause_count + 1;
-                        end if;
-                    else
-                        case uart_test_index is
-                            when 0  => uart_test_data <= x"55"; -- U
-                            when 1  => uart_test_data <= x"41"; -- A
-                            when 2  => uart_test_data <= x"52"; -- R
-                            when 3  => uart_test_data <= x"54"; -- T
-                            when 4  => uart_test_data <= x"20"; -- space
-                            when 5  => uart_test_data <= x"54"; -- T
-                            when 6  => uart_test_data <= x"58"; -- X
-                            when 7  => uart_test_data <= x"20"; -- space
-                            when 8  => uart_test_data <= x"4F"; -- O
-                            when 9  => uart_test_data <= x"4B"; -- K
-                            when 10 => uart_test_data <= x"0D"; -- CR
-                            when others => uart_test_data <= x"0A"; -- LF
-                        end case;
-                        uart_test_valid <= '1';
-                    end if;
+    process(clk8, rst_n)
+    begin
+        if rst_n = '0' then
+            trigger_meta   <= '1';
+            trigger_sync   <= '1';
+            trigger_stable <= '1';
+            trigger_count  <= 0;
+            trigger_pulse  <= '0';
+        elsif rising_edge(clk8) then
+            trigger_meta  <= trigger_n_i;
+            trigger_sync  <= trigger_meta;
+            trigger_pulse <= '0';
+
+            if trigger_sync = trigger_stable then
+                trigger_count <= 0;
+            elsif trigger_count = C_TRIGGER_DEBOUNCE_CYCLES - 1 then
+                trigger_stable <= trigger_sync;
+                trigger_count <= 0;
+                if (trigger_stable = '1') and (trigger_sync = '0') then
+                    trigger_pulse <= '1';
                 end if;
+            else
+                trigger_count <= trigger_count + 1;
             end if;
-        end process;
-
-        uart_tx_mux_data  <= uart_test_data;
-        uart_tx_mux_valid <= uart_test_valid;
-    end generate;
-
-    -- Echo-test mode accepts only a complete 0xC1 byte from UART RX.
-    -- Hold the response until the UART transmitter accepts it.
-    g_uart_start_echo_mode : if (not G_UART_SELF_TEST) and G_UART_ECHO_TEST generate
-        process(clk8)
-        begin
-            if rising_edge(clk8) then
-                if rst_n = '0' then
-                    uart_echo_pending <= '0';
-                else
-                    if uart_echo_pending = '1' and protocol_tx_ready = '1' then
-                        uart_echo_pending <= '0';
-                    elsif rx_valid = '1' and rx_data = x"C1" then
-                        uart_echo_pending <= '1';
-                    end if;
-                end if;
-            end if;
-        end process;
-
-        uart_tx_mux_data  <= x"C1";
-        uart_tx_mux_valid <= uart_echo_pending;
-    end generate;
-
-    g_uart_protocol_tx : if (not G_UART_SELF_TEST) and (not G_UART_ECHO_TEST) generate
-        uart_tx_mux_data  <= protocol_tx_data;
-        uart_tx_mux_valid <= protocol_tx_valid;
-    end generate;
-
-    -- Do not let the START byte launch a camera capture during UART echo test.
-    protocol_rx_valid <= rx_valid when (not G_UART_SELF_TEST and not G_UART_ECHO_TEST) else '0';
+        end if;
+    end process;
 
     --------------------------------------------------------------------------
-    -- UART physical layer and stop-and-wait camera frame protocol.
+    -- One-way UART TX physical layer and staged camera stream protocol.
     --------------------------------------------------------------------------
-    u_uart_rx : entity work.uart_rx
-        generic map (G_CLK_FREQ_HZ => 8_000_000, G_BAUD_RATE => 115_200)
-        port map (
-            clk => clk8, rst_n => rst_n, serial_rx_i => uart_rx_i,
-            data_o => rx_data, data_valid_o => rx_valid,
-            framing_error_o => rx_framing_error
-        );
-
     u_uart_tx : entity work.uart_tx
         generic map (G_CLK_FREQ_HZ => 8_000_000, G_BAUD_RATE => 115_200)
         port map (
-            clk => clk8, rst_n => rst_n, data_i => uart_tx_mux_data,
-            data_valid_i => uart_tx_mux_valid, data_ready_o => protocol_tx_ready,
+            clk => clk8, rst_n => rst_n, data_i => protocol_tx_data,
+            data_valid_i => protocol_tx_valid, data_ready_o => protocol_tx_ready,
             serial_tx_o => uart_tx_o
         );
 
     u_camera_protocol : entity work.camera_uart_frame_protocol
         generic map (
-            G_FRAME_WIDTH => G_FRAME_WIDTH,
-            G_FRAME_HEIGHT => G_FRAME_HEIGHT,
-            G_BYTES_PER_PIXEL => 3,
-            G_PIXEL_FORMAT => x"01",
-            G_ACK_TIMEOUT_CYCLES => 16_000_000,
-            G_SOURCE_TIMEOUT_CYCLES => 8_000_000,
-            G_FRAME_TIMEOUT_CYCLES => 120_000_000,
-            G_MAX_RETRIES => 3
+            G_FRAME_WIDTH           => G_FRAME_WIDTH,
+            G_FRAME_HEIGHT          => G_FRAME_HEIGHT,
+            G_PACKET_GAP_CYCLES     => G_UART_PACKET_GAP_CYCLES,
+            G_SOURCE_TIMEOUT_CYCLES => 32_000_000,
+            G_FRAME_TIMEOUT_CYCLES  => 120_000_000
         )
         port map (
             clk => clk8, rst_n => rst_n,
-            rx_data_i => rx_data, rx_valid_i => protocol_rx_valid,
-            tx_data_o => protocol_tx_data, tx_valid_o => protocol_tx_valid,
-            tx_ready_i => protocol_tx_ready,
+            trigger_i => trigger_pulse,
+            camera_config_done_i => cam_config_done_sync_8,
+            camera_config_pass_i => cam_config_pass_sync_8,
             frame_available_i => write_done_sync_8,
             frame_error_i => frame_error_sync_8,
+            readout_error_i => readout_error_8,
+            serializer_done_i => serializer_done,
+            readback_crc_i => readback_crc_uart,
+            pixel_count_i => output_pixel_count_uart,
+            uart_byte_count_i => uart_byte_count_uart,
+            lines_sent_i => lines_sent_uart,
+            tx_data_o => protocol_tx_data,
+            tx_valid_o => protocol_tx_valid,
+            tx_ready_i => protocol_tx_ready,
             line_start_o => protocol_line_start,
             line_index_o => protocol_line_index,
             src_data_i => uart_tx_data,
@@ -600,12 +547,11 @@ begin
             src_ready_o => protocol_src_ready,
             transfer_start_o => protocol_transfer_start,
             line_ack_o => protocol_line_ack,
-            line_retry_o => protocol_line_retry,
             busy_o => protocol_busy, done_o => protocol_done,
             error_o => protocol_error
         );
 
-    -- Decoded START pulse crosses into the camera's 24 MHz control domain.
+    -- Debounced KEY1 event crosses into the camera's 24 MHz control domain.
     u_camera_start_cdc : entity work.pulse_toggle_cdc
         port map (
             src_clk => clk8, src_rst_n => rst_n,
@@ -623,15 +569,7 @@ begin
             dst_pulse_o => line_ack_usr
         );
 
-    u_line_retry_cdc : entity work.pulse_toggle_cdc
-        port map (
-            src_clk => clk8, src_rst_n => ip_rst_n,
-            src_pulse_i => protocol_line_retry,
-            dst_clk => usr_clk, dst_rst_n => ip_rst_n,
-            dst_pulse_o => line_retry_usr
-        );
-
-    -- Frame-write completion/error are sticky status levels crossing to clk8.
+    -- Synchronize sticky status levels into clk8 from clk24 and usr_clk.
     process(clk8, rst_n)
     begin
         if rst_n = '0' then
@@ -639,13 +577,29 @@ begin
             write_done_sync_8 <= '0';
             frame_error_meta_8 <= '0';
             frame_error_sync_8 <= '0';
+            cam_config_done_meta_8 <= '0';
+            cam_config_done_sync_8 <= '0';
+            cam_config_pass_meta_8 <= '0';
+            cam_config_pass_sync_8 <= '0';
+            reader_error_meta_8 <= '0';
+            reader_error_sync_8 <= '0';
         elsif rising_edge(clk8) then
             write_done_meta_8 <= write_done_reg;
             write_done_sync_8 <= write_done_meta_8;
             frame_error_meta_8 <= capture_error_sync_usr or write_error_reg;
             frame_error_sync_8 <= frame_error_meta_8;
+
+            cam_config_done_meta_8 <= cam_config_done;
+            cam_config_done_sync_8 <= cam_config_done_meta_8;
+            cam_config_pass_meta_8 <= cam_config_pass;
+            cam_config_pass_sync_8 <= cam_config_pass_meta_8;
+
+            reader_error_meta_8 <= reader_error;
+            reader_error_sync_8 <= reader_error_meta_8;
         end if;
     end process;
+
+    readout_error_8 <= reader_error_sync_8 or serializer_error;
 
     -- Serializer error is a clk8-domain status; synchronize it for the
     -- HyperRAM-domain integrity checker.
@@ -980,9 +934,9 @@ begin
             rst_n                  => ip_rst_n,
             frame_written_i        => readout_start_sync_usr,
             line_ack_i             => line_ack_usr,
-            line_retry_i           => line_retry_usr,
+            line_retry_i           => '0', -- no host NACK on the one-way stream
             line_ack_uart_i        => protocol_line_ack,
-            line_retry_uart_i      => protocol_line_retry,
+            line_retry_uart_i      => '0',
             mem_rd_cmd_valid_o     => line_cmd_valid,
             mem_rd_cmd_ready_i     => line_cmd_ready,
             mem_rd_addr_o          => line_cmd_addr,
@@ -1016,8 +970,8 @@ begin
             lines_sent_o           => lines_sent_uart
         );
 
-    -- Start prefetch only after the host ACKs READY and the protocol emits
-    -- the first LINE header. The level remains asserted for all subsequent rows.
+    -- Begin prefetch when the protocol starts the first LINE packet. The
+    -- synchronized level remains asserted for every row in this one-shot frame.
     process(clk8, rst_n)
     begin
         if rst_n = '0' then
@@ -1095,8 +1049,7 @@ begin
 
     --------------------------------------------------------------------------
     -- End-to-end integrity checker. The final statistics snapshot is captured
-    -- only after the host ACKs DONE; this also implies the DONE UART byte has
-    -- completed transmission and the physical UART transmitter is idle.
+    -- only after the DONE packet has completed its UART stop bit.
     --------------------------------------------------------------------------
     -- One bundled snapshot crosses only after protocol DONE is acknowledged.
     stream_stats_src <= readback_crc_uart &

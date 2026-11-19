@@ -39,13 +39,14 @@ entity hyperram_line_reader is
         fifo_wr_full_i         : in  std_logic;
         fifo_wr_level_i        : in  unsigned(G_FIFO_ADDR_BITS downto 0);
 
-        -- Host ACK/NACK events are synchronized into this memory-clock domain.
+        -- Local line-complete acknowledgement is synchronized into this memory-clock
+        -- domain. Retry is disabled by the one-way top-level protocol.
         line_ack_i             : in  std_logic;
         line_retry_i           : in  std_logic;
 
         -- Flag A: one-cycle pulse at the start of every line read.
         line_read_req_o        : out std_logic;
-        -- Flag B: sticky until host ACK or NACK is received.
+        -- Flag B: sticky until the local completed-line pulse is received.
         line_ready_o           : out std_logic;
         line_complete_o        : out std_logic;
         frame_stream_done_o    : out std_logic;
@@ -217,7 +218,7 @@ begin
                         end if;
 
                     when ST_WAIT_LINE_ACK =>
-                        if line_ack_i = '1' then
+                        if line_ack_i = '1' then -- Local packet-complete acknowledgement.
                             line_ready_reg <= '0';
                             line_complete_reg <= '1';
                             if line_index_reg = G_FRAME_HEIGHT - 1 then
@@ -228,7 +229,7 @@ begin
                                 timeout_count_reg <= 0;
                                 state <= ST_WAIT_FIFO_EMPTY;
                             end if;
-                        elsif line_retry_i = '1' then
+                        elsif line_retry_i = '1' then -- Inactive in the one-way design.
                             line_ready_reg <= '0';
                             line_word_count_reg <= 0;
                             burst_index_reg <= 0;

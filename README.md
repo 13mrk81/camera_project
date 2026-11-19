@@ -35,6 +35,10 @@ The project targets the Gowin device configured in that project file. Its source
 
 Generated synthesis and place-and-route outputs are retained under `gowin_cameradrive/impl/` as part of the current project snapshot. They are implementation artifacts and may need regeneration after source, device, constraint, or Gowin EDA version changes.
 
+## Active camera stream protocol
+
+The main gowin_cameradrive camera top uses a one-way UART stream: Tang Nano 4K KEY1 triggers capture, FPGA TX reports stages and sends CRC-protected RGB888 rows, and MATLAB is receive-only. See DESIGN_NOTES.md, UART_ONE_WAY_PROTOCOL.md, IMPLEMENTATION_STATUS.md, and VALIDATION.md for the protocol, CDC/buffer assumptions, recovery instructions, and remaining hardware sign-off checks.
+
 ## Projects
 
 ### Camera_HyperRAM_OneFrame_Integrated

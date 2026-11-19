@@ -28,10 +28,10 @@ entity hyperram_line_readout is
         uart_clk               : in  std_logic;
         rst_n                  : in  std_logic;
         frame_written_i        : in  std_logic;
-        line_ack_i             : in  std_logic; -- mem_clk domain
-        line_retry_i           : in  std_logic; -- mem_clk domain
-        line_ack_uart_i        : in  std_logic; -- uart_clk domain
-        line_retry_uart_i      : in  std_logic; -- uart_clk domain
+        line_ack_i             : in  std_logic; -- local completion, mem_clk domain
+        line_retry_i           : in  std_logic; -- tied low in one-way mode
+        line_ack_uart_i        : in  std_logic; -- local packet completion, uart_clk
+        line_retry_uart_i      : in  std_logic; -- tied low in one-way mode
 
         -- Connect these to a verified HyperRAM read adapter.
         mem_rd_cmd_valid_o     : out std_logic;
