@@ -25,11 +25,11 @@ entity HyperRAM_Storage_SelfTest is
         G_CMD_INTERVAL_CYCLES     : positive := 21;
         G_WRITE_READ_GAP_CYCLES   : positive := 63;
         G_READ_TIMEOUT_CYCLES     : positive := 100_000;
-        G_UART_PACKET_GAP_CYCLES   : positive := 160_000; -- 20 ms at 8 MHz
-        G_UART_INTER_BYTE_GAP_CYCLES : positive := 80 -- 10 us at 8 MHz
+        G_UART_PACKET_GAP_CYCLES   : positive := 480_000; -- 20 ms at 24 MHz
+        G_UART_INTER_BYTE_GAP_CYCLES : positive := 240 -- 10 us at 24 MHz
     );
     port (
-        clk8                : in  std_logic;
+        clk8                : in  std_logic; -- 8 MHz PLL reference only
         trigger_n_i         : in  std_logic;
         uart_tx_o           : out std_logic;
         O_hpram_ck          : out std_logic_vector(0 downto 0);
@@ -56,7 +56,7 @@ architecture rtl of HyperRAM_Storage_SelfTest is
     constant C_TOTAL_BURSTS          : positive := C_TOTAL_WORDS / C_BURST_WORDS;
     constant C_ADDR_STEP             : unsigned(21 downto 0) := to_unsigned(16, 22);
     constant C_PLL_STABLE_CYCLES     : positive := 48_000; -- 2 ms at 24 MHz
-    constant C_TRIGGER_DEBOUNCE_CYCLES : positive := 160_000; -- 20 ms at 8 MHz
+    constant C_TRIGGER_DEBOUNCE_CYCLES : positive := 480_000; -- 20 ms at 24 MHz
     constant C_MIN_GAP_CYCLES        : positive := G_CMD_INTERVAL_CYCLES - C_BURST_WORDS;
 
     type burst_buffer_t is array (0 to C_BURST_WORDS - 1) of std_logic_vector(31 downto 0);
@@ -164,18 +164,14 @@ architecture rtl of HyperRAM_Storage_SelfTest is
     signal protocol_line_ack  : std_logic;
     signal line_ack_usr       : std_logic;
 
-    signal write_done_meta_8  : std_logic := '0';
-    signal write_done_sync_8  : std_logic := '0';
-    signal frame_error_meta_8 : std_logic := '0';
-    signal frame_error_sync_8: std_logic := '0';
-
-    signal cam_config_done_meta_8 : std_logic := '0';
-    signal cam_config_done_sync_8 : std_logic := '0';
-    signal cam_config_pass_meta_8 : std_logic := '0';
-    signal cam_config_pass_sync_8 : std_logic := '0';
-    signal reader_error_meta_8    : std_logic := '0';
-    signal reader_error_sync_8    : std_logic := '0';
-    signal readout_error_8        : std_logic;
+    -- Sticky status synchronizers from HyperRAM usr_clk into system clk24.
+    signal write_done_meta_24  : std_logic := '0';
+    signal write_done_sync_24  : std_logic := '0';
+    signal frame_error_meta_24 : std_logic := '0';
+    signal frame_error_sync_24 : std_logic := '0';
+    signal reader_error_meta_24 : std_logic := '0';
+    signal reader_error_sync_24 : std_logic := '0';
+    signal readout_error_24     : std_logic;
 
     signal serializer_error_meta_usr : std_logic := '0';
     signal serializer_error_sync_usr : std_logic := '0';
@@ -230,22 +226,18 @@ architecture rtl of HyperRAM_Storage_SelfTest is
     attribute async_reg : string;
     attribute async_reg of capture_error_meta_usr : signal is "true";
     attribute async_reg of capture_error_sync_usr : signal is "true";
-    attribute async_reg of write_done_meta_8 : signal is "true";
-    attribute async_reg of write_done_sync_8 : signal is "true";
-    attribute async_reg of frame_error_meta_8 : signal is "true";
-    attribute async_reg of frame_error_sync_8 : signal is "true";
+    attribute async_reg of write_done_meta_24 : signal is "true";
+    attribute async_reg of write_done_sync_24 : signal is "true";
+    attribute async_reg of frame_error_meta_24 : signal is "true";
+    attribute async_reg of frame_error_sync_24 : signal is "true";
     attribute async_reg of serializer_error_meta_usr : signal is "true";
     attribute async_reg of serializer_error_sync_usr : signal is "true";
     attribute async_reg of protocol_error_meta_usr : signal is "true";
     attribute async_reg of protocol_error_sync_usr : signal is "true";
     attribute async_reg of trigger_meta : signal is "true";
     attribute async_reg of trigger_sync : signal is "true";
-    attribute async_reg of cam_config_done_meta_8 : signal is "true";
-    attribute async_reg of cam_config_done_sync_8 : signal is "true";
-    attribute async_reg of cam_config_pass_meta_8 : signal is "true";
-    attribute async_reg of cam_config_pass_sync_8 : signal is "true";
-    attribute async_reg of reader_error_meta_8 : signal is "true";
-    attribute async_reg of reader_error_sync_8 : signal is "true";
+    attribute async_reg of reader_error_meta_24 : signal is "true";
+    attribute async_reg of reader_error_sync_24 : signal is "true";
 
     --------------------------------------------------------------------------
     -- Capture FIFO -> HyperRAM write engine.
@@ -267,7 +259,7 @@ architecture rtl of HyperRAM_Storage_SelfTest is
     --------------------------------------------------------------------------
     -- Read adapter and line-by-line readout subsystem.
     --------------------------------------------------------------------------
-    signal readout_start_reg      : std_logic := '0'; -- clk8 domain, sticky
+    signal readout_start_reg      : std_logic := '0'; -- clk24 domain, sticky
     signal readout_start_meta_usr : std_logic := '0';
     signal readout_start_sync_usr : std_logic := '0';
     attribute async_reg of readout_start_meta_usr : signal is "true";
@@ -311,7 +303,7 @@ architecture rtl of HyperRAM_Storage_SelfTest is
     signal uart_byte_count_uart    : unsigned(31 downto 0);
     signal lines_sent_uart         : unsigned(15 downto 0);
 
-    -- Bundle the final clk8 statistics into usr_clk for the integrity checker.
+    -- Bundle the final clk24 statistics into usr_clk for the integrity checker.
     signal stream_stats_src       : std_logic_vector(175 downto 0);
     signal stream_stats_usr       : std_logic_vector(175 downto 0);
     signal stream_stats_valid_usr : std_logic;
@@ -336,11 +328,11 @@ architecture rtl of HyperRAM_Storage_SelfTest is
     signal top_error            : std_logic;
     signal top_frame_error      : std_logic;
 
-    -- Stable usr_clk -> clk8 telemetry snapshot, captured after the final
+    -- Stable usr_clk -> clk24 telemetry snapshot, captured after the final
     -- readback line has completed and before the DONE packet is generated.
     signal storage_telemetry_src : std_logic_vector(239 downto 0);
-    signal storage_telemetry_clk8 : std_logic_vector(239 downto 0);
-    signal storage_telemetry_valid_clk8 : std_logic;
+    signal storage_telemetry_clk24 : std_logic_vector(239 downto 0);
+    signal storage_telemetry_valid_clk24 : std_logic;
     signal storage_status_flags_usr : std_logic_vector(15 downto 0);
 
     --------------------------------------------------------------------------
@@ -401,7 +393,7 @@ begin
         severity failure;
 
     --------------------------------------------------------------------------
-    -- Clock generation: unchanged 8 MHz -> 24 MHz -> 96 MHz configuration.
+    -- Clock generation: 8 MHz is only the PLL reference; 24 MHz is the fabric clock.
     --------------------------------------------------------------------------
 
     rst_n <= '1';
@@ -446,7 +438,7 @@ begin
     -- KEY1 active-low trigger: synchronize, debounce for 20 ms, and emit one
     -- clk8 pulse on a stable high-to-low transition.
     --------------------------------------------------------------------------
-    process(clk8, rst_n)
+    process(clk24, rst_n)
     begin
         if rst_n = '0' then
             trigger_meta   <= '1';
@@ -454,7 +446,7 @@ begin
             trigger_stable <= '1';
             trigger_count  <= 0;
             trigger_pulse  <= '0';
-        elsif rising_edge(clk8) then
+        elsif rising_edge(clk24) then
             trigger_meta  <= trigger_n_i;
             trigger_sync  <= trigger_meta;
             trigger_pulse <= '0';
@@ -478,12 +470,12 @@ begin
     --------------------------------------------------------------------------
     u_uart_tx : entity work.uart_tx
         generic map (
-            G_CLK_FREQ_HZ           => 8_000_000,
+            G_CLK_FREQ_HZ           => 24_000_000,
             G_BAUD_RATE             => 115_200,
             G_INTER_BYTE_GAP_CYCLES => G_UART_INTER_BYTE_GAP_CYCLES
         )
         port map (
-            clk => clk8, rst_n => rst_n, data_i => protocol_tx_data,
+            clk => clk24, rst_n => rst_n, data_i => protocol_tx_data,
             data_valid_i => protocol_tx_valid, data_ready_o => protocol_tx_ready,
             serial_tx_o => uart_tx_o
         );
@@ -493,28 +485,28 @@ begin
             G_FRAME_WIDTH           => G_FRAME_WIDTH,
             G_FRAME_HEIGHT          => G_FRAME_HEIGHT,
             G_PACKET_GAP_CYCLES     => G_UART_PACKET_GAP_CYCLES,
-            G_SOURCE_TIMEOUT_CYCLES => 32_000_000,
-            G_FRAME_TIMEOUT_CYCLES  => 120_000_000
+            G_SOURCE_TIMEOUT_CYCLES => 96_000_000,
+            G_FRAME_TIMEOUT_CYCLES  => 360_000_000
         )
         port map (
             clk => clk8, rst_n => rst_n,
             trigger_i => trigger_pulse,
-            camera_config_done_i => cam_config_done_sync_8,
-            camera_config_pass_i => cam_config_pass_sync_8,
-            frame_available_i => write_done_sync_8,
-            frame_error_i => frame_error_sync_8,
-            readout_error_i => readout_error_8,
+            camera_config_done_i => cam_config_done,
+            camera_config_pass_i => cam_config_pass,
+            frame_available_i => write_done_sync_24,
+            frame_error_i => frame_error_sync_24,
+            readout_error_i => readout_error_24,
             serializer_done_i => serializer_done,
             readback_crc_i => readback_crc_uart,
-            telemetry_ready_i => storage_telemetry_valid_clk8,
-            capture_crc_i => storage_telemetry_clk8(31 downto 0),
-            write_crc_i => storage_telemetry_clk8(63 downto 32),
-            read_ingress_crc_i => storage_telemetry_clk8(95 downto 64),
-            source_byte_count_i => unsigned(storage_telemetry_clk8(127 downto 96)),
-            capture_byte_count_i => unsigned(storage_telemetry_clk8(159 downto 128)),
-            write_word_count_i => unsigned(storage_telemetry_clk8(191 downto 160)),
-            read_ingress_word_count_i => unsigned(storage_telemetry_clk8(223 downto 192)),
-            status_flags_i => storage_telemetry_clk8(239 downto 224),
+            telemetry_ready_i => storage_telemetry_valid_clk24,
+            capture_crc_i => storage_telemetry_clk24(31 downto 0),
+            write_crc_i => storage_telemetry_clk24(63 downto 32),
+            read_ingress_crc_i => storage_telemetry_clk24(95 downto 64),
+            source_byte_count_i => unsigned(storage_telemetry_clk24(127 downto 96)),
+            capture_byte_count_i => unsigned(storage_telemetry_clk24(159 downto 128)),
+            write_word_count_i => unsigned(storage_telemetry_clk24(191 downto 160)),
+            read_ingress_word_count_i => unsigned(storage_telemetry_clk24(223 downto 192)),
+            status_flags_i => storage_telemetry_clk24(239 downto 224),
             pixel_count_i => output_pixel_count_uart,
             uart_byte_count_i => uart_byte_count_uart,
             lines_sent_i => lines_sent_uart,
@@ -532,58 +524,42 @@ begin
             error_o => protocol_error
         );
 
-    -- Debounced KEY1 event crosses into the camera's 24 MHz control domain.
-    u_test_source_start_cdc : entity work.pulse_toggle_cdc
-        port map (
-            src_clk => clk8, src_rst_n => rst_n,
-            src_pulse_i => protocol_transfer_start,
-            dst_clk => clk24, dst_rst_n => rst_n,
-            dst_pulse_o => test_source_start_pulse
-        );
+    -- Protocol and synthetic source share clk24; no CDC is required.
+    test_source_start_pulse <= protocol_transfer_start;
 
-    -- Host ACK/NACK events cross from protocol clk8 to HyperRAM usr_clk.
+    -- Host ACK/NACK events cross from system clk24 to HyperRAM usr_clk.
     u_line_ack_cdc : entity work.pulse_toggle_cdc
         port map (
-            src_clk => clk8, src_rst_n => ip_rst_n,
+            src_clk => clk24, src_rst_n => ip_rst_n,
             src_pulse_i => protocol_line_ack,
             dst_clk => usr_clk, dst_rst_n => ip_rst_n,
             dst_pulse_o => line_ack_usr
         );
 
-    -- Synchronize sticky status levels into clk8 from clk24 and usr_clk.
-    process(clk8, rst_n)
+    -- Synchronize only sticky status levels originating in HyperRAM usr_clk.
+    -- Camera configuration is constant-ready in this sensorless self-test;
+    -- serializer and protocol logic already operate directly in clk24.
+    process(clk24, rst_n)
     begin
         if rst_n = '0' then
-            write_done_meta_8 <= '0';
-            write_done_sync_8 <= '0';
-            frame_error_meta_8 <= '0';
-            frame_error_sync_8 <= '0';
-            cam_config_done_meta_8 <= '0';
-            cam_config_done_sync_8 <= '0';
-            cam_config_pass_meta_8 <= '0';
-            cam_config_pass_sync_8 <= '0';
-            reader_error_meta_8 <= '0';
-            reader_error_sync_8 <= '0';
-        elsif rising_edge(clk8) then
-            write_done_meta_8 <= write_done_reg;
-            write_done_sync_8 <= write_done_meta_8;
-            frame_error_meta_8 <= capture_error_sync_usr or write_error_reg;
-            frame_error_sync_8 <= frame_error_meta_8;
-
-            cam_config_done_meta_8 <= cam_config_done;
-            cam_config_done_sync_8 <= cam_config_done_meta_8;
-            cam_config_pass_meta_8 <= cam_config_pass;
-            cam_config_pass_sync_8 <= cam_config_pass_meta_8;
-
-            reader_error_meta_8 <= reader_error;
-            reader_error_sync_8 <= reader_error_meta_8;
+            write_done_meta_24 <= '0';
+            write_done_sync_24 <= '0';
+            frame_error_meta_24 <= '0';
+            frame_error_sync_24 <= '0';
+            reader_error_meta_24 <= '0';
+            reader_error_sync_24 <= '0';
+        elsif rising_edge(clk24) then
+            write_done_meta_24 <= write_done_reg;
+            write_done_sync_24 <= write_done_meta_24;
+            frame_error_meta_24 <= capture_error_sync_usr or write_error_reg;
+            frame_error_sync_24 <= frame_error_meta_24;
+            reader_error_meta_24 <= reader_error;
+            reader_error_sync_24 <= reader_error_meta_24;
         end if;
     end process;
 
-    readout_error_8 <= reader_error_sync_8 or serializer_error;
+    readout_error_24 <= reader_error_sync_24 or serializer_error;
 
-    -- Serializer error is a clk8-domain status; synchronize it for the
-    -- HyperRAM-domain integrity checker.
     process(usr_clk, ip_rst_n)
     begin
         if ip_rst_n = '0' then
@@ -875,7 +851,7 @@ begin
 
     --------------------------------------------------------------------------
     -- HyperRAM read adapter, line reader, output FIFO #2 and RGB serializer.
-    -- Serializer byte stream is consumed by the clk8 UART protocol engine.
+    -- Serializer byte stream is consumed by the clk24 UART protocol engine.
     --------------------------------------------------------------------------
     u_hyperram_read_adapter : entity work.gowin_hyperram_read_adapter
         generic map (
@@ -911,7 +887,7 @@ begin
         )
         port map (
             mem_clk                => usr_clk,
-            uart_clk               => clk8,
+            uart_clk               => clk24,
             rst_n                  => ip_rst_n,
             frame_written_i        => readout_start_sync_usr,
             line_ack_i             => line_ack_usr,
@@ -955,11 +931,11 @@ begin
 
     -- Begin prefetch when the protocol starts the first LINE packet. The
     -- synchronized level remains asserted for every row in this one-shot frame.
-    process(clk8, rst_n)
+    process(clk24, rst_n)
     begin
         if rst_n = '0' then
             readout_start_reg <= '0';
-        elsif rising_edge(clk8) then
+        elsif rising_edge(clk24) then
             if protocol_line_start = '1' then
                 readout_start_reg <= '1';
             end if;
@@ -1085,9 +1061,9 @@ begin
         port map (
             src_clk => usr_clk, src_rst_n => ip_rst_n,
             src_event_i => frame_reader_done, src_data_i => storage_telemetry_src,
-            dst_clk => clk8, dst_rst_n => rst_n,
-            dst_event_o => storage_telemetry_valid_clk8,
-            dst_data_o => storage_telemetry_clk8
+            dst_clk => clk24, dst_rst_n => rst_n,
+            dst_event_o => storage_telemetry_valid_clk24,
+            dst_data_o => storage_telemetry_clk24
         );
 
     -- One bundled snapshot crosses only after protocol DONE is acknowledged.
@@ -1101,7 +1077,7 @@ begin
     u_stream_stats_cdc : entity work.stable_bus_event_cdc
         generic map (G_WIDTH => 176)
         port map (
-            src_clk => clk8, src_rst_n => ip_rst_n,
+            src_clk => clk24, src_rst_n => ip_rst_n,
             src_event_i => protocol_done, src_data_i => stream_stats_src,
             dst_clk => usr_clk, dst_rst_n => ip_rst_n,
             dst_event_o => stream_stats_valid_usr, dst_data_o => stream_stats_usr
