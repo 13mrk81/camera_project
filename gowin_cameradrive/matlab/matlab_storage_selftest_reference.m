@@ -49,6 +49,10 @@ function ref = matlab_storage_selftest_reference(width, height)
     ref.expectedPixels = uint32(width) * uint32(height);
     ref.expectedUartBytes = uint32(width) * uint32(height) * uint32(3);
     ref.expectedCaptureCrc32 = crc32MsbFirst(rawVector);
+    if width == 640 && height == 480
+        assert(ref.expectedCaptureCrc32 == uint32(hex2dec('A3734E43')), ...
+            'Reference CRC mismatch: pattern/byte order implementation changed.');
+    end
 end
 
 function crc = crc32MsbFirst(data)
