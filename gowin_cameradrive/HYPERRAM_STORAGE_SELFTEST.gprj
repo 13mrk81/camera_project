@@ -5,8 +5,9 @@
     <Version>5</Version>
     <Device name="GW1NSR-4C" pn="GW1NSR-LV4CQN48PC6/I5">gw1nsr4c-000</Device>
     <FileList>
+        <File path="src/i2c_master_nack.vhd" type="file.vhdl" enable="1"/>
+        <File path="src/camera_interface.vhd" type="file.vhdl" enable="1"/>
         <File path="src/HyperRAM_Storage_SelfTest.vhd" type="file.vhdl" enable="1"/>
-        <File path="src/storage_test_pattern_generator.vhd" type="file.vhdl" enable="1"/>
         <File path="src/camera_uart_frame_protocol.vhd" type="file.vhdl" enable="1"/>
         <File path="src/async_fifo_32.vhd" type="file.vhdl" enable="1"/>
         <File path="src/frame_integrity_checker.vhd" type="file.vhdl" enable="1"/>
