@@ -1,4 +1,4 @@
-%% Receive-only synthetic RGB565 / HyperRAM RGB888 storage self-test
+%% Receive-only GC0308 / HyperRAM RGB888 camera test
 % The FPGA is triggered by the Tang Nano 4K onboard KEY1 pushbutton.
 % This script DOES NOT write any bytes to the UART.
 %
@@ -13,7 +13,7 @@
 %   20 LINE:  seq = zero-based row, payload = RGB triplets R,G,B
 %   30 DONE:  46-byte report: stream summary, capture/write/read-ingress CRCs,
 %              source/write/read word counts, and 16-bit stage status flags
-%   7F ERROR: [error_code, detail]
+%   7F ERROR: 16 bytes: error/detail + camera FSM/SCCB diagnostic snapshot
 % All multi-byte fields are little-endian except the transmitted CRC trailer
 % (CRC high byte first). LINE pixels are left-to-right, each R then G then B.
 
