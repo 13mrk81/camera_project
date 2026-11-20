@@ -30,6 +30,7 @@ entity i2c_master_nack is
         dbg_seq   : out std_logic_vector(1 downto 0);
         dbg_state : out std_logic_vector(3 downto 0);
         dbg_sda_in : out std_logic;
+        dbg_scl_in : out std_logic;
         dbg_scl_low : out std_logic;
         dbg_sda_low : out std_logic;
 
@@ -63,6 +64,7 @@ architecture rtl of i2c_master_nack is
     signal scl_low : std_logic := '0';
     signal sda_low : std_logic := '0';
     signal sda_in  : std_logic;
+    signal scl_in  : std_logic;
 
     signal bit_cnt      : natural range 0 to 7 := 7;
     signal shift        : std_logic_vector(7 downto 0) := (others => '0');
@@ -79,12 +81,25 @@ architecture rtl of i2c_master_nack is
 
 begin
 
+    -- The four-phase generator must represent the requested I2C rate exactly.
+    -- At 24 MHz / 100 kHz this is 60 clk cycles per quarter phase.
+    assert G_CLK_FREQ_HZ >= (4 * G_I2C_FREQ_HZ)
+        report "I2C clock is too fast for the selected system clock"
+        severity failure;
+    assert (G_CLK_FREQ_HZ mod (4 * G_I2C_FREQ_HZ)) = 0
+        report "I2C frequency must divide the system clock into four equal phases"
+        severity failure;
+    assert C_PHASE_CYCLES >= 2
+        report "I2C quarter-phase must contain at least two system-clock cycles"
+        severity failure;
+
     phase_tick <= '1' when phase_cnt = C_PHASE_CYCLES - 1 else '0';
 
     -- Open-drain bus drivers. External pull-ups must bring released lines high.
     scl <= '0' when scl_low = '1' else 'Z';
     sda <= '0' when sda_low = '1' else 'Z';
     sda_in <= sda;
+    scl_in <= scl;
 
     rd_data   <= rd_data_reg;
     ack_out   <= ack_out_reg;
@@ -99,6 +114,7 @@ begin
     dbg_seq   <= std_logic_vector(to_unsigned(seq_t'pos(seq), 2));
     dbg_state <= std_logic_vector(to_unsigned(state_t'pos(state), 4));
     dbg_sda_in <= sda_in;
+    dbg_scl_in <= scl_in;
     dbg_scl_low <= scl_low;
     dbg_sda_low <= sda_low;
 
