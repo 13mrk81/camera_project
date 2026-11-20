@@ -7,7 +7,7 @@
 - Reference branch: `feature/matlab-line-stream`
 - Scope: audit the camera-side logic up to the input boundary of `rgb565_frame_packer`.
 - Explicit exclusion: do not modify `rgb565_frame_packer.vhd`, the FIFO, HyperRAM write/read logic, serializer, UART transport, MATLAB receiver, or any other logic after the packer.
-- Status: **review only; no RTL, CST, GAO, or project source has been modified by this review**.
+- Status: **audit complete; pre-packer diagnostics and ACK checks implemented. Physical pin mapping and hardware validation remain pending.** The initial audit itself was read-only; all implementation commits and checks are recorded below.
 
 ## Reference comparison
 
@@ -25,12 +25,7 @@ The packer contract is therefore treated as fixed:
 - Frame completion/error and byte/word counters are reported by the existing interface.
 - No color conversion or byte reordering is performed in the packer.
 
-The reference I2C master and current I2C master are also byte-for-byte identical:
-
-- File: `gowin_cameradrive/src/i2c_master_nack.vhd`
-- SHA on both branches: `926e3eab3df966c5670847450ddd12d94fcd528a`
-
-The camera sequencer is almost identical at the functional level. The current branch adds the source-byte counter and changes the I2C instantiation from component binding to direct entity instantiation, explicitly mapping the 24 MHz / 100 kHz generics and the additional ACK/debug outputs. The current branch does **not** contain a new I2C transaction algorithm compared with the reference branch.
+The reference I2C master and the original target-branch I2C master were byte-for-byte identical at the time of the initial audit (SHA `926e3eab3df966c5670847450ddd12d94fcd528a`). The implementation pass below deliberately keeps its transaction state sequencing and open-drain drive behavior, while adding an SCL input observation port and divider assertions. The camera sequencer also now checks that every register transaction receives all three expected ACKs before advancing.
 
 ## Findings
 
@@ -154,30 +149,44 @@ The reset behavior should be made explicit and consistently sequenced for the ca
 
 The active `hyperram_storage_selftest.gao` signal list still contains synthetic-source debug names (for example, `test_source_start_pulse` and `test_source_error`) and does not include the camera configuration FSM, I2C ACK/NACK signals, SCCB bus inputs, or the DVP capture FSM diagnostics. It should be rebuilt as a camera-focused diagnostic setup, while preserving the existing post-packer RTL.
 
-## Proposed correction plan (not applied)
+## Applied fixes and remaining work
 
-The following is the recommended order. No item below has been applied yet.
+### Applied in this implementation run
 
-1. **Physical mapping first:** verify camera connector pinout and I/O bank voltage; then constrain the current top-level camera ports in the active SelfTest CST. Use the historical reference map only after confirmation.
-2. **Expose configuration diagnostics:** preserve the existing external UART protocol format if required, but add a separate debug/telemetry path for internal camera error code, configuration state, current register address/data, I2C busy/done, ACK count, NACK flag, and sampled SDA.
-3. **Harden I2C control:** add bounded timeout/error handling and explicit bus-idle/stuck-line diagnostics. Keep the same 7-bit addressing and open-drain electrical behavior. Clock-stretch support should be added only if required by the sensor/interface specification.
-4. **Validate SCCB sequence:** observe the first page-select transaction, then chip-ID readback (`0x9B`), soft reset, initialization writes, and the final `0x24 = 0xA6` readback. Do not assume the first transaction is the failure until the internal reason is visible.
-5. **Make sensor startup sequencing explicit:** verify XCLK presence/frequency, module reset/power-down state, and the minimum startup/reset delays from the sensor/module requirements.
-6. **Validate DVP capture independently:** measure PCLK, VSYNC/HSYNC polarity, active window, bytes per line, and active lines. Compare camera-emitted byte count with the packer's existing byte count at frame completion.
-7. **Stop at the packer boundary:** once the incoming byte stream is valid, leave the packer implementation and every block after it unchanged.
+1. **Configuration observability:** exported the camera FSM state and internal error code, current SCCB device/register/data/RW fields, chip ID, last readback, verify address/expected value/fail flag, I2C state/sequence/phase, ACK/NACK flags/count, and physical SDA/SCL samples plus master drive intent.
+2. **I2C timing validity:** added elaboration-time checks that `G_CLK_FREQ_HZ` divides into four equal I2C phases and that each quarter phase has at least two system-clock cycles. The default 24 MHz / 100 kHz setup is exact (60 cycles per quarter phase).
+3. **ACK completeness:** the six configuration transaction wait states now require `ack_count = 3` and `nack_seen = 0`. Both writes (device address, register address, data) and register reads (write address, register address, read address) are expected to produce three slave ACKs.
+4. **Top-level integration:** connected the diagnostic outputs in `HyperRAM_Storage_SelfTest`; updated the legacy `Camera_HyperRAM_OneFrame` component declaration and port map to match the expanded entity. The legacy declaration also now includes the already-existing `source_byte_count_o` output.
+5. **GAO:** replaced stale synthetic-generator probes with 29 camera/SCCB diagnostic signals, sampled in the `clk24` domain.
 
-## Required evidence before applying code changes
+### Deliberately not changed
+
+- **Camera pin constraints:** the active `hyperram_storage_selftest.cst` still lacks camera `IO_LOC` assignments. The historical `hyper_ctrl.cst` map was not copied because the exact module-to-connector wiring and voltage domains have not been confirmed for this hardware setup. Applying unverified pin locations would not be a safe correction.
+- **UART error packet format:** its fixed `CAMERA_CONFIG` detail remains unchanged because changing the packet controller would cross the explicitly protected downstream boundary. Internal root-cause details are now available to GAO instead.
+- **Clock stretching and automatic bus recovery:** not implemented without evidence that this GC0308 SCCB connection requires them. The sampled SCL and SDA values plus the master's drive-intent signals are available to distinguish common electrical faults during the next capture.
+- **Packer and later datapath:** no changes were made to the packer source, FIFO, HyperRAM engine/readout, serializer, integrity checker, UART TX, or UART protocol controller. The Packer and post-Packer portions of both top-level files were checked for exact textual identity against the pre-implementation commit.
+
+### Remaining work before board-level validation
+
+1. Confirm which Gowin project/bitstream is actually programmed (`HYPERRAM_STORAGE_SELFTEST.gprj` or `HYPER_RAM_CONTROL.gprj`).
+2. Confirm the camera connector pinout, I/O bank voltage, SDA/SCL pull-up presence and pull-up rail. Only then add camera constraints to the active CST.
+3. Build the updated project and inspect the new GAO probes during KEY1.
+4. Use `cam_config_error_code`, `cam_config_state`, `cam_config_reg_addr`, `cam_i2c_ack_count`, `cam_i2c_nack`, `cam_i2c_sda_sample`, and `cam_i2c_scl_sample` to locate the exact failing transaction.
+5. After Configuration passes, independently validate XCLK, PCLK, HSYNC/VSYNC polarity, line byte count, frame line count, and Packer input convergence.
+
+## Required evidence before full board validation
 
 - Confirm the exact project/bitstream used for the failing UART run.
 - Confirm the camera module connector wiring and its I/O bank voltage.
 - Confirm whether external SDA/SCL pull-ups exist and their rail voltage.
-- Capture SCL/SDA around KEY1, or collect the internal I2C diagnostic signals with GAO/ILA.
+- Capture SCL/SDA around KEY1 using the new GAO signals.
 - Read back the GC0308 chip ID and record the actual returned value.
+- Run Gowin syntax analysis/synthesis and review warnings before programming the FPGA.
 
 ## Change record
 
 - 2026-11-20: created this review log on `feature/gc0308-hyperram-camera-capture`.
-- No RTL/CST/GAO/project changes have been made as part of this review.
+- Implementation changes are recorded in the execution log below. No camera pin constraints were guessed or added.
 
 ## Implementation execution log
 
@@ -188,12 +197,12 @@ Implementation is constrained to the camera-control path and the signals immedia
 | Step | Status | Intended change |
 |---|---|---|
 | Re-read the integration log and interface audit | Complete | Reconfirm scope and known limitations |
-| Add internal SCCB/configuration diagnostics to the camera interface boundary | In progress | Export config FSM/error state, current register transaction, ACK/NACK count, I2C FSM and physical SDA/SCL samples |
-| Add I2C timing parameter checks and SCL input observation | Pending | No transaction waveform change intended |
-| Require all three expected ACKs for each SCCB register transaction | Pending | Treat incomplete ACK sequences as configuration failures |
-| Update both top-level wrappers that instantiate the camera interface | Pending | Keep the legacy project source-compatible; do not alter packer or later logic |
-| Replace stale synthetic-source GAO probes with camera/SCCB diagnostics | Pending | Capture the cause of the next configuration failure |
-| Verify protected files and record commit hashes | Pending | Prove no Packer/downstream source was modified |
+| Add internal SCCB/configuration diagnostics to the camera interface boundary | Complete | Export config FSM/error state, current register transaction, ACK/NACK count, I2C FSM and physical SDA/SCL samples |
+| Add I2C timing parameter checks and SCL input observation | Complete | No transaction waveform change intended |
+| Require all three expected ACKs for each SCCB register transaction | Complete | Treat incomplete ACK sequences as configuration failures |
+| Update both top-level wrappers that instantiate the camera interface | Complete | Keep the legacy project source-compatible; do not alter packer or later logic |
+| Replace stale synthetic-source GAO probes with camera/SCCB diagnostics | Complete | Capture the cause of the next configuration failure |
+| Verify protected files and record commit hashes | Complete | Prove no Packer/downstream source was modified |
 
 ### Decisions and non-changes
 
@@ -212,3 +221,18 @@ Implementation is constrained to the camera-control path and the signals immedia
 
 - 2026-11-20 — Updated `gowin_cameradrive/src/hyperram_storage_selftest.gao` (commit `200d16e005ffce1ea0006cc25f7a8da53428a154`): removed stale synthetic-generator probes that no longer exist and replaced the capture list with 29 clk24-domain camera/SCCB diagnostic signals. The trigger and match-unit configuration remain unchanged. This GAO is for locating configuration failures; it does not modify the UART packet format or any downstream RTL.
 - 2026-11-20 — Follow-up compatibility correction in `gowin_cameradrive/src/Camera_HyperRAM_OneFrame.vhd` (commit `6c8e4562abfbeb8637c89f73820287d01d8405f0`): aligned the component declaration port order with the `camera_interface` entity, including placing `source_byte_count_o` immediately after the frame byte-stream ports. This avoids relying on nonmatching component/entity interface order during binding.
+
+
+### Static verification performed
+
+- Camera entity port count: 48. The SelfTest top-level named association covers all 48 ports.
+- Legacy component port count: 48. Its component port order now matches the camera entity, and its named port map covers every port.
+- I2C master port count: 24. The camera interface maps every port, including the new physical SCL sample.
+- All 29 GAO capture names resolve to declared signals in the SelfTest top.
+- All six camera configuration transaction wait states contain the `ack_count = "11"` check, in addition to the NACK check.
+- Compared with the implementation-start commit `631e6b14d12e1e78bb74e86ad9788799625974b0`, the `rgb565_frame_packer` SHA is still `82ed26cc84a93fe3653ad2c7debf22ca55b160ef`. The following independent modules also have unchanged blob SHAs: `async_fifo_32`, `gowin_hyperram_read_adapter`, `hyperram_line_reader`, `hyperram_line_readout`, `rgb565_line_serializer`, `camera_uart_frame_protocol`, `frame_integrity_checker`, `pulse_toggle_cdc`, `stable_bus_event_cdc`, and the generated HyperRAM interface RTL.
+- The complete source region beginning at the `u_rgb565_packer` instance and extending to end-of-file is byte-for-byte unchanged in both top-level RTL files.
+- The branch diff for this implementation contains changes only to the review log, the two top-level wrapper files, `camera_interface.vhd`, `i2c_master_nack.vhd`, and the SelfTest GAO file.
+
+**Not performed:** Gowin syntax check, synthesis, place-and-route, timing analysis, bitstream generation, ILA/GAO hardware capture, or sensor electrical validation. This is an RTL/static integration result, not a claim that the camera has been proven operational on the board.
+
