@@ -84,3 +84,11 @@ The packer and FIFO write clock change is intentional: the sensor byte-valid sig
 - Implemented on this branch: SCCB/configuration debug outputs, physical SCL observation, I2C divider assertions, three-ACK qualification for all six configuration transaction types, top-level diagnostic wiring, and a camera-focused GAO signal list.
 - No camera pin assignments were guessed. The active SelfTest CST still requires physical connector/voltage confirmation.
 - The `rgb565_frame_packer` implementation and all downstream RTL remain unchanged; see the verification results in the detailed review log.
+
+
+## UART-first camera configuration diagnostics (2026-11-20)
+- Added UART STAGE `0x04` for camera-configuration running and clarified STAGE `0x02` as camera configuration passed; STAGE `0x03` remains frame stored in HyperRAM.
+- Extended ERROR payloads to 16 bytes. The original generic error code/detail remain bytes 0..1; the remaining bytes report camera FSM state/error, register/data, SCCB address, chip ID, ACK/NACK count, init/verify index, I2C sequence/state, last readback and R/W direction.
+- Updated MATLAB to print readable camera FSM and I2C state names and diagnostic values.
+- Changes are limited to UART protocol, top-level diagnostic wiring, MATLAB receiver and documentation. The RGB565 packer, capture FIFO, HyperRAM storage/readback and serializer datapath are not modified.
+- Synthesis, timing analysis and hardware validation are pending; this source update is not evidence of a tested bitstream.
