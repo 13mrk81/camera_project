@@ -275,3 +275,71 @@ Confirm that the local clone contains the latest branch and that the bitstream w
 
 No changes to the packer or downstream datapath were made in response to this retest record.
 - 2026-11-20 — Updated `hyperram_storage_selftest.gao` (commit `65ed759cc8797d9c50b7d614f3133fe9c6eba925`) to trigger on sticky `cam_config_fail` rather than the initial KEY1 pulse. This makes the short GAO capture window preserve the terminal configuration error, current register context, and ACK/NACK diagnostics. Sample clock remains `clk24`; the UART packet and datapath are untouched.
+
+
+### GAO decoding reference
+
+The diagnostic vectors are direct encodings of VHDL enumeration positions:
+
+**`cam_config_state`**
+
+| Decimal | State |
+|---:|---|
+| 0 | ST_WAIT_TRIGGER |
+| 1 | ST_PAGE0_REQ |
+| 2 | ST_PAGE0_WAIT |
+| 3 | ST_ID_READ_REQ |
+| 4 | ST_ID_READ_WAIT |
+| 5 | ST_SOFT_RESET_REQ |
+| 6 | ST_SOFT_RESET_WAIT |
+| 7 | ST_SOFT_RESET_DELAY |
+| 8 | ST_INIT_WRITE_REQ |
+| 9 | ST_INIT_WRITE_WAIT |
+| 10 | ST_INIT_SETTLE_DELAY |
+| 11 | ST_VERIFY_READ_REQ |
+| 12 | ST_VERIFY_READ_WAIT |
+| 13 | ST_RGB565_READ_REQ |
+| 14 | ST_RGB565_READ_WAIT |
+| 15 | ST_COMPLETE |
+| 16 | ST_ERROR |
+
+**`cam_config_error_code`**
+
+| Hex | Meaning |
+|---:|---|
+| 0x0 | No configuration error recorded |
+| 0x1 | Page-0 select write failed (NACK or fewer than 3 ACKs) |
+| 0x2 | Chip-ID register read transaction failed (NACK or fewer than 3 ACKs) |
+| 0x3 | Chip ID did not equal `0x9B` |
+| 0x4 | Soft-reset write failed |
+| 0x5 | Initialization-table write failed; inspect `cam_config_init_index`, register address and data |
+| 0x6 | Stable-register read transaction failed |
+| 0x7 | Stable-register readback mismatch; inspect verify address/expected/last readback |
+| 0x8 | Final RGB565 register read transaction failed |
+| 0x9 | Final RGB565 readback did not equal `0xA6` |
+| 0xF | Unexpected FSM state |
+
+**`cam_i2c_state`**
+
+| Decimal | State |
+|---:|---|
+| 0 | IDLE |
+| 1 | START_COND |
+| 2 | SEND_BYTE |
+| 3 | RECV_ACK |
+| 4 | RESTART_COND |
+| 5 | RECV_BYTE |
+| 6 | SEND_NACK |
+| 7 | STOP_COND |
+| 8 | DONE_ST |
+
+**`cam_i2c_sequence`**
+
+| Decimal | Byte being transferred |
+|---:|---|
+| 0 | Device address + Write |
+| 1 | Register address |
+| 2 | Write data |
+| 3 | Device address + Read |
+
+The `cam_config_fail` GAO trigger is deliberate: the configuration failure flag is sticky in the terminal `ST_ERROR` state. The I2C `done` pulse may already have deasserted at that point, but the transaction's ACK count and NACK flag remain latched until the next accepted transaction. A failure halts the configuration FSM, so no following transaction overwrites those results.
