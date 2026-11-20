@@ -77,3 +77,8 @@ The packer and FIFO write clock change is intentional: the sensor byte-valid sig
 - [ ] Verify DVP polarities, line byte count, frame byte count, and measured PCLK.
 - [ ] Verify no FIFO overflow and compare camera source byte count with packer byte count.
 - [ ] Verify HyperRAM write/readback CRC and UART image reconstruction.
+
+## Follow-up interface audit
+- Review log: [GC0308 camera interface review](gc0308_interface_review_log.md)
+- The review compares the current camera-side RTL with `feature/matlab-line-stream`, records the observed configuration-failure telemetry limitation, identifies the missing active-project camera pin constraints, and proposes pre-packer corrections.
+- Review only: no RTL, CST, GAO, or project source changes were made as part of that audit.
