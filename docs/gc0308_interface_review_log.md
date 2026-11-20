@@ -239,3 +239,4 @@ Implementation is constrained to the camera-control path and the signals immedia
 - 2026-11-20 — Propagated `i2c_bus_idle_o` through `camera_interface.vhd` (commit `79f18d54ca04f4b170556d7bc02ad348db4dbc27`) so the top-level GAO can distinguish a released high bus from a held-low bus.
 - 2026-11-20 — Connected and kept the new `cam_i2c_bus_idle` diagnostic at the SelfTest top level (commit `5dd189aefae45b5c904ec70aa32571afe723e7e3`).
 - 2026-11-20 — Added the same `i2c_bus_idle_o` connection to the legacy `Camera_HyperRAM_OneFrame` wrapper (commit `c1fc244455d83d47573853ac017c96b353b1d693`) so both project tops expose the same SCCB line diagnostics.
+- 2026-11-20 — Added `cam_i2c_bus_idle` to the active GAO capture list (commit `666cc51e22ffbaf43b65d65a1f2d1ec11839e353`), completing the explicit SDA/SCL/bus-idle view for the SelfTest project.
