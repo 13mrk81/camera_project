@@ -235,4 +235,4 @@ Implementation is constrained to the camera-control path and the signals immedia
 - The branch diff for this implementation contains changes only to the review log, the two top-level wrapper files, `camera_interface.vhd`, `i2c_master_nack.vhd`, and the SelfTest GAO file.
 
 **Not performed:** Gowin syntax check, synthesis, place-and-route, timing analysis, bitstream generation, ILA/GAO hardware capture, or sensor electrical validation. This is an RTL/static integration result, not a claim that the camera has been proven operational on the board.
-
+- 2026-11-20 — Added `dbg_bus_idle` to `gowin_cameradrive/src/i2c_master_nack.vhd` (commit `385186f64fc2ad0a1274ada8f21adf95c256d985`): it asserts only when the sampled physical SCL and SDA inputs are both logic-high. This is observational only and does not alter the transaction state machine. No separate transaction timeout was added: the existing master does not wait on SCL/SDA to advance its fixed-phase FSM, so a continuously clocked transaction is already finite; the new bus-idle/SCL/SDA probes expose a held-low bus without introducing a new wait-state path.
