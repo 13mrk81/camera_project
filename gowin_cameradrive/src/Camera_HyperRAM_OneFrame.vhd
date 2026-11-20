@@ -132,6 +132,7 @@ architecture rtl of Camera_HyperRAM_OneFrame is
     component camera_interface is
         generic (
             G_CLK_FREQ_HZ       : positive := 24_000_000;
+            G_I2C_FREQ_HZ       : positive := 100_000;
             G_I2C_DEVICE_ADDR   : std_logic_vector(6 downto 0) := "0100001";
             G_RESET_WAIT_MS     : positive := 80;
             G_POR_RESET_MS      : positive := 1;
@@ -155,8 +156,41 @@ architecture rtl of Camera_HyperRAM_OneFrame is
             frame_error_o       : out std_logic;
             config_done_o       : out std_logic;
             config_pass_o       : out std_logic;
-            line_count_o        : out std_logic_vector(9 downto 0);
-            line_byte_count_o   : out std_logic_vector(10 downto 0)
+            source_byte_count_o : out unsigned(31 downto 0);
+
+            config_fail_o             : out std_logic;
+            config_error_code_o       : out std_logic_vector(3 downto 0);
+            config_state_o            : out std_logic_vector(4 downto 0);
+            config_init_index_o       : out std_logic_vector(7 downto 0);
+            config_verify_index_o     : out std_logic_vector(3 downto 0);
+            config_reg_addr_o         : out std_logic_vector(7 downto 0);
+            config_reg_data_o         : out std_logic_vector(7 downto 0);
+            config_rw_o               : out std_logic;
+            config_device_addr_o      : out std_logic_vector(6 downto 0);
+            config_chip_id_o          : out std_logic_vector(7 downto 0);
+            config_last_readback_o    : out std_logic_vector(7 downto 0);
+            config_verify_addr_o      : out std_logic_vector(7 downto 0);
+            config_verify_expected_o  : out std_logic_vector(7 downto 0);
+            config_verify_fail_o      : out std_logic;
+
+            i2c_start_o               : out std_logic;
+            i2c_busy_o                : out std_logic;
+            i2c_done_o                : out std_logic;
+            i2c_ack_o                 : out std_logic;
+            i2c_nack_o                : out std_logic;
+            i2c_ack_count_o           : out std_logic_vector(1 downto 0);
+            i2c_state_o               : out std_logic_vector(3 downto 0);
+            i2c_sequence_o            : out std_logic_vector(1 downto 0);
+            i2c_phase_o               : out std_logic_vector(1 downto 0);
+            i2c_sda_sample_o          : out std_logic;
+            i2c_scl_sample_o          : out std_logic;
+            i2c_scl_drive_low_o       : out std_logic;
+            i2c_sda_drive_low_o       : out std_logic;
+
+            capture_state_o           : out std_logic_vector(2 downto 0);
+            capture_active_o          : out std_logic;
+            line_count_o              : out std_logic_vector(9 downto 0);
+            line_byte_count_o         : out std_logic_vector(10 downto 0)
         );
     end component;
 
@@ -235,6 +269,28 @@ architecture rtl of Camera_HyperRAM_OneFrame is
     signal cam_frame_error    : std_logic;
     signal cam_config_done    : std_logic;
     signal cam_config_pass    : std_logic;
+    signal cam_source_byte_count : unsigned(31 downto 0);
+
+    signal cam_config_fail : std_logic;
+    signal cam_config_error_code : std_logic_vector(3 downto 0);
+    signal cam_config_state : std_logic_vector(4 downto 0);
+    signal cam_config_init_index : std_logic_vector(7 downto 0);
+    signal cam_config_verify_index : std_logic_vector(3 downto 0);
+    signal cam_config_reg_addr, cam_config_reg_data : std_logic_vector(7 downto 0);
+    signal cam_config_rw : std_logic;
+    signal cam_config_device_addr : std_logic_vector(6 downto 0);
+    signal cam_config_chip_id, cam_config_last_readback : std_logic_vector(7 downto 0);
+    signal cam_config_verify_addr, cam_config_verify_expected : std_logic_vector(7 downto 0);
+    signal cam_config_verify_fail : std_logic;
+    signal cam_i2c_start, cam_i2c_busy, cam_i2c_done : std_logic;
+    signal cam_i2c_ack, cam_i2c_nack : std_logic;
+    signal cam_i2c_ack_count : std_logic_vector(1 downto 0);
+    signal cam_i2c_state : std_logic_vector(3 downto 0);
+    signal cam_i2c_sequence, cam_i2c_phase : std_logic_vector(1 downto 0);
+    signal cam_i2c_sda_sample, cam_i2c_scl_sample : std_logic;
+    signal cam_i2c_scl_drive_low, cam_i2c_sda_drive_low : std_logic;
+    signal cam_capture_state : std_logic_vector(2 downto 0);
+    signal cam_capture_active : std_logic;
     signal cam_line_count     : std_logic_vector(9 downto 0);
     signal cam_line_byte_count: std_logic_vector(10 downto 0);
 
@@ -428,6 +484,39 @@ architecture rtl of Camera_HyperRAM_OneFrame is
         c := crc32_byte(c, data_in(7 downto 0));
         return c;
     end function;
+
+    attribute syn_keep : integer;
+    attribute syn_keep of cam_config_fail : signal is 1;
+    attribute syn_keep of cam_config_error_code : signal is 1;
+    attribute syn_keep of cam_config_state : signal is 1;
+    attribute syn_keep of cam_config_init_index : signal is 1;
+    attribute syn_keep of cam_config_verify_index : signal is 1;
+    attribute syn_keep of cam_config_reg_addr : signal is 1;
+    attribute syn_keep of cam_config_reg_data : signal is 1;
+    attribute syn_keep of cam_config_rw : signal is 1;
+    attribute syn_keep of cam_config_device_addr : signal is 1;
+    attribute syn_keep of cam_config_chip_id : signal is 1;
+    attribute syn_keep of cam_config_last_readback : signal is 1;
+    attribute syn_keep of cam_config_verify_addr : signal is 1;
+    attribute syn_keep of cam_config_verify_expected : signal is 1;
+    attribute syn_keep of cam_config_verify_fail : signal is 1;
+    attribute syn_keep of cam_i2c_start : signal is 1;
+    attribute syn_keep of cam_i2c_busy : signal is 1;
+    attribute syn_keep of cam_i2c_done : signal is 1;
+    attribute syn_keep of cam_i2c_ack : signal is 1;
+    attribute syn_keep of cam_i2c_nack : signal is 1;
+    attribute syn_keep of cam_i2c_ack_count : signal is 1;
+    attribute syn_keep of cam_i2c_state : signal is 1;
+    attribute syn_keep of cam_i2c_sequence : signal is 1;
+    attribute syn_keep of cam_i2c_phase : signal is 1;
+    attribute syn_keep of cam_i2c_sda_sample : signal is 1;
+    attribute syn_keep of cam_i2c_scl_sample : signal is 1;
+    attribute syn_keep of cam_i2c_scl_drive_low : signal is 1;
+    attribute syn_keep of cam_i2c_sda_drive_low : signal is 1;
+    attribute syn_keep of cam_capture_state : signal is 1;
+    attribute syn_keep of cam_capture_active : signal is 1;
+    attribute syn_keep of cam_line_count : signal is 1;
+    attribute syn_keep of cam_line_byte_count : signal is 1;
 
 begin
     --------------------------------------------------------------------------
@@ -672,6 +761,7 @@ begin
 
     u_camera : camera_interface
         generic map (
+            G_I2C_FREQ_HZ  => 100_000,
             G_FRAME_WIDTH  => G_FRAME_WIDTH,
             G_FRAME_HEIGHT => G_FRAME_HEIGHT
         )
@@ -690,10 +780,40 @@ begin
             frame_byte_valid_o  => cam_byte_valid,
             frame_done_o        => cam_frame_done,
             frame_error_o       => cam_frame_error,
-            config_done_o       => cam_config_done,
-            config_pass_o       => cam_config_pass,
-            line_count_o        => cam_line_count,
-            line_byte_count_o   => cam_line_byte_count
+            config_done_o             => cam_config_done,
+            config_pass_o             => cam_config_pass,
+            source_byte_count_o       => cam_source_byte_count,
+            config_fail_o             => cam_config_fail,
+            config_error_code_o       => cam_config_error_code,
+            config_state_o            => cam_config_state,
+            config_init_index_o       => cam_config_init_index,
+            config_verify_index_o     => cam_config_verify_index,
+            config_reg_addr_o         => cam_config_reg_addr,
+            config_reg_data_o         => cam_config_reg_data,
+            config_rw_o               => cam_config_rw,
+            config_device_addr_o      => cam_config_device_addr,
+            config_chip_id_o          => cam_config_chip_id,
+            config_last_readback_o    => cam_config_last_readback,
+            config_verify_addr_o      => cam_config_verify_addr,
+            config_verify_expected_o  => cam_config_verify_expected,
+            config_verify_fail_o      => cam_config_verify_fail,
+            i2c_start_o               => cam_i2c_start,
+            i2c_busy_o                => cam_i2c_busy,
+            i2c_done_o                => cam_i2c_done,
+            i2c_ack_o                 => cam_i2c_ack,
+            i2c_nack_o                => cam_i2c_nack,
+            i2c_ack_count_o           => cam_i2c_ack_count,
+            i2c_state_o               => cam_i2c_state,
+            i2c_sequence_o            => cam_i2c_sequence,
+            i2c_phase_o               => cam_i2c_phase,
+            i2c_sda_sample_o          => cam_i2c_sda_sample,
+            i2c_scl_sample_o          => cam_i2c_scl_sample,
+            i2c_scl_drive_low_o       => cam_i2c_scl_drive_low,
+            i2c_sda_drive_low_o       => cam_i2c_sda_drive_low,
+            capture_state_o           => cam_capture_state,
+            capture_active_o          => cam_capture_active,
+            line_count_o              => cam_line_count,
+            line_byte_count_o         => cam_line_byte_count
         );
 
     cam_clk <= cam_clk_i;
