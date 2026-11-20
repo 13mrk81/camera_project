@@ -9,7 +9,6 @@
         <File path="src/async_fifo_32.vhd" type="file.vhdl" enable="1"/>
         <File path="src/camera_interface.vhd" type="file.vhdl" enable="1"/>
         <File path="src/camera_uart_frame_protocol.vhd" type="file.vhdl" enable="1"/>
-        <File path="src/falling_edge_one_shot.vhd" type="file.vhdl" enable="0"/>
         <File path="src/frame_integrity_checker.vhd" type="file.vhdl" enable="1"/>
         <File path="src/gowin_hyperram_read_adapter.vhd" type="file.vhdl" enable="1"/>
         <File path="src/gowin_pllvr/gowin_pllvr.vhd" type="file.vhdl" enable="1"/>
