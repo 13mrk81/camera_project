@@ -8,7 +8,7 @@
 %
 % Types:
 %   10 STAGE: [stage_code, detail]
-%       01 trigger accepted, 02 synthetic source ready, 03 frame stored
+%       01 trigger accepted, 04 camera configuration running, 02 camera configuration passed, 03 frame stored
 %   11 READY: [widthLo widthHi heightLo heightHi 03 01] (RGB888)
 %   20 LINE:  seq = zero-based row, payload = RGB triplets R,G,B
 %   30 DONE:  46-byte report: stream summary, capture/write/read-ingress CRCs,
@@ -87,7 +87,10 @@ while true
                     fprintf("[STAGE 1/3] FPGA accepted KEY1 trigger. Camera setup started.\n");
                 case 2
                     receiverState = "WAIT_FRAME_STORED";
-                    fprintf("[STAGE 2/3] Synthetic RGB565 source ready.\n");
+                    fprintf("[CAMERA CONFIG PASS] SCCB configuration and register readback passed. Waiting for frame capture / HyperRAM write.\n");
+                case 4
+                    receiverState = "CAMERA_CONFIGURING";
+                    fprintf("[CAMERA CONFIG] Configuration sequence is running.\n");
                 case 3
                     receiverState = "WAIT_READY";
                     fprintf("[STAGE 3/3] Frame captured and stored in HyperRAM.\n");
@@ -266,16 +269,37 @@ while true
             break;
 
         case hex2dec("7F")  % ERROR
-            if numel(packet.payload) ~= 2
-                fprintf(2, "Malformed ERROR packet (length=%d).\n", numel(packet.payload));
+            if numel(packet.payload) ~= 16
+                fprintf(2, "Malformed ERROR packet (length=%d; expected 16).\n", numel(packet.payload));
                 continue;
             end
             lastErrorCode = packet.payload(1);
             lastErrorDetail = packet.payload(2);
+            cfgState = packet.payload(3);
+            cfgError = packet.payload(4);
+            cfgReg = packet.payload(5);
+            cfgData = packet.payload(6);
+            cfgDevice = packet.payload(7);
+            cfgChipId = packet.payload(8);
+            cfgAckCount = packet.payload(9);
+            cfgNack = packet.payload(10);
+            cfgInitIndex = packet.payload(11);
+            cfgVerifyIndex = packet.payload(12);
+            i2cSequence = packet.payload(13);
+            i2cState = packet.payload(14);
+            cfgLastRead = packet.payload(15);
+            cfgReadWrite = packet.payload(16);
             gotError = true;
             receiverState = "ERROR";
             fprintf(2, "[FPGA ERROR] %s (code=0x%02X, detail=0x%02X, seq=%d).\n", ...
                 errorName(lastErrorCode), lastErrorCode, lastErrorDetail, packet.sequence);
+            fprintf(2, "Camera config: state=%s (0x%02X), internal_error=0x%X, reg=0x%02X, data=0x%02X, device=0x%02X, R/W=%d.\n", ...
+                cameraConfigStateName(cfgState), cfgState, cfgError, cfgReg, cfgData, cfgDevice, cfgReadWrite);
+            fprintf(2, "SCCB: ACK_count=%d/3, NACK=%d, I2C_sequence=%s (0x%X), I2C_state=%s (0x%X).\n", ...
+                cfgAckCount, cfgNack, i2cSequenceName(i2cSequence), i2cSequence, ...
+                i2cStateName(i2cState), i2cState);
+            fprintf(2, "Sensor: chip_ID=0x%02X, last_readback=0x%02X, init_index=%d, verify_index=%d.\n", ...
+                cfgChipId, cfgLastRead, cfgInitIndex, cfgVerifyIndex);
             break;
 
         otherwise
@@ -463,6 +487,28 @@ function value = readLE32(bytes)
     for k = 1:min(4, numel(bytes))
         value = bitor(value, bitshift(uint32(bytes(k)), 8 * (k - 1)));
     end
+end
+
+
+function name = cameraConfigStateName(code)
+    names = ["WAIT_TRIGGER","PAGE0_REQ","PAGE0_WAIT","ID_READ_REQ","ID_READ_WAIT", ...
+        "SOFT_RESET_REQ","SOFT_RESET_WAIT","SOFT_RESET_DELAY","INIT_WRITE_REQ", ...
+        "INIT_WRITE_WAIT","INIT_SETTLE_DELAY","VERIFY_READ_REQ","VERIFY_READ_WAIT", ...
+        "RGB565_READ_REQ","RGB565_READ_WAIT","COMPLETE","ERROR"];
+    if double(code) + 1 <= numel(names), name = names(double(code) + 1);
+    else, name = "UNKNOWN"; end
+end
+
+function name = i2cSequenceName(code)
+    names = ["DEVICE_WRITE","REGISTER","WRITE_DATA","DEVICE_READ"];
+    if double(code) + 1 <= numel(names), name = names(double(code) + 1);
+    else, name = "UNKNOWN"; end
+end
+
+function name = i2cStateName(code)
+    names = ["IDLE","START","SEND_BYTE","RECV_ACK","RESTART","RECV_BYTE","SEND_NACK","STOP","DONE"];
+    if double(code) + 1 <= numel(names), name = names(double(code) + 1);
+    else, name = "UNKNOWN"; end
 end
 
 function name = errorName(code)
