@@ -78,7 +78,9 @@ The packer and FIFO write clock change is intentional: the sensor byte-valid sig
 - [ ] Verify no FIFO overflow and compare camera source byte count with packer byte count.
 - [ ] Verify HyperRAM write/readback CRC and UART image reconstruction.
 
-## Follow-up interface audit
-- Review log: [GC0308 camera interface review](gc0308_interface_review_log.md)
-- The review compares the current camera-side RTL with `feature/matlab-line-stream`, records the observed configuration-failure telemetry limitation, identifies the missing active-project camera pin constraints, and proposes pre-packer corrections.
-- Review only: no RTL, CST, GAO, or project source changes were made as part of that audit.
+## Follow-up interface audit and implementation
+- Review and implementation log: [GC0308 camera interface review](gc0308_interface_review_log.md)
+- The audit compared the camera-side RTL with `feature/matlab-line-stream` and identified the missing camera diagnostics, the incomplete GAO probes, and the unverified active-project camera pin mapping.
+- Implemented on this branch: SCCB/configuration debug outputs, physical SCL observation, I2C divider assertions, three-ACK qualification for all six configuration transaction types, top-level diagnostic wiring, and a camera-focused GAO signal list.
+- No camera pin assignments were guessed. The active SelfTest CST still requires physical connector/voltage confirmation.
+- The `rgb565_frame_packer` implementation and all downstream RTL remain unchanged; see the verification results in the detailed review log.
