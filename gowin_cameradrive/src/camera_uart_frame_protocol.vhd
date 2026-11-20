@@ -32,6 +32,20 @@ entity camera_uart_frame_protocol is
         readout_error_i       : in  std_logic;
         serializer_done_i     : in  std_logic;
         telemetry_ready_i     : in  std_logic;
+        camera_cfg_state_i    : in  std_logic_vector(4 downto 0);
+        camera_cfg_error_i    : in  std_logic_vector(3 downto 0);
+        camera_cfg_reg_addr_i : in  std_logic_vector(7 downto 0);
+        camera_cfg_reg_data_i : in  std_logic_vector(7 downto 0);
+        camera_cfg_device_i   : in  std_logic_vector(6 downto 0);
+        camera_cfg_chip_id_i  : in  std_logic_vector(7 downto 0);
+        camera_cfg_ack_count_i: in  std_logic_vector(1 downto 0);
+        camera_cfg_nack_i     : in  std_logic;
+        camera_cfg_init_index_i : in std_logic_vector(7 downto 0);
+        camera_cfg_verify_index_i : in std_logic_vector(3 downto 0);
+        camera_i2c_sequence_i : in  std_logic_vector(1 downto 0);
+        camera_i2c_state_i    : in  std_logic_vector(3 downto 0);
+        camera_cfg_last_read_i: in  std_logic_vector(7 downto 0);
+        camera_cfg_rw_i       : in  std_logic;
         capture_crc_i         : in  std_logic_vector(31 downto 0);
         write_crc_i           : in  std_logic_vector(31 downto 0);
         read_ingress_crc_i    : in  std_logic_vector(31 downto 0);
@@ -80,8 +94,8 @@ architecture rtl of camera_uart_frame_protocol is
         TX_WAIT_UART_IDLE
     );
     type ctrl_state_t is (
-        C_IDLE, C_TRIGGER_PACKET, C_GAP_TO_CONFIG, C_WAIT_CAMERA_CONFIG,
-        C_CONFIG_PACKET, C_GAP_TO_FRAME, C_WAIT_FRAME, C_FRAME_STORED_PACKET,
+        C_IDLE, C_TRIGGER_PACKET, C_GAP_TO_CONFIG, C_CONFIG_START_PACKET,
+        C_WAIT_CAMERA_CONFIG, C_CONFIG_PACKET, C_GAP_TO_FRAME, C_WAIT_FRAME, C_FRAME_STORED_PACKET,
         C_GAP_TO_READY, C_READY_PACKET, C_GAP_TO_FIRST_LINE, C_LINE_PACKET,
         C_GAP_TO_NEXT_LINE, C_GAP_TO_DONE, C_WAIT_SERIALIZER_DONE, C_DONE_PACKET,
         C_ERROR_GAP, C_ERROR_PACKET, C_DONE, C_ERROR
@@ -219,10 +233,21 @@ begin
                 when C_GAP_TO_CONFIG =>
                     if gap_count = G_PACKET_GAP_CYCLES - 1 then
                         gap_count <= 0;
-                        stage_timer <= 0;
-                        ctrl_state <= C_WAIT_CAMERA_CONFIG;
+                        packet_kind_desc <= PKT_STAGE;
+                        packet_seq_desc <= (others => '0');
+                        packet_len_desc <= to_unsigned(2, 16);
+                        stage_code_desc <= x"04"; -- CAMERA_CONFIG_RUNNING
+                        stage_detail_desc <= x"00";
+                        packet_start_reg <= '1';
+                        ctrl_state <= C_CONFIG_START_PACKET;
                     else
                         gap_count <= gap_count + 1;
+                    end if;
+
+                when C_CONFIG_START_PACKET =>
+                    if packet_done_reg = '1' then
+                        stage_timer <= 0;
+                        ctrl_state <= C_WAIT_CAMERA_CONFIG;
                     end if;
 
                 when C_WAIT_CAMERA_CONFIG =>
@@ -238,7 +263,7 @@ begin
                         else
                             packet_kind_desc <= PKT_ERROR;
                             packet_seq_desc <= (others => '0');
-                            packet_len_desc <= to_unsigned(2, 16);
+                            packet_len_desc <= to_unsigned(16, 16);
                             error_code_desc <= x"01"; -- CAMERA_CONFIG
                             error_detail_desc <= x"01";
                             gap_count <= 0;
@@ -248,7 +273,7 @@ begin
                     elsif stage_timer = G_FRAME_TIMEOUT_CYCLES - 1 then
                         packet_kind_desc <= PKT_ERROR;
                         packet_seq_desc <= (others => '0');
-                        packet_len_desc <= to_unsigned(2, 16);
+                        packet_len_desc <= to_unsigned(16, 16);
                         error_code_desc <= x"03"; -- STAGE_TIMEOUT
                         error_detail_desc <= x"01"; -- camera configuration
                         gap_count <= 0;
@@ -277,7 +302,7 @@ begin
                     if frame_error_i = '1' then
                         packet_kind_desc <= PKT_ERROR;
                         packet_seq_desc <= (others => '0');
-                        packet_len_desc <= to_unsigned(2, 16);
+                        packet_len_desc <= to_unsigned(16, 16);
                         error_code_desc <= x"02"; -- CAPTURE_OR_HYPERRAM_WRITE
                         error_detail_desc <= x"00";
                         gap_count <= 0;
@@ -294,7 +319,7 @@ begin
                     elsif stage_timer = G_FRAME_TIMEOUT_CYCLES - 1 then
                         packet_kind_desc <= PKT_ERROR;
                         packet_seq_desc <= (others => '0');
-                        packet_len_desc <= to_unsigned(2, 16);
+                        packet_len_desc <= to_unsigned(16, 16);
                         error_code_desc <= x"03"; -- STAGE_TIMEOUT
                         error_detail_desc <= x"02"; -- frame capture/write
                         gap_count <= 0;
@@ -332,7 +357,7 @@ begin
                     if readout_error_i = '1' then
                         packet_kind_desc <= PKT_ERROR;
                         packet_seq_desc <= to_unsigned(line_index_reg, 16);
-                        packet_len_desc <= to_unsigned(2, 16);
+                        packet_len_desc <= to_unsigned(16, 16);
                         error_code_desc <= x"04"; -- HYPERRAM_READ_OR_SERIALIZER
                         error_detail_desc <= x"00";
                         gap_count <= 0;
@@ -354,7 +379,7 @@ begin
                     if source_fault_reg = '1' then
                         packet_kind_desc <= PKT_ERROR;
                         packet_seq_desc <= to_unsigned(line_index_reg, 16);
-                        packet_len_desc <= to_unsigned(2, 16);
+                        packet_len_desc <= to_unsigned(16, 16);
                         error_code_desc <= source_fault_code;
                         error_detail_desc <= std_logic_vector(to_unsigned(line_index_reg mod 256, 8));
                         gap_count <= 0;
@@ -377,7 +402,7 @@ begin
                     if readout_error_i = '1' then
                         packet_kind_desc <= PKT_ERROR;
                         packet_seq_desc <= to_unsigned(line_index_reg, 16);
-                        packet_len_desc <= to_unsigned(2, 16);
+                        packet_len_desc <= to_unsigned(16, 16);
                         error_code_desc <= x"04";
                         error_detail_desc <= std_logic_vector(to_unsigned(line_index_reg mod 256, 8));
                         gap_count <= 0;
@@ -399,7 +424,7 @@ begin
                     if readout_error_i = '1' then
                         packet_kind_desc <= PKT_ERROR;
                         packet_seq_desc <= to_unsigned(line_index_reg, 16);
-                        packet_len_desc <= to_unsigned(2, 16);
+                        packet_len_desc <= to_unsigned(16, 16);
                         error_code_desc <= x"04";
                         error_detail_desc <= x"FF";
                         gap_count <= 0;
@@ -440,7 +465,7 @@ begin
                     if readout_error_i = '1' then
                         packet_kind_desc <= PKT_ERROR;
                         packet_seq_desc <= to_unsigned(line_index_reg, 16);
-                        packet_len_desc <= to_unsigned(2, 16);
+                        packet_len_desc <= to_unsigned(16, 16);
                         error_code_desc <= x"04";
                         error_detail_desc <= x"FF"; -- serializer completion timeout/error
                         gap_count <= 0;
@@ -455,7 +480,7 @@ begin
                     elsif stage_timer = G_SOURCE_TIMEOUT_CYCLES - 1 then
                         packet_kind_desc <= PKT_ERROR;
                         packet_seq_desc <= to_unsigned(line_index_reg, 16);
-                        packet_len_desc <= to_unsigned(2, 16);
+                        packet_len_desc <= to_unsigned(16, 16);
                         error_code_desc <= x"04";
                         error_detail_desc <= x"FE"; -- serializer completion timeout
                         gap_count <= 0;
@@ -689,11 +714,24 @@ begin
                                         when others => tx_data_reg <= status_flags_i(15 downto 8);
                                     end case;
                                 when PKT_ERROR =>
-                                    if tx_payload_index = 0 then
-                                        tx_data_reg <= tx_error_code;
-                                    else
-                                        tx_data_reg <= tx_error_detail;
-                                    end if;
+                                    case tx_payload_index is
+                                        when 0  => tx_data_reg <= tx_error_code;
+                                        when 1  => tx_data_reg <= tx_error_detail;
+                                        when 2  => tx_data_reg <= "000" & camera_cfg_state_i;
+                                        when 3  => tx_data_reg <= "0000" & camera_cfg_error_i;
+                                        when 4  => tx_data_reg <= camera_cfg_reg_addr_i;
+                                        when 5  => tx_data_reg <= camera_cfg_reg_data_i;
+                                        when 6  => tx_data_reg <= '0' & camera_cfg_device_i;
+                                        when 7  => tx_data_reg <= camera_cfg_chip_id_i;
+                                        when 8  => tx_data_reg <= "000000" & camera_cfg_ack_count_i;
+                                        when 9  => tx_data_reg <= "0000000" & camera_cfg_nack_i;
+                                        when 10 => tx_data_reg <= camera_cfg_init_index_i;
+                                        when 11 => tx_data_reg <= "0000" & camera_cfg_verify_index_i;
+                                        when 12 => tx_data_reg <= "000000" & camera_i2c_sequence_i;
+                                        when 13 => tx_data_reg <= "0000" & camera_i2c_state_i;
+                                        when 14 => tx_data_reg <= camera_cfg_last_read_i;
+                                        when others => tx_data_reg <= "0000000" & camera_cfg_rw_i;
+                                    end case;
                                 when PKT_LINE =>
                                     tx_data_reg <= (others => '0');
                             end case;
