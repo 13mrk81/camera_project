@@ -129,3 +129,7 @@ The MATLAB script:
 8. Saves the received image, row-validity map, and link statistics.
 
 No ACK/NACK or other host-to-FPGA command is part of this protocol.
+
+
+## GC0308 UART diagnostics extension
+The one-way UART stream reports STAGE code `0x04` when camera configuration starts and STAGE code `0x02` when configuration and its register readback pass. STAGE `0x03` continues to mean frame stored in HyperRAM. ERROR packets now carry a 16-byte payload: the original generic error code/detail plus camera FSM state/error, register/data, SCCB address, chip ID, ACK/NACK count, init/verify indices, I2C sequence/state, last readback and R/W direction. MATLAB decodes and prints these fields. Packet envelope and CRC framing are unchanged; the host remains receive-only.
