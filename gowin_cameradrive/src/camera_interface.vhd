@@ -43,6 +43,7 @@ entity camera_interface is
         frame_byte_valid_o : out std_logic;
         frame_done_o       : out std_logic;
         frame_error_o      : out std_logic;
+        source_byte_count_o : out unsigned(31 downto 0);
 
         -- Configuration/debug outputs.
         config_done_o      : out std_logic;
@@ -54,28 +55,7 @@ end entity;
 
 architecture rtl of camera_interface is
 
-    component i2c_master_nack is
-        port (
-            clk       : in    std_logic;
-            rst_n     : in    std_logic;
-            start     : in    std_logic;
-            rw        : in    std_logic;
-            dev_addr  : in    std_logic_vector(6 downto 0);
-            reg_addr  : in    std_logic_vector(7 downto 0);
-            wr_data   : in    std_logic_vector(7 downto 0);
-            rd_data   : out   std_logic_vector(7 downto 0);
-            ack_out   : out   std_logic;
-            nack_seen : out   std_logic;
-            busy      : out   std_logic;
-            done      : out   std_logic;
-            dbg_rx    : out   std_logic_vector(7 downto 0);
-            dbg_shift : out   std_logic_vector(7 downto 0);
-            dbg_phase : out   std_logic_vector(1 downto 0);
-            dbg_seq   : out   std_logic_vector(1 downto 0);
-            scl       : inout std_logic;
-            sda       : inout std_logic
-        );
-    end component;
+
 
     -- Power-on reset for the I2C master after the PLL starts producing clocks.
     constant C_POR_CYCLES : natural := (G_CLK_FREQ_HZ / 1000) * G_POR_RESET_MS;
@@ -95,6 +75,9 @@ architecture rtl of camera_interface is
     signal i2c_reg_sig   : std_logic_vector(7 downto 0) := (others => '0');
     signal i2c_wdata_sig : std_logic_vector(7 downto 0) := (others => '0');
     signal i2c_rdata_sig : std_logic_vector(7 downto 0);
+    signal i2c_ack_count_sig : std_logic_vector(1 downto 0);
+    signal dbg_state_sig : std_logic_vector(3 downto 0);
+    signal dbg_sda_in_sig, dbg_scl_low_sig, dbg_sda_low_sig : std_logic;
     signal ack_out_sig   : std_logic;
     signal nack_seen_sig : std_logic;
     signal busy_sig      : std_logic;
@@ -260,6 +243,7 @@ architecture rtl of camera_interface is
     constant C_BYTES_PER_LINE : positive := G_FRAME_WIDTH * 2;
     signal line_count_i       : natural range 0 to G_FRAME_HEIGHT := 0;
     signal line_byte_count_i  : natural range 0 to C_BYTES_PER_LINE := 0;
+    signal source_byte_count_sig : unsigned(31 downto 0) := (others => '0');
 
     signal chip_id_sig       : std_logic_vector(7 downto 0) := (others => '0');
     signal last_readback_sig : std_logic_vector(7 downto 0) := (others => '0');
@@ -327,12 +311,17 @@ begin
     frame_byte_valid_o <= pixel_byte_valid_sig;
     frame_done_o       <= frame_done_sig;
     frame_error_o      <= capture_error_sig;
+    source_byte_count_o <= source_byte_count_sig;
     config_done_o      <= config_done_sig;
     config_pass_o      <= config_pass_sig;
     line_count_o       <= std_logic_vector(line_count_sig);
     line_byte_count_o  <= std_logic_vector(line_byte_count_sig);
 
-    u_i2c_master : i2c_master_nack
+    u_i2c_master : entity work.i2c_master_nack
+        generic map (
+            G_CLK_FREQ_HZ => G_CLK_FREQ_HZ,
+            G_I2C_FREQ_HZ => 100_000
+        )
         port map (
             clk       => clk24,
             rst_n     => i2c_rst_n,
@@ -344,12 +333,17 @@ begin
             rd_data   => i2c_rdata_sig,
             ack_out   => ack_out_sig,
             nack_seen => nack_seen_sig,
+            ack_count => i2c_ack_count_sig,
             busy      => busy_sig,
             done      => done_sig,
             dbg_rx    => dbg_rx_sig,
             dbg_shift => dbg_shift_sig,
             dbg_phase => dbg_phase_sig,
             dbg_seq   => dbg_seq_sig,
+            dbg_state => dbg_state_sig,
+            dbg_sda_in => dbg_sda_in_sig,
+            dbg_scl_low => dbg_scl_low_sig,
+            dbg_sda_low => dbg_sda_low_sig,
             scl       => cam_scl,
             sda       => cam_sda
         );
@@ -652,6 +646,7 @@ begin
                 last_line_bytes_sig <= (others => '0');
                 line_count_i <= 0;
                 line_byte_count_i <= 0;
+                source_byte_count_sig <= (others => '0');
 
             else
                 cfg_done_meta_pclk <= config_done_sig;
@@ -699,6 +694,7 @@ begin
                         if (cam_vsync = '1') and (vsync_prev = '0') then
                             line_count_i <= 0;
                             line_byte_count_i <= 0;
+                            source_byte_count_sig <= (others => '0');
                             line_count_sig <= (others => '0');
                             line_byte_count_sig <= (others => '0');
                             capture_active_sig <= '1';
@@ -741,6 +737,7 @@ begin
                                 if line_count_i < G_FRAME_HEIGHT then
                                     if line_byte_count_i < C_BYTES_PER_LINE then
                                         pixel_byte_valid_sig <= '1';
+                                        source_byte_count_sig <= source_byte_count_sig + 1;
                                         -- This byte is the current DVP byte,
                                         -- sampled on this rising PCLK edge.
                                         pix_data_reg <= cam_pix_data;
