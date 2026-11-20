@@ -216,6 +216,7 @@ architecture rtl of HyperRAM_Storage_SelfTest is
     signal cap_fifo_rd_data   : std_logic_vector(31 downto 0);
     signal cap_fifo_rd_valid  : std_logic;
     signal cap_fifo_overflow_cam : std_logic := '0';
+    signal source_packer_mismatch_cam : std_logic := '0';
     signal capture_error_cam  : std_logic;
 
     --------------------------------------------------------------------------
@@ -685,14 +686,22 @@ begin
     begin
         if rst_n = '0' then
             cap_fifo_overflow_cam <= '0';
+            source_packer_mismatch_cam <= '0';
         elsif rising_edge(cam_pclk_i) then
             if (cap_packed_valid = '1') and (cap_fifo_full = '1') then
                 cap_fifo_overflow_cam <= '1';
             end if;
+            -- At frame completion, independently compare bytes emitted by the
+            -- camera FSM with bytes accepted by the packer.
+            if (cap_capture_done = '1') and
+               (test_source_byte_count /= cap_byte_count) then
+                source_packer_mismatch_cam <= '1';
+            end if;
         end if;
     end process;
 
-    capture_error_cam <= cap_capture_error or cap_fifo_overflow_cam;
+    capture_error_cam <= cap_capture_error or cap_fifo_overflow_cam or
+                         source_packer_mismatch_cam;
     capture_snapshot_src <= cap_capture_crc &
                             std_logic_vector(cap_byte_count) &
                             std_logic_vector(cap_word_count) &
