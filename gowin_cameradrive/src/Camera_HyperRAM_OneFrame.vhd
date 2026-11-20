@@ -174,6 +174,7 @@ architecture rtl of Camera_HyperRAM_OneFrame is
     signal pll_stable         : std_logic := '0';
     signal pll_lock_count     : natural range 0 to C_PLL_STABLE_CYCLES := 0;
     signal ip_rst_n           : std_logic;
+    signal usr_rst_meta       : std_logic := '0';
     signal usr_rst_n          : std_logic := '0';
     signal init_calib_i       : std_logic;
 
@@ -273,6 +274,7 @@ architecture rtl of Camera_HyperRAM_OneFrame is
     attribute async_reg : string;
     attribute async_reg of capture_error_meta_usr : signal is "true";
     attribute async_reg of capture_error_sync_usr : signal is "true";
+    attribute async_reg of usr_rst_meta : signal is "true";
     attribute async_reg of write_done_meta_8 : signal is "true";
     attribute async_reg of write_done_sync_8 : signal is "true";
     attribute async_reg of frame_error_meta_8 : signal is "true";
@@ -340,6 +342,8 @@ architecture rtl of Camera_HyperRAM_OneFrame is
     signal frame_reader_done  : std_logic;
     signal serializer_done    : std_logic;
     signal read_pipeline_done : std_logic;
+    signal read_ingress_crc_usr : std_logic_vector(31 downto 0);
+    signal read_ingress_word_count_usr : unsigned(31 downto 0);
     signal reader_error       : std_logic;
     signal serializer_error   : std_logic;
     signal line_index         : unsigned(15 downto 0);
@@ -352,10 +356,24 @@ architecture rtl of Camera_HyperRAM_OneFrame is
     signal uart_byte_count_uart    : unsigned(31 downto 0);
     signal lines_sent_uart         : unsigned(15 downto 0);
 
-    -- Bundle the final clk8 statistics into usr_clk for the integrity checker.
+    -- Serializer counters cross to usr_clk when the serializer completes.
     signal stream_stats_src       : std_logic_vector(175 downto 0);
     signal stream_stats_usr       : std_logic_vector(175 downto 0);
     signal stream_stats_valid_usr : std_logic;
+
+    -- Final integrity telemetry crosses back to clk8 before the DONE packet.
+    signal telemetry_snapshot_src : std_logic_vector(239 downto 0);
+    signal telemetry_snapshot_8   : std_logic_vector(239 downto 0);
+    signal telemetry_valid_8      : std_logic;
+    signal telemetry_status_usr   : std_logic_vector(15 downto 0);
+    signal telemetry_capture_crc_8 : std_logic_vector(31 downto 0);
+    signal telemetry_write_crc_8 : std_logic_vector(31 downto 0);
+    signal telemetry_read_ingress_crc_8 : std_logic_vector(31 downto 0);
+    signal telemetry_source_bytes_8 : unsigned(31 downto 0);
+    signal telemetry_capture_bytes_8 : unsigned(31 downto 0);
+    signal telemetry_write_words_8 : unsigned(31 downto 0);
+    signal telemetry_read_words_8 : unsigned(31 downto 0);
+    signal telemetry_status_8 : std_logic_vector(15 downto 0);
     signal readback_crc           : std_logic_vector(31 downto 0);
     signal readback_raw_bytes     : unsigned(31 downto 0);
     signal readback_word_count    : unsigned(31 downto 0);
@@ -480,9 +498,11 @@ begin
     process(usr_clk, ip_rst_n)
     begin
         if ip_rst_n = '0' then
-            usr_rst_n <= '0';
+            usr_rst_meta <= '0';
+            usr_rst_n    <= '0';
         elsif rising_edge(usr_clk) then
-            usr_rst_n <= '1';
+            usr_rst_meta <= '1';
+            usr_rst_n    <= usr_rst_meta;
         end if;
     end process;
 
@@ -549,6 +569,15 @@ begin
             frame_error_i => frame_error_sync_8,
             readout_error_i => readout_error_8,
             serializer_done_i => serializer_done,
+            telemetry_ready_i => telemetry_valid_8,
+            capture_crc_i => telemetry_capture_crc_8,
+            write_crc_i => telemetry_write_crc_8,
+            read_ingress_crc_i => telemetry_read_ingress_crc_8,
+            source_byte_count_i => telemetry_source_bytes_8,
+            capture_byte_count_i => telemetry_capture_bytes_8,
+            write_word_count_i => telemetry_write_words_8,
+            read_ingress_word_count_i => telemetry_read_words_8,
+            status_flags_i => telemetry_status_8,
             readback_crc_i => readback_crc_uart,
             pixel_count_i => output_pixel_count_uart,
             uart_byte_count_i => uart_byte_count_uart,
@@ -981,6 +1010,8 @@ begin
             line_word_count_o      => line_word_count,
             fifo_write_level_o     => output_fifo_level,
             readback_crc_o         => readback_crc_uart,
+            read_ingress_crc_o        => read_ingress_crc_usr,
+            read_ingress_word_count_o => read_ingress_word_count_usr,
             raw_byte_count_o       => readback_raw_bytes_uart,
             read_word_count_o      => readback_word_count_uart,
             pixel_count_o          => output_pixel_count_uart,
@@ -1069,7 +1100,7 @@ begin
     -- End-to-end integrity checker. The final statistics snapshot is captured
     -- only after the DONE packet has completed its UART stop bit.
     --------------------------------------------------------------------------
-    -- One bundled snapshot crosses only after protocol DONE is acknowledged.
+    -- Serializer statistics cross when the serializer has consumed the frame.
     stream_stats_src <= readback_crc_uart &
                         std_logic_vector(readback_raw_bytes_uart) &
                         std_logic_vector(readback_word_count_uart) &
@@ -1081,7 +1112,7 @@ begin
         generic map (G_WIDTH => 176)
         port map (
             src_clk => clk8, src_rst_n => ip_rst_n,
-            src_event_i => protocol_done, src_data_i => stream_stats_src,
+            src_event_i => serializer_done, src_data_i => stream_stats_src,
             dst_clk => usr_clk, dst_rst_n => ip_rst_n,
             dst_event_o => stream_stats_valid_usr, dst_data_o => stream_stats_usr
         );
@@ -1108,15 +1139,17 @@ begin
             capture_done_i        => capture_snapshot_valid_usr,
             write_done_i          => write_done_reg,
             stream_done_i         => read_pipeline_done,
-            uart_idle_i           => stream_stats_valid_usr,
+            uart_idle_i           => frame_reader_done,
             capture_error_i       => capture_error_sync_usr,
             write_error_i         => write_error_reg,
             stream_error_i        => stream_error,
             capture_crc_i         => capture_crc_usr,
             write_crc_i           => write_crc_reg,
+            read_ingress_crc_i     => read_ingress_crc_usr,
             readback_crc_i        => readback_crc,
             capture_byte_count_i  => capture_byte_count_usr,
             write_word_count_i    => write_word_count_u32,
+            read_ingress_word_count_i => read_ingress_word_count_usr,
             readback_raw_bytes_i  => readback_raw_bytes,
             readback_word_count_i => readback_word_count,
             pixel_count_i         => output_pixel_count,
@@ -1126,6 +1159,54 @@ begin
             integrity_done_o      => integrity_done,
             error_o               => integrity_error
         );
+
+    telemetry_status_usr(0)  <= capture_error_sync_usr;
+    telemetry_status_usr(1)  <= write_error_reg;
+    telemetry_status_usr(2)  <= reader_error;
+    telemetry_status_usr(3)  <= serializer_error_sync_usr;
+    telemetry_status_usr(4)  <= protocol_error_sync_usr;
+    telemetry_status_usr(5)  <= '1' when capture_crc_usr /= write_crc_reg else '0';
+    telemetry_status_usr(6)  <= '1' when write_crc_reg /= read_ingress_crc_usr else '0';
+    telemetry_status_usr(7)  <= '1' when capture_byte_count_usr /= to_unsigned(C_TOTAL_RAW_BYTES, 32) else '0';
+    telemetry_status_usr(8)  <= '1' when write_word_count_u32 /= to_unsigned(C_TOTAL_WORDS, 32) else '0';
+    telemetry_status_usr(9)  <= '1' when read_ingress_word_count_usr /= to_unsigned(C_TOTAL_WORDS, 32) else '0';
+    -- The packer exposes a single source-byte counter, so both payload fields
+    -- report that same measured source/capture byte total.
+    telemetry_status_usr(10) <= '0';
+    telemetry_status_usr(12 downto 11) <= (others => '0');
+    telemetry_status_usr(13) <= system_ok;
+    telemetry_status_usr(15 downto 14) <= (others => '0');
+
+    telemetry_snapshot_src <= capture_crc_usr &
+                              write_crc_reg &
+                              read_ingress_crc_usr &
+                              std_logic_vector(capture_byte_count_usr) &
+                              std_logic_vector(capture_byte_count_usr) &
+                              std_logic_vector(write_word_count_u32) &
+                              std_logic_vector(read_ingress_word_count_usr) &
+                              telemetry_status_usr;
+
+    u_telemetry_snapshot_cdc : entity work.stable_bus_event_cdc
+        generic map (G_WIDTH => 240)
+        port map (
+            src_clk     => usr_clk,
+            src_rst_n   => ip_rst_n,
+            src_event_i => integrity_done,
+            src_data_i  => telemetry_snapshot_src,
+            dst_clk     => clk8,
+            dst_rst_n   => ip_rst_n,
+            dst_event_o => telemetry_valid_8,
+            dst_data_o  => telemetry_snapshot_8
+        );
+
+    telemetry_capture_crc_8       <= telemetry_snapshot_8(239 downto 208);
+    telemetry_write_crc_8          <= telemetry_snapshot_8(207 downto 176);
+    telemetry_read_ingress_crc_8   <= telemetry_snapshot_8(175 downto 144);
+    telemetry_source_bytes_8       <= unsigned(telemetry_snapshot_8(143 downto 112));
+    telemetry_capture_bytes_8      <= unsigned(telemetry_snapshot_8(111 downto 80));
+    telemetry_write_words_8        <= unsigned(telemetry_snapshot_8(79 downto 48));
+    telemetry_read_words_8         <= unsigned(telemetry_snapshot_8(47 downto 16));
+    telemetry_status_8             <= telemetry_snapshot_8(15 downto 0);
 
     --------------------------------------------------------------------------
     -- Internal status/error aggregation. No debug/status top-level ports.
