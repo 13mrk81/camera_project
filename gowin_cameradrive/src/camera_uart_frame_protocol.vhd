@@ -9,7 +9,7 @@ use ieee.numeric_std.all;
 -- Types: 10 STAGE [stage,detail]; 11 READY [width(2),height(2),03,01];
 -- 20 LINE [RGB888 R,G,B triplets, sequence=row]; 30 DONE [46-byte
 -- stream + capture/write/read CRCs, byte/word counts, and status flags];
--- 7F ERROR [error_code,detail].
+-- 7F ERROR [error_code,detail,camera/SCCB diagnostic snapshot (14 bytes)].
 --
 -- A line is internally acknowledged only after CRC_LO's stop bit completes.
 -- This is local flow control, not an ACK from MATLAB; no retransmission exists.
@@ -95,7 +95,8 @@ architecture rtl of camera_uart_frame_protocol is
     );
     type ctrl_state_t is (
         C_IDLE, C_TRIGGER_PACKET, C_GAP_TO_CONFIG, C_CONFIG_START_PACKET,
-        C_WAIT_CAMERA_CONFIG, C_CONFIG_PACKET, C_GAP_TO_FRAME, C_WAIT_FRAME, C_FRAME_STORED_PACKET,
+        C_WAIT_CAMERA_CONFIG, C_CONFIG_PACKET, C_GAP_TO_FRAME, C_FRAME_START_PACKET,
+        C_WAIT_FRAME, C_FRAME_STORED_PACKET,
         C_GAP_TO_READY, C_READY_PACKET, C_GAP_TO_FIRST_LINE, C_LINE_PACKET,
         C_GAP_TO_NEXT_LINE, C_GAP_TO_DONE, C_WAIT_SERIALIZER_DONE, C_DONE_PACKET,
         C_ERROR_GAP, C_ERROR_PACKET, C_DONE, C_ERROR
@@ -292,10 +293,21 @@ begin
                 when C_GAP_TO_FRAME =>
                     if gap_count = G_PACKET_GAP_CYCLES - 1 then
                         gap_count <= 0;
-                        stage_timer <= 0;
-                        ctrl_state <= C_WAIT_FRAME;
+                        packet_kind_desc <= PKT_STAGE;
+                        packet_seq_desc <= (others => '0');
+                        packet_len_desc <= to_unsigned(2, 16);
+                        stage_code_desc <= x"05"; -- FRAME_CAPTURE_AND_HYPERRAM_WRITE_RUNNING
+                        stage_detail_desc <= x"00";
+                        packet_start_reg <= '1';
+                        ctrl_state <= C_FRAME_START_PACKET;
                     else
                         gap_count <= gap_count + 1;
+                    end if;
+
+                when C_FRAME_START_PACKET =>
+                    if packet_done_reg = '1' then
+                        stage_timer <= 0;
+                        ctrl_state <= C_WAIT_FRAME;
                     end if;
 
                 when C_WAIT_FRAME =>
