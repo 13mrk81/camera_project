@@ -174,6 +174,7 @@ architecture rtl of Camera_HyperRAM_OneFrame is
     signal pll_stable         : std_logic := '0';
     signal pll_lock_count     : natural range 0 to C_PLL_STABLE_CYCLES := 0;
     signal ip_rst_n           : std_logic;
+    signal usr_rst_n          : std_logic := '0';
     signal init_calib_i       : std_logic;
 
     signal mem_cmd_i          : std_logic := '0';
@@ -475,6 +476,16 @@ begin
 
     ip_rst_n <= rst_n and pll_stable;
 
+    -- HyperRAM user-clock reset: asynchronous assertion, synchronous release.
+    process(usr_clk, ip_rst_n)
+    begin
+        if ip_rst_n = '0' then
+            usr_rst_n <= '0';
+        elsif rising_edge(usr_clk) then
+            usr_rst_n <= '1';
+        end if;
+    end process;
+
     --------------------------------------------------------------------------
     -- KEY1 active-low trigger: synchronize, debounce for 20 ms, and emit one
     -- clk8 pulse on a stable high-to-low transition.
@@ -687,7 +698,8 @@ begin
             G_ADDR_BITS => G_FIFO_ADDR_BITS
         )
         port map (
-            rst_n      => rst_n,
+            wr_rst_n   => rst_n,
+            rd_rst_n   => usr_rst_n,
             wr_clk     => cam_pclk,
             wr_en_i    => cap_packed_valid,
             wr_data_i  => cap_packed_word,
@@ -936,7 +948,8 @@ begin
         port map (
             mem_clk                => usr_clk,
             uart_clk               => clk8,
-            rst_n                  => ip_rst_n,
+            mem_rst_n              => usr_rst_n,
+            uart_rst_n             => rst_n,
             frame_written_i        => readout_start_sync_usr,
             line_ack_i             => line_ack_usr,
             line_retry_i           => '0', -- no host NACK on the one-way stream
