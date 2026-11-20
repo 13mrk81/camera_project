@@ -274,3 +274,4 @@ Confirm that the local clone contains the latest branch and that the bitstream w
 `cam_config_error_code`, `cam_config_state`, `cam_config_reg_addr`, `cam_config_reg_data`, `cam_config_device_addr`, `cam_config_chip_id`, `cam_i2c_ack_count`, `cam_i2c_nack`, `cam_i2c_state`, `cam_i2c_sequence`, `cam_i2c_sda_sample`, `cam_i2c_scl_sample`, `cam_i2c_bus_idle`.
 
 No changes to the packer or downstream datapath were made in response to this retest record.
+- 2026-11-20 — Updated `hyperram_storage_selftest.gao` (commit `65ed759cc8797d9c50b7d614f3133fe9c6eba925`) to trigger on sticky `cam_config_fail` rather than the initial KEY1 pulse. This makes the short GAO capture window preserve the terminal configuration error, current register context, and ACK/NACK diagnostics. Sample clock remains `clk24`; the UART packet and datapath are untouched.
