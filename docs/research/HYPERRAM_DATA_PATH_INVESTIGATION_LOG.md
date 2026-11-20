@@ -166,3 +166,104 @@ Do not infer physical address units, exact HyperRAM latency, actual configured b
 
 ---
 This is a working evidence log, not the final report. A statement marked “not established” must remain unresolved until additional source/configuration evidence or measurement is obtained.
+
+
+## 9. Further verified results (2026-11-20 continuation)
+
+### 9.1 Exact writer-FSM comparison
+
+Fetched both complete top-level files from this branch and extracted the write-engine section from the `write_fifo_rd_en <=` concurrent assignment through the end of the writer process. After normalizing only the reset-net identifier (`usr_rst_n` in self-test versus `ip_rst_n` in camera top), the extracted 5,919-character RTL sections are **byte-for-byte identical**.
+
+This is stronger evidence than merely observing similarly named states: the actual writer FSM and FIFO read scheduling source are identical in these branch files. The two tops differ in reset net naming, but writer algorithm content is the same.
+
+Reference ranges:
+- Self-test writer: `HyperRAM_Storage_SelfTest.vhd` approximately lines 735–856 (verify exact current line endpoints).
+- Camera writer: `Camera_HyperRAM_OneFrame.vhd` approximately lines 780–900 (verify exact current line endpoints).
+
+The common state sequence is:
+`W_WAIT_INIT -> W_WAIT_BURST -> W_LOAD_FIRST -> W_WRITE_CMD -> W_WRITE_DATA -> W_LOAD_NEXT` (repeat) -> `W_WAIT_CAPTURE_END -> W_DONE`.
+It loads a full 8-word burst into `burst_buffer` before issuing the write command/data sequence.
+
+### 9.2 HyperRAM write mux and IP boundary
+
+In self-test `HyperRAM_Storage_SelfTest.vhd` lines 950–1005 (approx.; re-fetch for exact range):
+- The shared mux defaults to read adapter signals.
+- During `W_WRITE_CMD`: `mem_cmd_i=1`, `mem_cmd_en_i=1`, `mem_addr_i=write_addr`, `mem_wr_data_i=burst_buffer(0)`.
+- During `W_WRITE_DATA`: `mem_cmd_i=0`, `mem_cmd_en_i=0`, `mem_wr_data_i=burst_buffer(write_beat_index)`.
+- `mem_data_mask_i=(others=>'0')`.
+- The HyperRAM IP maps `clk=clk24`, `memory_clk=clk96`, `clk_out=usr_clk`, `wr_data=mem_wr_data_i`, `addr=mem_addr_i`, `cmd=mem_cmd_i`, `cmd_en=mem_cmd_en_i`.
+Camera top has the same mux and same IP port mapping. The writer and read adapter share this mux; writer has priority whenever it is in W_WRITE_CMD/W_WRITE_DATA. The code does not expose a write-ready/accept handshake from the IP.
+
+The generated file `src/hyperram_memory_interface/hyperram_memory_interface.vhd` begins with Gowin `protect begin_protected` and encrypted payload. It identifies source files `HPRAM_TOP.v` and `hpram_code_1N2A.v`, but the payload is not readable from the fetched source. Thus actual internal command acceptance, configured burst length, and precise write-latency behavior cannot be independently verified from this RTL artifact alone.
+
+### 9.3 PLL and clock-domain evidence
+
+- `gowin_pllvr_1.vhd` generic map: FCLKIN="8", FBDIV_SEL=2, ODIV_SEL=32; it is instantiated from 8 MHz board clock to create clk24. Top-level comment labels this output 24 MHz.
+- `gowin_pllvr.vhd` generic map: FCLKIN="24", FBDIV_SEL=3, ODIV_SEL=8; it is instantiated from clk24 to create clk96. Top-level comment labels output 96 MHz.
+- Both tops connect the HyperRAM IP `clk_out` to `usr_clk`. Both source files comment that usr_clk is 48 MHz (= memory_clk/2), but the encrypted generated IP prevents independently confirming its output-divider behavior from the HDL source alone.
+- Synthetic packer/FIFO write domain = clk24. Camera packer/FIFO write domain = external cam_pclk. Both writer/FIFO read domains = usr_clk.
+- The camera top drives sensor `cam_clk` from clk24, but `cam_pclk` is a separate input from the sensor. Do not equate cam_pclk to clk24 without measurement or sensor timing documentation.
+
+### 9.4 Camera timing and validity conditions
+
+`camera_interface.vhd` lines 624–795:
+- DVP FSM runs on rising cam_pclk.
+- It waits for I2C config-done and config-pass.
+- It waits to observe VSYNC low, then a low-to-high VSYNC transition to begin frame.
+- During capture, VSYNC must remain high; HSYNC high qualifies active line bytes.
+- It asserts byte-valid for each accepted cam_pclk edge while HSYNC=1 and line_byte_count < 2*G_FRAME_WIDTH.
+- It checks exactly 1280 bytes per line (for width 640) on HSYNC falling, and exactly 480 lines on VSYNC falling.
+- Excess bytes, short lines, premature VSYNC, or wrong line count set capture_error and terminate capture.
+- No explicit byte-ready from the packer or FIFO exists.
+
+The RTL does not measure/report cam_pclk frequency or HREF duty cycle. The camera data-rate numeric result must therefore be a formula until PCLK and active/blanking timing are measured.
+
+### 9.5 Serializer and integrity measurement points
+
+`rgb565_line_serializer.vhd`:
+- Lines 5–8 describe RGB565-to-RGB888 conversion from FIFO #2.
+- Lines 147–153 gate output valid based on serializer states.
+- Lines 221–243: accepted FIFO words are counted; raw byte count increments by 4 and readback CRC is updated over the four original bytes in each 32-bit word.
+- Lines 259–273: UART byte count increments only when uart_ready_i is high; pixel count increments when the third color component is accepted.
+- It includes checkpoints/rollback for line retry, although the current one-way top ties retry low.
+
+`frame_integrity_checker.vhd`:
+- Lines 73–83 compare capture CRC -> write CRC -> read-ingress CRC -> readback CRC and check expected byte/word/pixel/UART/line counts.
+- The checker is a final consistency check; it does not prove the HyperRAM physical transaction protocol is correctly timed unless readback CRC/counts also validate the actual returned contents.
+
+`stable_bus_event_cdc.vhd`:
+- Bundled-data event CDC; source captures a stable multi-bit snapshot once per reset on source event, toggles request; destination synchronizes toggle and captures bus. It is a one-transfer-per-reset mechanism, not a streaming FIFO.
+
+### 9.6 FIFO depth correction / current branch values
+
+The branch version fetched here has `G_FIFO_ADDR_BITS=11` in **both** top-level entities (default), and both instantiate the same `async_fifo_32`. Therefore both capture FIFOs are 2048 x 32 bits (8 KiB). Any earlier note stating 1024 entries for the camera FIFO is stale for the currently fetched branch revision and must not be carried into the final report.
+
+The output/readout FIFO uses `G_OUTPUT_FIFO_ADDR_BITS=9` in both tops, i.e. 512 x 32 bits. One 640-pixel RGB565 line is 320 words, so 512 entries can hold one complete line with 192 words of headroom. This is separate from the capture FIFO.
+
+### 9.7 Rate model refined
+
+Synthetic source:
+- 1280 active byte clocks + 306 line blank clocks = 1586 clk24 cycles/line.
+- 480 lines + 31,720 frame-blank clocks = 793,000 clk24 cycles/frame.
+- 24 MHz / 793,000 = 30.265 fps.
+- Average bytes/s = 614,400 * 30.265 = approx. 18.59 MB/s.
+- Average FIFO words/s = 153,600 * 30.265 = approx. 4.647 Mword/s.
+- Active line word rate = 24 MHz / 4 = 6 Mword/s while source is emitting valid bytes.
+
+Camera:
+- For a measured PCLK frequency f_pclk and HREF-active duty fraction D, approximate long-term word ingress = f_pclk * D / 4, provided exactly four accepted bytes produce each word and frame/line boundary behavior is as coded.
+- If measured PCLK is 24 MHz and active duty/timing exactly matches the synthetic 1280/(1280+306) per-line pattern, the average would be approximately 4.647 Mword/s. This is a conditional example only, not an RTL-established camera rate.
+- With no blanking and continuous valid bytes, the mathematical input ceiling is f_pclk/4 words/s; actual f_pclk is not specified by the top-level RTL.
+
+Writer schedule:
+- `G_CMD_INTERVAL_CYCLES=21`, `C_BURST_WORDS=8`, `C_MIN_GAP_CYCLES=13`.
+- In steady state, writer uses 8 usr_clk cycles to issue the command plus 7 remaining beats (8 scheduled data words total), and 13 usr_clk cycles in W_LOAD_NEXT while it reloads the next burst and waits out the minimum interval. Thus nominal schedule is 8 words / 21 usr_clk cycles.
+- If usr_clk is indeed 48 MHz as stated in top comments, this is 18.286 Mword/s (73.14 MB/s) scheduled input payload. Treat as an RTL scheduling rate, not proven physical HyperRAM throughput.
+- FIFO stop-service tolerance using 48 MHz user clock is not needed for rate arithmetic beyond the FIFO occupancy; for any actual service pause, available time = free FIFO words / input word rate. With an initially empty 2048-word FIFO, 440.5 us at synthetic average input or 341.3 us during continuous active byte production. If FIFO already contains Q words, replace 2048 with 2048-Q.
+
+## 10. Remaining unresolved items
+
+- Locate any readable Gowin IP configuration/project files or generated example that identifies selected HyperRAM part, actual burst length, command cadence, memory clock and user clock. Current generated HDL payload is protected/encrypted.
+- Verify the actual PCLK frequency and HREF-active/blanking timing on the board; do not derive it from clk24 alone.
+- Inspect sensor register table lines around the horizontal/vertical blanking setup and document what it suggests versus what has actually been measured.
+- Re-fetch exact line ranges before final citation and prepare a report file distinct from this log.
