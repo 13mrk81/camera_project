@@ -225,8 +225,8 @@ Implementation is constrained to the camera-control path and the signals immedia
 
 ### Static verification performed
 
-- Camera entity port count: 49. The SelfTest top-level named association covers all 48 ports.
-- Legacy component port count: 48. Its component port order now matches the camera entity, and its named port map covers every port.
+- Camera entity port count: 49. The SelfTest top-level named association covers all 49 ports.
+- Legacy component port count: 49. Its component port order now matches the camera entity, and its named port map covers every port.
 - I2C master port count: 25. The camera interface maps every port, including the new physical SCL sample.
 - All 31 GAO capture names resolve to declared signals in the SelfTest top.
 - All six camera configuration transaction wait states contain the `ack_count = "11"` check, in addition to the NACK check.
