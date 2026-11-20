@@ -92,3 +92,5 @@ The packer and FIFO write clock change is intentional: the sensor byte-valid sig
 - Updated MATLAB to print readable camera FSM and I2C state names and diagnostic values.
 - Changes are limited to UART protocol, top-level diagnostic wiring, MATLAB receiver and documentation. The RGB565 packer, capture FIFO, HyperRAM storage/readback and serializer datapath are not modified.
 - Synthesis, timing analysis and hardware validation are pending; this source update is not evidence of a tested bitstream.
+
+- Follow-up status refinement: UART now also emits STAGE `0x05` after configuration passes and before waiting for the completed frame/HyperRAM write. MATLAB labels this as frame capture + HyperRAM write running; STAGE `0x03` remains the completion event.
