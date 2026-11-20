@@ -178,3 +178,26 @@ The following is the recommended order. No item below has been applied yet.
 
 - 2026-11-20: created this review log on `feature/gc0308-hyperram-camera-capture`.
 - No RTL/CST/GAO/project changes have been made as part of this review.
+
+## Implementation execution log
+
+### Run started: 2026-11-20
+
+Implementation is constrained to the camera-control path and the signals immediately upstream of `rgb565_frame_packer`. The packer source and all downstream RTL are protected from edits.
+
+| Step | Status | Intended change |
+|---|---|---|
+| Re-read the integration log and interface audit | Complete | Reconfirm scope and known limitations |
+| Add internal SCCB/configuration diagnostics to the camera interface boundary | In progress | Export config FSM/error state, current register transaction, ACK/NACK count, I2C FSM and physical SDA/SCL samples |
+| Add I2C timing parameter checks and SCL input observation | Pending | No transaction waveform change intended |
+| Require all three expected ACKs for each SCCB register transaction | Pending | Treat incomplete ACK sequences as configuration failures |
+| Update both top-level wrappers that instantiate the camera interface | Pending | Keep the legacy project source-compatible; do not alter packer or later logic |
+| Replace stale synthetic-source GAO probes with camera/SCCB diagnostics | Pending | Capture the cause of the next configuration failure |
+| Verify protected files and record commit hashes | Pending | Prove no Packer/downstream source was modified |
+
+### Decisions and non-changes
+
+- The historical camera pin map is **not** copied into the active SelfTest CST because the exact camera connector wiring and I/O voltage have not been independently confirmed.
+- The public UART error packet format is not changed; doing so would require editing the host protocol controller, outside the requested protected boundary. Internal details will instead be exposed to GAO.
+- Clock-stretch support and automatic bus recovery are not added without evidence that the GC0308 SCCB interface requires them. The physical SCL input will be observable to distinguish a driven-low line from a released-but-not-high line.
+- No claim of synthesis, place-and-route, or hardware validation will be made unless those checks are actually run.
