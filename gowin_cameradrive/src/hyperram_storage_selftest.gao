@@ -5,28 +5,35 @@
     <AoCore index="0" sample_clock="clk24" trig_type="0" storage_depth="1024" window_num="1" capture_amount="1024" implementation="0" trigger_pos="0" module_name="HyperRAM_Storage_SelfTest" force_trigger_by_falling_edge="false" capture_init_data_enabled="false">
         <SignalList>
             <Signal capture_enable="true">trigger_pulse</Signal>
-            <Signal capture_enable="true">test_source_start_pulse</Signal>
-            <Signal capture_enable="true">test_source_error</Signal>
-            <Signal capture_enable="true">test_source_byte_count</Signal>
-            <Signal capture_enable="true">cam_byte_valid</Signal>
-            <Signal capture_enable="true">cap_packed_valid</Signal>
-            <Signal capture_enable="true">cap_fifo_overflow_cam</Signal>
-            <Signal capture_enable="true">cap_fifo_wr_level</Signal>
-            <Signal capture_enable="true">init_calib_i</Signal>
-            <Signal capture_enable="true">write_done_reg</Signal>
-            <Signal capture_enable="true">write_error_reg</Signal>
-            <Signal capture_enable="true">write_crc_reg</Signal>
-            <Signal capture_enable="true">write_word_count_u32</Signal>
-            <Signal capture_enable="true">capture_crc_usr</Signal>
-            <Signal capture_enable="true">read_ingress_crc_usr</Signal>
-            <Signal capture_enable="true">read_ingress_word_count_usr</Signal>
-            <Signal capture_enable="true">reader_error</Signal>
-            <Signal capture_enable="true">serializer_error</Signal>
-            <Signal capture_enable="true">storage_status_flags_usr</Signal>
-            <Signal capture_enable="true">storage_telemetry_valid_clk24</Signal>
-            <Signal capture_enable="true">integrity_done</Signal>
-            <Signal capture_enable="true">integrity_error</Signal>
-            <Signal capture_enable="true">system_ok</Signal>
+            <Signal capture_enable="true">cam_config_done</Signal>
+            <Signal capture_enable="true">cam_config_pass</Signal>
+            <Signal capture_enable="true">cam_config_fail</Signal>
+            <Signal capture_enable="true">cam_config_error_code</Signal>
+            <Signal capture_enable="true">cam_config_state</Signal>
+            <Signal capture_enable="true">cam_config_init_index</Signal>
+            <Signal capture_enable="true">cam_config_verify_index</Signal>
+            <Signal capture_enable="true">cam_config_reg_addr</Signal>
+            <Signal capture_enable="true">cam_config_reg_data</Signal>
+            <Signal capture_enable="true">cam_config_rw</Signal>
+            <Signal capture_enable="true">cam_config_device_addr</Signal>
+            <Signal capture_enable="true">cam_config_chip_id</Signal>
+            <Signal capture_enable="true">cam_config_last_readback</Signal>
+            <Signal capture_enable="true">cam_config_verify_addr</Signal>
+            <Signal capture_enable="true">cam_config_verify_expected</Signal>
+            <Signal capture_enable="true">cam_config_verify_fail</Signal>
+            <Signal capture_enable="true">cam_i2c_start</Signal>
+            <Signal capture_enable="true">cam_i2c_busy</Signal>
+            <Signal capture_enable="true">cam_i2c_done</Signal>
+            <Signal capture_enable="true">cam_i2c_ack</Signal>
+            <Signal capture_enable="true">cam_i2c_nack</Signal>
+            <Signal capture_enable="true">cam_i2c_ack_count</Signal>
+            <Signal capture_enable="true">cam_i2c_state</Signal>
+            <Signal capture_enable="true">cam_i2c_sequence</Signal>
+            <Signal capture_enable="true">cam_i2c_phase</Signal>
+            <Signal capture_enable="true">cam_i2c_sda_sample</Signal>
+            <Signal capture_enable="true">cam_i2c_scl_sample</Signal>
+            <Signal capture_enable="true">cam_i2c_scl_drive_low</Signal>
+            <Signal capture_enable="true">cam_i2c_sda_drive_low</Signal>
         </SignalList>
         <Triggers>
             <Trigger index="0">
