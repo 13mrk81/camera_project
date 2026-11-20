@@ -154,9 +154,9 @@ architecture rtl of Camera_HyperRAM_OneFrame is
             frame_byte_valid_o  : out std_logic;
             frame_done_o        : out std_logic;
             frame_error_o       : out std_logic;
+            source_byte_count_o : out unsigned(31 downto 0);
             config_done_o       : out std_logic;
             config_pass_o       : out std_logic;
-            source_byte_count_o : out unsigned(31 downto 0);
 
             config_fail_o             : out std_logic;
             config_error_code_o       : out std_logic_vector(3 downto 0);
