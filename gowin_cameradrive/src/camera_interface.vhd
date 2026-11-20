@@ -77,6 +77,7 @@ entity camera_interface is
         i2c_phase_o               : out std_logic_vector(1 downto 0);
         i2c_sda_sample_o          : out std_logic;
         i2c_scl_sample_o          : out std_logic;
+        i2c_bus_idle_o            : out std_logic;
         i2c_scl_drive_low_o       : out std_logic;
         i2c_sda_drive_low_o       : out std_logic;
 
@@ -112,7 +113,7 @@ architecture rtl of camera_interface is
     signal i2c_rdata_sig : std_logic_vector(7 downto 0);
     signal i2c_ack_count_sig : std_logic_vector(1 downto 0);
     signal dbg_state_sig : std_logic_vector(3 downto 0);
-    signal dbg_sda_in_sig, dbg_scl_in_sig : std_logic;
+    signal dbg_sda_in_sig, dbg_scl_in_sig, dbg_bus_idle_sig : std_logic;
     signal dbg_scl_low_sig, dbg_sda_low_sig : std_logic;
     signal ack_out_sig   : std_logic;
     signal nack_seen_sig : std_logic;
@@ -379,6 +380,7 @@ begin
     i2c_phase_o         <= dbg_phase_sig;
     i2c_sda_sample_o    <= dbg_sda_in_sig;
     i2c_scl_sample_o    <= dbg_scl_in_sig;
+    i2c_bus_idle_o      <= dbg_bus_idle_sig;
     i2c_scl_drive_low_o <= dbg_scl_low_sig;
     i2c_sda_drive_low_o <= dbg_sda_low_sig;
 
@@ -413,6 +415,7 @@ begin
             dbg_state => dbg_state_sig,
             dbg_sda_in => dbg_sda_in_sig,
             dbg_scl_in => dbg_scl_in_sig,
+            dbg_bus_idle => dbg_bus_idle_sig,
             dbg_scl_low => dbg_scl_low_sig,
             dbg_sda_low => dbg_sda_low_sig,
             scl       => cam_scl,
