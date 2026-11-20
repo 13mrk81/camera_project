@@ -407,7 +407,7 @@ begin
                         ctrl_state <= C_ERROR_GAP;
                     elsif gap_count = G_PACKET_GAP_CYCLES - 1 then
                         gap_count <= 0;
-                        if serializer_done_i = '1' then
+                        if (serializer_done_i = '1') and (telemetry_ready_i = '1') then
                             packet_kind_desc <= PKT_DONE;
                             packet_seq_desc <= C_HEIGHT_U16;
                             packet_len_desc <= C_DONE_BYTES_U16;
