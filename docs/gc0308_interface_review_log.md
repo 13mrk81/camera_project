@@ -240,3 +240,37 @@ Implementation is constrained to the camera-control path and the signals immedia
 - 2026-11-20 — Connected and kept the new `cam_i2c_bus_idle` diagnostic at the SelfTest top level (commit `5dd189aefae45b5c904ec70aa32571afe723e7e3`).
 - 2026-11-20 — Added the same `i2c_bus_idle_o` connection to the legacy `Camera_HyperRAM_OneFrame` wrapper (commit `c1fc244455d83d47573853ac017c96b353b1d693`) so both project tops expose the same SCCB line diagnostics.
 - 2026-11-20 — Added `cam_i2c_bus_idle` to the active GAO capture list (commit `666cc51e22ffbaf43b65d65a1f2d1ec11839e353`), completing the explicit SDA/SCL/bus-idle view for the SelfTest project.
+
+
+## Post-implementation retest record
+
+### Host UART result received
+
+The following result was reported after the implementation changes:
+
+```text
+UART opened: /dev/ttyUSB0 @ 115200 baud, 8N1 (receive-only)
+No UART commands will be transmitted. Press the board's KEY1 button to start.
+[STAGE 1/3] FPGA accepted KEY1 trigger. Camera setup started.
+[FPGA ERROR] camera configuration failed (code=0x01, detail=0x01, seq=0).
+
+Receiver state: ERROR
+Valid LINE packets: 0 | duplicates: 0 | out-of-order: 0
+Rejected CRC candidates: 0 | discarded bytes during resync: 0
+No READY/image data received; no frame file written.
+```
+
+### Interpretation
+
+- The KEY1 trigger and generic camera-configuration failure were reported.
+- The UART protocol controller intentionally retains its old fixed `CAMERA_CONFIG` error code/detail. Therefore this identical host message is expected even when the new internal diagnostics are present.
+- This log alone cannot establish whether the FPGA was programmed with the newly synthesized bitstream, and it cannot identify the internal SCCB transaction/error.
+- No new RTL change is justified from this UART line alone.
+
+### Required next observation
+
+Confirm that the local clone contains the latest branch and that the bitstream was rebuilt/programmed from `HYPERRAM_STORAGE_SELFTEST.gprj`. Then use `hyperram_storage_selftest.gao` to trigger on `cam_config_fail` (or capture the relevant `cam_i2c_done` event) and read:
+
+`cam_config_error_code`, `cam_config_state`, `cam_config_reg_addr`, `cam_config_reg_data`, `cam_config_device_addr`, `cam_config_chip_id`, `cam_i2c_ack_count`, `cam_i2c_nack`, `cam_i2c_state`, `cam_i2c_sequence`, `cam_i2c_sda_sample`, `cam_i2c_scl_sample`, `cam_i2c_bus_idle`.
+
+No changes to the packer or downstream datapath were made in response to this retest record.
