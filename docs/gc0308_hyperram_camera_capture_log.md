@@ -94,3 +94,9 @@ The packer and FIFO write clock change is intentional: the sensor byte-valid sig
 - Synthesis, timing analysis and hardware validation are pending; this source update is not evidence of a tested bitstream.
 
 - Follow-up status refinement: UART now also emits STAGE `0x05` after configuration passes and before waiting for the completed frame/HyperRAM write. MATLAB labels this as frame capture + HyperRAM write running; STAGE `0x03` remains the completion event.
+
+### Static source consistency check for UART diagnostics
+- Confirmed 10 `PKT_ERROR` creation paths each advertise a 16-byte payload; five STAGE packets retain their 2-byte payload.
+- Confirmed the ERROR serializer maps the 16 diagnostic byte positions, and MATLAB decodes camera FSM, I2C sequence/state, ACK/NACK and register information.
+- Confirmed `rgb565_frame_packer.vhd` remains byte-identical to `study/synthetic-hyperram-uart-baseline` (SHA-256 `82ed26cc84a93fe3653ad2c7debf22ca55b160ef`).
+- This was source-level consistency checking only; no Gowin compiler or physical UART test was run here.
