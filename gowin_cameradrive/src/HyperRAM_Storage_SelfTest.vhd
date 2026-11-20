@@ -31,6 +31,14 @@ entity HyperRAM_Storage_SelfTest is
     port (
         clk8                : in  std_logic; -- 8 MHz PLL reference only
         trigger_n_i         : in  std_logic;
+        -- GC0308 DVP + SCCB interface; physical pins require board confirmation.
+        cam_pclk_i          : in  std_logic;
+        cam_vsync_i         : in  std_logic;
+        cam_hsync_i         : in  std_logic;
+        cam_data_i          : in  std_logic_vector(7 downto 0);
+        cam_sda_io          : inout std_logic;
+        cam_scl_io          : inout std_logic;
+        cam_xclk_o          : out std_logic;
         uart_tx_o           : out std_logic;
         O_hpram_ck          : out std_logic_vector(0 downto 0);
         O_hpram_ck_n        : out std_logic_vector(0 downto 0);
@@ -147,7 +155,6 @@ architecture rtl of HyperRAM_Storage_SelfTest is
     --------------------------------------------------------------------------
     -- Debounced KEY1 trigger, one-way UART TX protocol and CDC status levels.
     --------------------------------------------------------------------------
-    signal test_source_start_pulse : std_logic;
     signal protocol_transfer_start : std_logic;
     signal protocol_line_start : std_logic;
     signal protocol_line_index : std_logic_vector(15 downto 0);
@@ -188,10 +195,7 @@ architecture rtl of HyperRAM_Storage_SelfTest is
     signal cam_frame_error    : std_logic;
     signal cam_config_done    : std_logic;
     signal cam_config_pass    : std_logic;
-    signal test_source_line_count : unsigned(15 downto 0);
     signal test_source_byte_count : unsigned(31 downto 0);
-    signal test_source_busy       : std_logic;
-    signal test_source_error      : std_logic;
 
     --------------------------------------------------------------------------
     -- Raw RGB565 frame packer and capture FIFO #1.
@@ -544,8 +548,8 @@ begin
             error_o => protocol_error
         );
 
-    -- Protocol and synthetic source share clk24; no CDC is required.
-    test_source_start_pulse <= protocol_transfer_start;
+    -- The debounced trigger starts camera configuration and the UART protocol
+    -- state machine in parallel. The protocol waits for config_done/pass.
 
     -- Host ACK/NACK events cross from system clk24 to HyperRAM usr_clk.
     u_line_ack_cdc : entity work.pulse_toggle_cdc
@@ -556,8 +560,8 @@ begin
             dst_pulse_o => line_ack_usr
         );
 
-    -- Synchronize only sticky status levels originating in HyperRAM usr_clk.
-    -- Camera configuration is constant-ready in this sensorless self-test;
+    -- Synchronize capture-domain and HyperRAM-domain status into clk24.
+    -- Camera configuration is controlled in the clk24 domain;
     -- serializer and protocol logic already operate directly in clk24.
     process(clk24, rst_n)
     begin
@@ -602,34 +606,37 @@ begin
         end if;
     end process;
 
-    u_test_pattern_generator : entity work.storage_test_pattern_generator
+    u_gc0308_camera : entity work.camera_interface
         generic map (
-            G_FRAME_WIDTH        => G_FRAME_WIDTH,
-            G_FRAME_HEIGHT       => G_FRAME_HEIGHT,
-            G_LINE_BLANK_CYCLES  => 306,
-            G_FRAME_BLANK_CYCLES => 31720
+            G_CLK_FREQ_HZ  => 24_000_000,
+            G_FRAME_WIDTH  => G_FRAME_WIDTH,
+            G_FRAME_HEIGHT => G_FRAME_HEIGHT
         )
         port map (
-            clk_i          => clk24,
-            rst_n_i        => rst_n,
-            start_i        => test_source_start_pulse,
-            byte_data_o    => cam_byte_data,
-            byte_valid_o   => cam_byte_valid,
-            frame_done_o   => cam_frame_done,
-            busy_o         => open,
-            error_o        => test_source_error,
-            byte_count_o   => test_source_byte_count,
-            line_count_o   => open
+            clk24                => clk24,
+            clkcam               => cam_xclk_o,
+            rst_n                => rst_n,
+            rst_trigger          => trigger_pulse,
+            cam_sda              => cam_sda_io,
+            cam_scl              => cam_scl_io,
+            cam_pclk             => cam_pclk_i,
+            cam_vsync            => cam_vsync_i,
+            cam_hsync            => cam_hsync_i,
+            cam_pix_data         => cam_data_i,
+            frame_byte_o         => cam_byte_data,
+            frame_byte_valid_o   => cam_byte_valid,
+            frame_done_o         => cam_frame_done,
+            frame_error_o        => cam_frame_error,
+            config_done_o        => cam_config_done,
+            config_pass_o        => cam_config_pass,
+            source_byte_count_o  => test_source_byte_count,
+            line_count_o         => open,
+            line_byte_count_o    => open
         );
 
-    -- The synthetic source has no I2C setup phase; satisfy the existing
-    -- protocol's configuration gate and report the source as ready.
-    cam_config_done <= '1';
-    cam_config_pass <= '1';
-    cam_frame_error <= test_source_error;
-
     --------------------------------------------------------------------------
-    -- Capture packer: preserves the four original RGB565 bytes per word.
+    -- Capture packer: same byte-to-word interface as the synthetic source,
+    -- now clocked by the sensor's actual cam_pclk.
     --------------------------------------------------------------------------
     u_rgb565_packer : entity work.rgb565_frame_packer
         generic map (
@@ -637,7 +644,7 @@ begin
             G_FRAME_HEIGHT => G_FRAME_HEIGHT
         )
         port map (
-            cam_pclk          => clk24,
+            cam_pclk          => cam_pclk_i,
             rst_n             => rst_n,
             cam_byte_i        => cam_byte_data,
             cam_byte_valid_i  => cam_byte_valid,
@@ -659,7 +666,7 @@ begin
         port map (
             wr_rst_n   => rst_n,
             rd_rst_n   => usr_rst_n,
-            wr_clk     => clk24,
+            wr_clk     => cam_pclk_i,
             wr_en_i    => cap_packed_valid,
             wr_data_i  => cap_packed_word,
             wr_full_o  => cap_fifo_full,
@@ -672,13 +679,13 @@ begin
             rd_level_o => cap_fifo_rd_level
         );
 
-    -- async_fifo_32 deliberately rejects a write while full; make that loss
-    -- visible as a sticky capture error instead of silently accepting it.
-    process(clk24, rst_n)
+    -- async_fifo_32 rejects writes while full; detect loss in the FIFO's
+    -- write domain (cam_pclk), rather than in the unrelated clk24 domain.
+    process(cam_pclk_i, rst_n)
     begin
         if rst_n = '0' then
             cap_fifo_overflow_cam <= '0';
-        elsif rising_edge(clk24) then
+        elsif rising_edge(cam_pclk_i) then
             if (cap_packed_valid = '1') and (cap_fifo_full = '1') then
                 cap_fifo_overflow_cam <= '1';
             end if;
@@ -696,7 +703,7 @@ begin
             G_WIDTH => 128
         )
         port map (
-            src_clk     => clk24,
+            src_clk     => cam_pclk_i,
             src_rst_n   => rst_n,
             src_event_i => cap_capture_done,
             src_data_i  => capture_snapshot_src,
