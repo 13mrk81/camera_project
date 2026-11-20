@@ -8,7 +8,7 @@
 %
 % Types:
 %   10 STAGE: [stage_code, detail]
-%       01 trigger accepted, 04 camera configuration running, 02 camera configuration passed, 03 frame stored
+%       01 trigger accepted, 04 camera configuration running, 02 camera configuration passed, 05 frame capture/HyperRAM write running, 03 frame stored
 %   11 READY: [widthLo widthHi heightLo heightHi 03 01] (RGB888)
 %   20 LINE:  seq = zero-based row, payload = RGB triplets R,G,B
 %   30 DONE:  46-byte report: stream summary, capture/write/read-ingress CRCs,
@@ -91,6 +91,9 @@ while true
                 case 4
                     receiverState = "CAMERA_CONFIGURING";
                     fprintf("[CAMERA CONFIG] Configuration sequence is running.\n");
+                case 5
+                    receiverState = "CAPTURING_AND_WRITING";
+                    fprintf("[FRAME] Camera configuration passed; frame capture and HyperRAM write are running.\n");
                 case 3
                     receiverState = "WAIT_READY";
                     fprintf("[STAGE 3/3] Frame captured and stored in HyperRAM.\n");
