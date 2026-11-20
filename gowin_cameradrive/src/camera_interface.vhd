@@ -18,6 +18,7 @@ use ieee.numeric_std.all;
 entity camera_interface is
     generic (
         G_CLK_FREQ_HZ       : positive := 24_000_000;
+        G_I2C_FREQ_HZ       : positive := 100_000;
         G_I2C_DEVICE_ADDR   : std_logic_vector(6 downto 0) := "0100001";
         G_RESET_WAIT_MS     : positive := 80;
         G_POR_RESET_MS      : positive := 1;
@@ -48,8 +49,42 @@ entity camera_interface is
         -- Configuration/debug outputs.
         config_done_o      : out std_logic;
         config_pass_o      : out std_logic;
-        line_count_o       : out std_logic_vector(9 downto 0);
-        line_byte_count_o  : out std_logic_vector(10 downto 0)
+
+        -- Configuration and SCCB diagnostics, synchronous to clk24.
+        config_fail_o             : out std_logic;
+        config_error_code_o       : out std_logic_vector(3 downto 0);
+        config_state_o            : out std_logic_vector(4 downto 0);
+        config_init_index_o       : out std_logic_vector(7 downto 0);
+        config_verify_index_o     : out std_logic_vector(3 downto 0);
+        config_reg_addr_o         : out std_logic_vector(7 downto 0);
+        config_reg_data_o         : out std_logic_vector(7 downto 0);
+        config_rw_o               : out std_logic;
+        config_device_addr_o      : out std_logic_vector(6 downto 0);
+        config_chip_id_o          : out std_logic_vector(7 downto 0);
+        config_last_readback_o    : out std_logic_vector(7 downto 0);
+        config_verify_addr_o      : out std_logic_vector(7 downto 0);
+        config_verify_expected_o  : out std_logic_vector(7 downto 0);
+        config_verify_fail_o      : out std_logic;
+
+        i2c_start_o               : out std_logic;
+        i2c_busy_o                : out std_logic;
+        i2c_done_o                : out std_logic;
+        i2c_ack_o                 : out std_logic;
+        i2c_nack_o                : out std_logic;
+        i2c_ack_count_o           : out std_logic_vector(1 downto 0);
+        i2c_state_o               : out std_logic_vector(3 downto 0);
+        i2c_sequence_o            : out std_logic_vector(1 downto 0);
+        i2c_phase_o               : out std_logic_vector(1 downto 0);
+        i2c_sda_sample_o          : out std_logic;
+        i2c_scl_sample_o          : out std_logic;
+        i2c_scl_drive_low_o       : out std_logic;
+        i2c_sda_drive_low_o       : out std_logic;
+
+        -- Capture diagnostics; the byte stream itself remains unchanged.
+        capture_state_o           : out std_logic_vector(2 downto 0);
+        capture_active_o          : out std_logic;
+        line_count_o              : out std_logic_vector(9 downto 0);
+        line_byte_count_o         : out std_logic_vector(10 downto 0)
     );
 end entity;
 
@@ -77,7 +112,8 @@ architecture rtl of camera_interface is
     signal i2c_rdata_sig : std_logic_vector(7 downto 0);
     signal i2c_ack_count_sig : std_logic_vector(1 downto 0);
     signal dbg_state_sig : std_logic_vector(3 downto 0);
-    signal dbg_sda_in_sig, dbg_scl_low_sig, dbg_sda_low_sig : std_logic;
+    signal dbg_sda_in_sig, dbg_scl_in_sig : std_logic;
+    signal dbg_scl_low_sig, dbg_sda_low_sig : std_logic;
     signal ack_out_sig   : std_logic;
     signal nack_seen_sig : std_logic;
     signal busy_sig      : std_logic;
@@ -310,17 +346,51 @@ begin
     frame_byte_o       <= pix_data_reg;
     frame_byte_valid_o <= pixel_byte_valid_sig;
     frame_done_o       <= frame_done_sig;
-    frame_error_o      <= capture_error_sig;
+    frame_error_o       <= capture_error_sig;
     source_byte_count_o <= source_byte_count_sig;
-    config_done_o      <= config_done_sig;
-    config_pass_o      <= config_pass_sig;
-    line_count_o       <= std_logic_vector(line_count_sig);
-    line_byte_count_o  <= std_logic_vector(line_byte_count_sig);
+    config_done_o       <= config_done_sig;
+    config_pass_o       <= config_pass_sig;
+
+    -- Configuration-controller observability.
+    config_fail_o            <= config_fail_sig;
+    config_error_code_o      <= error_code_sig;
+    config_state_o           <= cfg_state_dbg;
+    config_init_index_o      <= init_index_dbg;
+    config_verify_index_o    <= verify_index_dbg;
+    config_reg_addr_o        <= i2c_reg_sig;
+    config_reg_data_o        <= i2c_wdata_sig;
+    config_rw_o              <= i2c_rw_sig;
+    config_device_addr_o     <= i2c_dev_sig;
+    config_chip_id_o         <= chip_id_sig;
+    config_last_readback_o   <= last_readback_sig;
+    config_verify_addr_o     <= verify_addr_sig;
+    config_verify_expected_o <= verify_expect_sig;
+    config_verify_fail_o     <= verify_fail_sig;
+
+    -- I2C master and physical-line observability.
+    i2c_start_o         <= i2c_start_sig;
+    i2c_busy_o          <= busy_sig;
+    i2c_done_o          <= done_sig;
+    i2c_ack_o           <= ack_out_sig;
+    i2c_nack_o           <= nack_seen_sig;
+    i2c_ack_count_o     <= i2c_ack_count_sig;
+    i2c_state_o         <= dbg_state_sig;
+    i2c_sequence_o      <= dbg_seq_sig;
+    i2c_phase_o         <= dbg_phase_sig;
+    i2c_sda_sample_o    <= dbg_sda_in_sig;
+    i2c_scl_sample_o    <= dbg_scl_in_sig;
+    i2c_scl_drive_low_o <= dbg_scl_low_sig;
+    i2c_sda_drive_low_o <= dbg_sda_low_sig;
+
+    capture_state_o   <= capture_state_dbg;
+    capture_active_o  <= capture_active_sig;
+    line_count_o      <= std_logic_vector(line_count_sig);
+    line_byte_count_o <= std_logic_vector(line_byte_count_sig);
 
     u_i2c_master : entity work.i2c_master_nack
         generic map (
             G_CLK_FREQ_HZ => G_CLK_FREQ_HZ,
-            G_I2C_FREQ_HZ => 100_000
+            G_I2C_FREQ_HZ => G_I2C_FREQ_HZ
         )
         port map (
             clk       => clk24,
@@ -342,6 +412,7 @@ begin
             dbg_seq   => dbg_seq_sig,
             dbg_state => dbg_state_sig,
             dbg_sda_in => dbg_sda_in_sig,
+            dbg_scl_in => dbg_scl_in_sig,
             dbg_scl_low => dbg_scl_low_sig,
             dbg_sda_low => dbg_sda_low_sig,
             scl       => cam_scl,
@@ -423,7 +494,7 @@ begin
 
                     when ST_PAGE0_WAIT =>
                         if done_sig = '1' then
-                            if nack_seen_sig = '1' then
+                            if (nack_seen_sig = '1') or (i2c_ack_count_sig /= "11") then
                                 error_code_sig <= x"1";
                                 cfg_state <= ST_ERROR;
                             else
@@ -441,7 +512,7 @@ begin
 
                     when ST_ID_READ_WAIT =>
                         if done_sig = '1' then
-                            if nack_seen_sig = '1' then
+                            if (nack_seen_sig = '1') or (i2c_ack_count_sig /= "11") then
                                 error_code_sig <= x"2";
                                 cfg_state <= ST_ERROR;
                             elsif i2c_rdata_sig = x"9B" then
@@ -464,7 +535,7 @@ begin
 
                     when ST_SOFT_RESET_WAIT =>
                         if done_sig = '1' then
-                            if nack_seen_sig = '1' then
+                            if (nack_seen_sig = '1') or (i2c_ack_count_sig /= "11") then
                                 error_code_sig <= x"4";
                                 cfg_state <= ST_ERROR;
                             else
@@ -497,7 +568,7 @@ begin
 
                     when ST_INIT_WRITE_WAIT =>
                         if done_sig = '1' then
-                            if nack_seen_sig = '1' then
+                            if (nack_seen_sig = '1') or (i2c_ack_count_sig /= "11") then
                                 error_code_sig <= x"5";
                                 cfg_state <= ST_ERROR;
                             elsif init_index = C_INIT_TABLE'length - 1 then
@@ -536,7 +607,7 @@ begin
 
                     when ST_VERIFY_READ_WAIT =>
                         if done_sig = '1' then
-                            if nack_seen_sig = '1' then
+                            if (nack_seen_sig = '1') or (i2c_ack_count_sig /= "11") then
                                 error_code_sig <= x"6";
                                 config_fail_sig <= '1';
                                 cfg_state <= ST_ERROR;
@@ -568,7 +639,7 @@ begin
 
                     when ST_RGB565_READ_WAIT =>
                         if done_sig = '1' then
-                            if nack_seen_sig = '1' then
+                            if (nack_seen_sig = '1') or (i2c_ack_count_sig /= "11") then
                                 error_code_sig <= x"8";
                                 config_fail_sig <= '1';
                                 rgb565_confirm_sig <= '0';
