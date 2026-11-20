@@ -184,6 +184,7 @@ architecture rtl of Camera_HyperRAM_OneFrame is
             i2c_phase_o               : out std_logic_vector(1 downto 0);
             i2c_sda_sample_o          : out std_logic;
             i2c_scl_sample_o          : out std_logic;
+            i2c_bus_idle_o            : out std_logic;
             i2c_scl_drive_low_o       : out std_logic;
             i2c_sda_drive_low_o       : out std_logic;
 
@@ -288,6 +289,7 @@ architecture rtl of Camera_HyperRAM_OneFrame is
     signal cam_i2c_state : std_logic_vector(3 downto 0);
     signal cam_i2c_sequence, cam_i2c_phase : std_logic_vector(1 downto 0);
     signal cam_i2c_sda_sample, cam_i2c_scl_sample : std_logic;
+    signal cam_i2c_bus_idle : std_logic;
     signal cam_i2c_scl_drive_low, cam_i2c_sda_drive_low : std_logic;
     signal cam_capture_state : std_logic_vector(2 downto 0);
     signal cam_capture_active : std_logic;
@@ -511,6 +513,7 @@ architecture rtl of Camera_HyperRAM_OneFrame is
     attribute syn_keep of cam_i2c_phase : signal is 1;
     attribute syn_keep of cam_i2c_sda_sample : signal is 1;
     attribute syn_keep of cam_i2c_scl_sample : signal is 1;
+    attribute syn_keep of cam_i2c_bus_idle : signal is 1;
     attribute syn_keep of cam_i2c_scl_drive_low : signal is 1;
     attribute syn_keep of cam_i2c_sda_drive_low : signal is 1;
     attribute syn_keep of cam_capture_state : signal is 1;
@@ -808,6 +811,7 @@ begin
             i2c_phase_o               => cam_i2c_phase,
             i2c_sda_sample_o          => cam_i2c_sda_sample,
             i2c_scl_sample_o          => cam_i2c_scl_sample,
+            i2c_bus_idle_o            => cam_i2c_bus_idle,
             i2c_scl_drive_low_o       => cam_i2c_scl_drive_low,
             i2c_sda_drive_low_o       => cam_i2c_sda_drive_low,
             capture_state_o           => cam_capture_state,
