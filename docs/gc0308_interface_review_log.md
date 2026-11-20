@@ -213,7 +213,7 @@ Implementation is constrained to the camera-control path and the signals immedia
 
 - 2026-11-20 — Updated `gowin_cameradrive/src/i2c_master_nack.vhd` (commit `df299944fecbc5377f219b97745a4092582363a1`): exposed the physical SCL input as `dbg_scl_in` and added elaboration-time assertions that the four-phase divider is integral and has at least two system-clock cycles per quarter phase. The I2C state machine, open-drain drive behavior, phase sequencing, and nominal 100 kHz waveform were not changed.
 
-- 2026-11-20 — Updated `gowin_cameradrive/src/camera_interface.vhd` (commit `488ac46a78f869fae1a756b9b9ce715d4dbb3cfc`): added diagnostic outputs for the configuration FSM/error code, current register transaction, chip ID/readback, I2C FSM/ACK/NACK/ACK count, SDA/SCL samples and drive intent, plus DVP capture state/line counters. Added a configurable `G_I2C_FREQ_HZ` generic (default remains 100 kHz). Each of the six SCCB register transactions now requires all three expected ACKs (`ack_count = 3`) as well as no NACK before the sequencer advances. Register programming order, existing error-code assignments, DVP byte stream, and packer interface are unchanged.
+- 2026-11-20 — Updated `gowin_cameradrive/src/camera_interface.vhd` (commit `488ac46a78f869fae1a756b9b9ce715d4dbb3cfc`): added diagnostic outputs for the configuration FSM/error code, current register transaction, chip ID/readback, I2C FSM/ACK/NACK/ACK count, SDA/SCL samples, explicit bus-idle status, and drive intent, plus DVP capture state/line counters. Added a configurable `G_I2C_FREQ_HZ` generic (default remains 100 kHz). Each of the six SCCB register transactions now requires all three expected ACKs (`ack_count = 3`) as well as no NACK before the sequencer advances. Register programming order, existing error-code assignments, DVP byte stream, and packer interface are unchanged.
 
 - 2026-11-20 — Updated `gowin_cameradrive/src/HyperRAM_Storage_SelfTest.vhd` (commit `c0fb2fac0c4d7df9db976e3859b7a689a7bad569`): wired the new camera/SCCB diagnostic outputs to kept top-level signals for GAO. Also connected the camera line counters instead of leaving those diagnostic outputs open. The `rgb565_frame_packer` instance and its ports are unchanged.
 
@@ -225,9 +225,9 @@ Implementation is constrained to the camera-control path and the signals immedia
 
 ### Static verification performed
 
-- Camera entity port count: 48. The SelfTest top-level named association covers all 48 ports.
+- Camera entity port count: 49. The SelfTest top-level named association covers all 48 ports.
 - Legacy component port count: 48. Its component port order now matches the camera entity, and its named port map covers every port.
-- I2C master port count: 24. The camera interface maps every port, including the new physical SCL sample.
+- I2C master port count: 25. The camera interface maps every port, including the new physical SCL sample.
 - All 31 GAO capture names resolve to declared signals in the SelfTest top.
 - All six camera configuration transaction wait states contain the `ack_count = "11"` check, in addition to the NACK check.
 - Compared with the implementation-start commit `631e6b14d12e1e78bb74e86ad9788799625974b0`, the `rgb565_frame_packer` SHA is still `82ed26cc84a93fe3653ad2c7debf22ca55b160ef`. The following independent modules also have unchanged blob SHAs: `async_fifo_32`, `gowin_hyperram_read_adapter`, `hyperram_line_reader`, `hyperram_line_readout`, `rgb565_line_serializer`, `camera_uart_frame_protocol`, `frame_integrity_checker`, `pulse_toggle_cdc`, `stable_bus_event_cdc`, and the generated HyperRAM interface RTL.
