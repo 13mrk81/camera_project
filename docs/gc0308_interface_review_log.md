@@ -219,7 +219,7 @@ Implementation is constrained to the camera-control path and the signals immedia
 
 - 2026-11-20 — Updated `gowin_cameradrive/src/Camera_HyperRAM_OneFrame.vhd` (commit `c5707348f0a86652643590850509a6ca3153b910`): updated the legacy component declaration and mapping for the expanded camera-interface ports, including the previously omitted `source_byte_count_o`. This keeps the alternate `HYPER_RAM_CONTROL.gprj` top-level compatible with the current camera-interface entity. The legacy packer instance and all following RTL were not changed.
 
-- 2026-11-20 — Updated `gowin_cameradrive/src/hyperram_storage_selftest.gao` (commit `200d16e005ffce1ea0006cc25f7a8da53428a154`): removed stale synthetic-generator probes that no longer exist and replaced the capture list with 29 clk24-domain camera/SCCB diagnostic signals. The trigger and match-unit configuration remain unchanged. This GAO is for locating configuration failures; it does not modify the UART packet format or any downstream RTL.
+- 2026-11-20 — Updated `gowin_cameradrive/src/hyperram_storage_selftest.gao` (commit `200d16e005ffce1ea0006cc25f7a8da53428a154`): removed stale synthetic-generator probes that no longer exist and replaced the capture list with 30 clk24-domain camera/SCCB diagnostic signals. The trigger and match-unit configuration remain unchanged. This GAO is for locating configuration failures; it does not modify the UART packet format or any downstream RTL.
 - 2026-11-20 — Follow-up compatibility correction in `gowin_cameradrive/src/Camera_HyperRAM_OneFrame.vhd` (commit `6c8e4562abfbeb8637c89f73820287d01d8405f0`): aligned the component declaration port order with the `camera_interface` entity, including placing `source_byte_count_o` immediately after the frame byte-stream ports. This avoids relying on nonmatching component/entity interface order during binding.
 
 
@@ -228,7 +228,7 @@ Implementation is constrained to the camera-control path and the signals immedia
 - Camera entity port count: 48. The SelfTest top-level named association covers all 48 ports.
 - Legacy component port count: 48. Its component port order now matches the camera entity, and its named port map covers every port.
 - I2C master port count: 24. The camera interface maps every port, including the new physical SCL sample.
-- All 29 GAO capture names resolve to declared signals in the SelfTest top.
+- All 30 GAO capture names resolve to declared signals in the SelfTest top.
 - All six camera configuration transaction wait states contain the `ack_count = "11"` check, in addition to the NACK check.
 - Compared with the implementation-start commit `631e6b14d12e1e78bb74e86ad9788799625974b0`, the `rgb565_frame_packer` SHA is still `82ed26cc84a93fe3653ad2c7debf22ca55b160ef`. The following independent modules also have unchanged blob SHAs: `async_fifo_32`, `gowin_hyperram_read_adapter`, `hyperram_line_reader`, `hyperram_line_readout`, `rgb565_line_serializer`, `camera_uart_frame_protocol`, `frame_integrity_checker`, `pulse_toggle_cdc`, `stable_bus_event_cdc`, and the generated HyperRAM interface RTL.
 - The complete source region beginning at the `u_rgb565_packer` instance and extending to end-of-file is byte-for-byte unchanged in both top-level RTL files.
