@@ -267,3 +267,22 @@ Writer schedule:
 - Verify the actual PCLK frequency and HREF-active/blanking timing on the board; do not derive it from clk24 alone.
 - Inspect sensor register table lines around the horizontal/vertical blanking setup and document what it suggests versus what has actually been measured.
 - Re-fetch exact line ranges before final citation and prepare a report file distinct from this log.
+
+
+## 11. Final report and additional artifact review (2026-11-20)
+
+A full comparison report has been added:
+- `docs/research/HYPERRAM_DATA_PATH_COMPARISON.md`
+- It contains both block diagrams, module comparison, rates/capacity, FIFO and writer analysis, telemetry, data-loss risks, unresolved IP limitations, and a test plan.
+
+Additional evidence reviewed:
+- `src/hyper_ctrl.sdc` contains only the external 8 MHz clock constraint (125 ns); no generated clk24/clk96/usr_clk timing constraints are visible in this SDC.
+- `src/hyperram_storage_selftest.gao` includes ILA probes for trigger/source start, source byte count, byte-valid, packed-valid, capture FIFO overflow/level, init_calib, write done/error/CRC/count, capture/read-ingress CRCs/counts, reader/serializer errors, storage flags, telemetry valid, integrity done/error, and system_ok.
+- `src/hyperram_memory_interface/hyperram_memory_interface.vhd` is protected/encrypted after its Gowin source index header. Therefore actual IP internals remain opaque in this repository source view.
+
+Latest documentation commits on the requested branch:
+- Working log initial: `f79037a335a9b8d6951ac7af026b3883e54684d0`
+- Working log extended: `85407c98b34b73e43fcdcf7ea3b50ccac0c1cca7`
+- Comparison report: `19540e7c910797764c6d6517aa1450c555996c14`
+
+No VHDL/RTL file was changed by this investigation. Only the two Markdown research documents were added/updated.
