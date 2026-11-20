@@ -38,6 +38,8 @@ Payload is exactly two bytes: [stage_code, detail]. Sequence is zero.
 |---:|---|---:|
 | 0x01 | KEY1 trigger accepted; camera initialization started | 0x00 |
 | 0x02 | Camera configuration finished and RGB565 mode verified | 0x00 |
+| 0x04 | Camera configuration is running | 0x00 |
+| 0x05 | Frame capture and HyperRAM write are running | 0x00 |
 | 0x03 | Frame capture and HyperRAM write completed | 0x00 |
 
 ### 0x11 — READY
@@ -75,7 +77,7 @@ DONE is sent only after the final LINE packet is physically complete, its local 
 
 ### 0x7F — ERROR
 
-Payload is exactly [error_code, detail].
+Payload is exactly 16 bytes: [error_code, detail, cfg_state, cfg_error, reg_addr, reg_data, device_addr, chip_id, ack_count, nack, init_index, verify_index, i2c_sequence, i2c_state, last_readback, rw].
 
 | Error code | Meaning |
 |---:|---|
