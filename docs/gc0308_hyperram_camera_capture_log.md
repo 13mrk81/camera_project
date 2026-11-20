@@ -22,7 +22,7 @@ GC0308 DVP (PCLK, VSYNC, HSYNC, D[7:0])
 3. Instantiated `camera_interface`. The debounced trigger starts SCCB configuration; the UART protocol state machine receives the same trigger and remains gated by `cam_config_done/pass`.
 4. Kept the `rgb565_frame_packer` entity and its byte/valid/frame-done/frame-error contract unchanged. Only its clock source changes to the actual sensor `cam_pclk_i`.
 5. Moved capture FIFO #1 write clock, FIFO overflow detection, and capture-snapshot CDC source clock to `cam_pclk_i`. FIFO read side and HyperRAM writer remain on `usr_clk`.
-6. Added a source-byte counter to `camera_interface`, measured as bytes emitted by the camera capture FSM. The existing packer byte/word counters remain separate measurements.
+6. Added a source-byte counter to `camera_interface`, measured as bytes emitted by the camera capture FSM. The existing packer byte/word counters remain separate measurements. At frame completion, a sticky mismatch detector compares camera-emitted bytes against packer-accepted bytes; mismatch is folded into the capture error path.
 7. Added `i2c_master_nack.vhd` and `camera_interface.vhd` to the Gowin project; removed the synthetic generator from its active file list.
 8. Changed the I2C controller to direct entity instantiation and mapped the full port list of the current `i2c_master_nack` entity, including its additional ACK/debug outputs.
 
@@ -48,7 +48,7 @@ The packer and FIFO write clock change is intentional: the sensor byte-valid sig
 - `capture_state_dbg`, `pixel_byte_valid_sig`, `pix_data_reg`, `source_byte_count_sig`
 - `cam_byte_data`, `cam_byte_valid`, `cam_frame_done`, `cam_frame_error`
 - `cap_packed_word`, `cap_packed_valid`, `cap_byte_count`, `cap_word_count`
-- `cap_fifo_full`, `cap_fifo_wr_level`, `cap_fifo_overflow_cam`
+- `cap_fifo_full`, `cap_fifo_wr_level`, `cap_fifo_overflow_cam`, `source_packer_mismatch_cam`
 
 ### HyperRAM user domain (`usr_clk`)
 - `cap_fifo_rd_level`, `cap_fifo_rd_empty`, `write_state`
@@ -68,6 +68,7 @@ The packer and FIFO write clock change is intentional: the sensor byte-valid sig
 - [x] Created a parallel branch from the synthetic baseline.
 - [x] Replaced synthetic source instance with the GC0308 camera interface.
 - [x] Preserved the RGB565 packer entity interface.
+- [x] Added a frame-end source-byte versus packer-byte convergence check.
 - [x] Moved packer and FIFO write domain to actual camera PCLK.
 - [x] Added camera and I2C RTL to the Gowin project file list.
 - [ ] Confirm physical camera pin mapping and add CST constraints.
