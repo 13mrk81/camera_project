@@ -31,6 +31,7 @@ entity i2c_master_nack is
         dbg_state : out std_logic_vector(3 downto 0);
         dbg_sda_in : out std_logic;
         dbg_scl_in : out std_logic;
+        dbg_bus_idle : out std_logic;
         dbg_scl_low : out std_logic;
         dbg_sda_low : out std_logic;
 
@@ -115,6 +116,7 @@ begin
     dbg_state <= std_logic_vector(to_unsigned(state_t'pos(state), 4));
     dbg_sda_in <= sda_in;
     dbg_scl_in <= scl_in;
+    dbg_bus_idle <= '1' when (scl_in = '1') and (sda_in = '1') else '0';
     dbg_scl_low <= scl_low;
     dbg_sda_low <= sda_low;
 
