@@ -201,3 +201,5 @@ Implementation is constrained to the camera-control path and the signals immedia
 - The public UART error packet format is not changed; doing so would require editing the host protocol controller, outside the requested protected boundary. Internal details will instead be exposed to GAO.
 - Clock-stretch support and automatic bus recovery are not added without evidence that the GC0308 SCCB interface requires them. The physical SCL input will be observable to distinguish a driven-low line from a released-but-not-high line.
 - No claim of synthesis, place-and-route, or hardware validation will be made unless those checks are actually run.
+
+- 2026-11-20 — Updated `gowin_cameradrive/src/i2c_master_nack.vhd` (commit `df299944fecbc5377f219b97745a4092582363a1`): exposed the physical SCL input as `dbg_scl_in` and added elaboration-time assertions that the four-phase divider is integral and has at least two system-clock cycles per quarter phase. The I2C state machine, open-drain drive behavior, phase sequencing, and nominal 100 kHz waveform were not changed.
