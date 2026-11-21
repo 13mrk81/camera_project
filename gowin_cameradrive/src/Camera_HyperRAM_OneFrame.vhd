@@ -226,6 +226,8 @@ architecture rtl of Camera_HyperRAM_OneFrame is
     signal write_done_sync_8  : std_logic := '0';
     signal frame_error_meta_8 : std_logic := '0';
     signal frame_error_sync_8: std_logic := '0';
+    signal cap_fifo_overflow_meta_8 : std_logic := '0';
+    signal cap_fifo_overflow_sync_8 : std_logic := '0';
 
     signal cam_config_done_meta_8 : std_logic := '0';
     signal cam_config_done_sync_8 : std_logic := '0';
@@ -296,6 +298,8 @@ architecture rtl of Camera_HyperRAM_OneFrame is
     attribute async_reg of write_done_sync_8 : signal is "true";
     attribute async_reg of frame_error_meta_8 : signal is "true";
     attribute async_reg of frame_error_sync_8 : signal is "true";
+    attribute async_reg of cap_fifo_overflow_meta_8 : signal is "true";
+    attribute async_reg of cap_fifo_overflow_sync_8 : signal is "true";
     attribute async_reg of serializer_error_meta_usr : signal is "true";
     attribute async_reg of serializer_error_sync_usr : signal is "true";
     attribute async_reg of protocol_error_meta_usr : signal is "true";
@@ -628,6 +632,7 @@ begin
             camera_config_pass_i => cam_config_pass_sync_8,
             frame_available_i => write_done_sync_8,
             frame_error_i => frame_error_sync_8,
+            capture_fifo_overflow_i => cap_fifo_overflow_sync_8,
             readout_error_i => readout_error_8,
             serializer_done_i => serializer_done,
             telemetry_ready_i => telemetry_valid_8,
@@ -683,6 +688,8 @@ begin
             write_done_sync_8 <= '0';
             frame_error_meta_8 <= '0';
             frame_error_sync_8 <= '0';
+            cap_fifo_overflow_meta_8 <= '0';
+            cap_fifo_overflow_sync_8 <= '0';
             cam_config_done_meta_8 <= '0';
             cam_config_done_sync_8 <= '0';
             cam_config_pass_meta_8 <= '0';
@@ -694,6 +701,8 @@ begin
             write_done_sync_8 <= write_done_meta_8;
             frame_error_meta_8 <= capture_error_sync_usr or write_error_reg;
             frame_error_sync_8 <= frame_error_meta_8;
+            cap_fifo_overflow_meta_8 <= cap_fifo_overflow_cam;
+            cap_fifo_overflow_sync_8 <= cap_fifo_overflow_meta_8;
 
             cam_config_done_meta_8 <= cam_config_done;
             cam_config_done_sync_8 <= cam_config_done_meta_8;
