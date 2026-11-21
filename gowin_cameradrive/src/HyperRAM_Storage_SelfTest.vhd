@@ -30,6 +30,7 @@ entity HyperRAM_Storage_SelfTest is
     );
     port (
         clk8                : in  std_logic; -- 8 MHz PLL reference only
+        key2_n_i            : in  std_logic; -- KEY2: active-low global reset
         trigger_n_i         : in  std_logic;
         uart_tx_o           : out std_logic;
         O_hpram_ck          : out std_logic_vector(0 downto 0);
@@ -117,7 +118,12 @@ architecture rtl of HyperRAM_Storage_SelfTest is
 
 
 
-    signal rst_n              : std_logic := '1';
+    -- KEY2 reset: asynchronous assertion, then synchronized release first
+    -- to clk8 and independently to the derived 24 MHz system clock.
+    signal rst_n              : std_logic := '0';
+    signal rst8_meta          : std_logic := '0';
+    signal rst8_n             : std_logic := '0';
+    signal rst24_meta         : std_logic := '0';
     --------------------------------------------------------------------------
     -- Clocks and HyperRAM IP interface.
     --------------------------------------------------------------------------
@@ -239,6 +245,8 @@ architecture rtl of HyperRAM_Storage_SelfTest is
     attribute async_reg of protocol_error_meta_usr : signal is "true";
     attribute async_reg of protocol_error_sync_usr : signal is "true";
     attribute async_reg of usr_rst_sync1 : signal is "true";
+    attribute async_reg of rst8_meta : signal is "true";
+    attribute async_reg of rst24_meta : signal is "true";
     attribute async_reg of usr_rst_sync2 : signal is "true";
     attribute async_reg of trigger_meta : signal is "true";
     attribute async_reg of trigger_sync : signal is "true";
@@ -402,7 +410,18 @@ begin
     -- Clock generation: 8 MHz is only the PLL reference; 24 MHz is the fabric clock.
     --------------------------------------------------------------------------
 
-    rst_n <= '1';
+    -- KEY2/S2 is active-low. Reset asserts asynchronously; release is
+    -- synchronized to the 8 MHz reference clock.
+    process(clk8, key2_n_i)
+    begin
+        if key2_n_i = '0' then
+            rst8_meta <= '0';
+            rst8_n    <= '0';
+        elsif rising_edge(clk8) then
+            rst8_meta <= '1';
+            rst8_n    <= rst8_meta;
+        end if;
+    end process;
 
     u_pll_24 : Gowin_PLLVR_1
         port map (
@@ -416,6 +435,18 @@ begin
             lock   => pll_locked,
             clkin  => clk24
         );
+
+    -- Release reset synchronously in the 24 MHz system clock domain.
+    process(clk24, rst8_n)
+    begin
+        if rst8_n = '0' then
+            rst24_meta <= '0';
+            rst_n      <= '0';
+        elsif rising_edge(clk24) then
+            rst24_meta <= '1';
+            rst_n      <= rst24_meta;
+        end if;
+    end process;
 
     process(clk24, rst_n)
     begin
