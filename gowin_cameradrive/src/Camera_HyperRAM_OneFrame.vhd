@@ -667,7 +667,7 @@ begin
         port map (
             src_clk => clk8, src_rst_n => rst_n,
             src_pulse_i => protocol_line_ack,
-            dst_clk => usr_clk, dst_rst_n => ip_rst_n,
+            dst_clk => usr_clk, dst_rst_n => usr_rst_n,
             dst_pulse_o => line_ack_usr
         );
 
@@ -705,9 +705,9 @@ begin
 
     -- Serializer error is a clk8-domain status; synchronize it for the
     -- HyperRAM-domain integrity checker.
-    process(usr_clk, ip_rst_n)
+    process(usr_clk, usr_rst_n)
     begin
-        if ip_rst_n = '0' then
+        if usr_rst_n = '0' then
             serializer_error_meta_usr <= '0';
             serializer_error_sync_usr <= '0';
         elsif rising_edge(usr_clk) then
@@ -716,9 +716,9 @@ begin
         end if;
     end process;
 
-    process(usr_clk, ip_rst_n)
+    process(usr_clk, usr_rst_n)
     begin
-        if ip_rst_n = '0' then
+        if usr_rst_n = '0' then
             protocol_error_meta_usr <= '0';
             protocol_error_sync_usr <= '0';
         elsif rising_edge(usr_clk) then
@@ -827,7 +827,7 @@ begin
             src_event_i => cap_capture_done,
             src_data_i  => capture_snapshot_src,
             dst_clk     => usr_clk,
-            dst_rst_n   => ip_rst_n,
+            dst_rst_n   => usr_rst_n,
             dst_event_o => capture_snapshot_valid_usr,
             dst_data_o  => capture_snapshot_usr
         );
@@ -836,9 +836,9 @@ begin
     capture_byte_count_usr <= unsigned(capture_snapshot_usr(63 downto 32));
     capture_word_count_usr <= unsigned(capture_snapshot_usr(31 downto 0));
 
-    process(usr_clk, ip_rst_n)
+    process(usr_clk, usr_rst_n)
     begin
-        if ip_rst_n = '0' then
+        if usr_rst_n = '0' then
             capture_error_meta_usr <= '0';
             capture_error_sync_usr <= '0';
         elsif rising_edge(usr_clk) then
@@ -847,9 +847,9 @@ begin
         end if;
     end process;
 
-    process(usr_clk, ip_rst_n)
+    process(usr_clk, usr_rst_n)
     begin
-        if ip_rst_n = '0' then
+        if usr_rst_n = '0' then
             readout_start_meta_usr <= '0';
             readout_start_sync_usr <= '0';
         elsif rising_edge(usr_clk) then
@@ -866,9 +866,9 @@ begin
         (load_req_count < C_BURST_WORDS) and
         (cap_fifo_rd_empty = '0') else '0';
 
-    process(usr_clk, ip_rst_n)
+    process(usr_clk, usr_rst_n)
     begin
-        if ip_rst_n = '0' then
+        if usr_rst_n = '0' then
             write_state      <= W_WAIT_INIT;
             burst_buffer     <= (others => (others => '0'));
             load_req_count   <= 0;
@@ -1006,7 +1006,7 @@ begin
         )
         port map (
             clk                => usr_clk,
-            rst_n              => ip_rst_n,
+            rst_n              => usr_rst_n,
             enable_i           => readout_start_sync_usr,
             rd_cmd_valid_i     => line_cmd_valid,
             rd_cmd_ready_o     => line_cmd_ready,
@@ -1139,9 +1139,9 @@ begin
     --------------------------------------------------------------------------
     -- Read-response index tracking (retained internally for debug/analysis).
     --------------------------------------------------------------------------
-    process(usr_clk, ip_rst_n)
+    process(usr_clk, usr_rst_n)
     begin
-        if ip_rst_n = '0' then
+        if usr_rst_n = '0' then
             read_response_count <= 0;
             readback_index_reg <= (others => '0');
         elsif rising_edge(usr_clk) then
@@ -1171,7 +1171,7 @@ begin
         port map (
             src_clk => clk8, src_rst_n => rst_n,
             src_event_i => serializer_done, src_data_i => stream_stats_src,
-            dst_clk => usr_clk, dst_rst_n => ip_rst_n,
+            dst_clk => usr_clk, dst_rst_n => usr_rst_n,
             dst_event_o => stream_stats_valid_usr, dst_data_o => stream_stats_usr
         );
 
@@ -1193,7 +1193,7 @@ begin
         )
         port map (
             clk                   => usr_clk,
-            rst_n                 => ip_rst_n,
+            rst_n                 => usr_rst_n,
             capture_done_i        => capture_snapshot_valid_usr,
             write_done_i          => write_done_reg,
             stream_done_i         => read_pipeline_done,
@@ -1251,11 +1251,11 @@ begin
         generic map (G_WIDTH => 240)
         port map (
             src_clk     => usr_clk,
-            src_rst_n   => ip_rst_n,
+            src_rst_n   => usr_rst_n,
             src_event_i => integrity_done,
             src_data_i  => telemetry_snapshot_src,
             dst_clk     => clk8,
-            dst_rst_n   => ip_rst_n,
+            dst_rst_n   => rst_n,
             dst_event_o => telemetry_valid_8,
             dst_data_o  => telemetry_snapshot_8
         );
@@ -1281,9 +1281,9 @@ begin
     -- Address advances once after each completed 8-word burst,
     -- except after the final burst.
     --------------------------------------------------------------------------
-    process(usr_clk, ip_rst_n)
+    process(usr_clk, usr_rst_n)
     begin
-        if ip_rst_n = '0' then
+        if usr_rst_n = '0' then
             write_addr <= (others => '0');
         elsif rising_edge(usr_clk) then
             if (write_state = W_WRITE_DATA) and
@@ -1296,9 +1296,9 @@ begin
 
     -- Independent WRITE address checker. The reference uses its own word/beat
     -- counters and does not use write_word_count, write_beat_index or write_addr.
-    process(usr_clk, ip_rst_n)
+    process(usr_clk, usr_rst_n)
     begin
-        if ip_rst_n = '0' then
+        if usr_rst_n = '0' then
             write_addr_ref        <= (others => '0');
             write_ref_word_count  <= 0;
             write_ref_beat_count  <= 0;
