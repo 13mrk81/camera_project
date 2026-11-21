@@ -22,7 +22,7 @@ entity Camera_HyperRAM_OneFrame is
         G_FIFO_ADDR_BITS          : positive := 11;
         G_OUTPUT_FIFO_ADDR_BITS   : positive := 9;
         G_CMD_INTERVAL_CYCLES     : positive := 32;
-        G_WRITE_BURST_INTERVAL_CYCLES : positive := 32;
+        G_WRITE_BURST_INTERVAL_CYCLES : positive := 21;
         G_WRITE_READ_GAP_CYCLES   : positive := 63;
         G_READ_TIMEOUT_CYCLES     : positive := 100_000;
         G_UART_PACKET_GAP_CYCLES   : positive := 160_000; -- 20 ms at 8 MHz
