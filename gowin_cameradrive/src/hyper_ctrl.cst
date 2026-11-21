@@ -1,6 +1,6 @@
 // ============================================================
 // Tang Nano 4K - Camera + HyperRAM
-// Top module: Camera_HyperRAM_OneFrame
+// Top module: Camera_HyperRAM_MemoryTest
 // ============================================================
 
 
@@ -12,9 +12,9 @@ IO_LOC  "clk8" 35;
 IO_PORT "clk8" IO_TYPE=LVCMOS33 PULL_MODE=NONE;
 
 
-// One-way UART: FPGA TX -> USB-UART adapter RX (adapter TX is not connected).
-IO_LOC  "uart_tx_o" 32;
-IO_PORT "uart_tx_o" IO_TYPE=LVCMOS33 PULL_MODE=NONE;
+// PASS indicator: onboard LED / test success.
+IO_LOC  "test_pass_o" 10;
+IO_PORT "test_pass_o" IO_TYPE=LVCMOS33 PULL_MODE=NONE;
 
 // Tang Nano 4K onboard KEY1/S1, active-low, FPGA pin 14 (1.8 V bank).
 // The board already provides the pull-up; the debounced press triggers capture.
