@@ -2,9 +2,9 @@
 <GAO_CONFIG>
     <Version>3.0</Version>
     <Mode>Standard</Mode>
-    <AoCore index="0" sample_clock="clk24" trig_type="0" storage_depth="1024" window_num="1" capture_amount="1024" implementation="0" trigger_pos="0" module_name="HyperRAM_Storage_SelfTest" force_trigger_by_falling_edge="false" capture_init_data_enabled="false">
+    <AoCore index="0" sample_clock="usr_clk" trig_type="0" storage_depth="1024" window_num="1" capture_amount="1024" implementation="0" trigger_pos="0" module_name="HyperRAM_Storage_SelfTest" force_trigger_by_falling_edge="false" capture_init_data_enabled="false">
         <SignalList>
-            <Signal capture_enable="true">trigger_pulse</Signal>
+            <Signal capture_enable="true">mem_cmd_en_i</Signal>
             <Signal capture_enable="true">test_source_start_pulse</Signal>
             <Signal capture_enable="true">test_source_error</Signal>
             <Signal capture_enable="true">test_source_byte_count</Signal>
@@ -31,7 +31,7 @@
         <Triggers>
             <Trigger index="0">
                 <SignalList>
-                    <Signal>trigger_pulse</Signal>
+                    <Signal>mem_cmd_en_i</Signal>
                 </SignalList>
             </Trigger>
             <Trigger index="1"/>
