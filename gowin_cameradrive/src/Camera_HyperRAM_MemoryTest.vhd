@@ -429,6 +429,11 @@ begin
             if camera_error_sync = '1' then
                 test_error <= '1';
                 test_state <= ST_ERROR;
+            elsif (read_data_valid = '1') and (test_state /= ST_READ_DATA) then
+                -- Any read beat outside the expected 8-beat response window
+                -- indicates a command/response timing mismatch.
+                test_error <= '1';
+                test_state <= ST_ERROR;
             else
                 case test_state is
                     when ST_WAIT_INIT =>
