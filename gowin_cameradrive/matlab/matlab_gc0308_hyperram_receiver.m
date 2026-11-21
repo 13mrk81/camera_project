@@ -13,7 +13,7 @@
 %   20 LINE:  seq = zero-based row, payload = RGB triplets R,G,B
 %   30 DONE:  46-byte report: stream summary, capture/write/read-ingress CRCs,
 %              source/write/read word counts, and 16-bit stage status flags
-%   7F ERROR: [error_code, detail]
+%   7F ERROR: [error_code, detail]; code 06 = Capture FIFO overflow
 % All multi-byte fields are little-endian except the transmitted CRC trailer
 % (CRC high byte first). LINE pixels are left-to-right, each R then G then B.
 
@@ -446,6 +446,8 @@ function name = errorName(code)
             name = "HyperRAM readout or RGB serializer failed";
         case 5
             name = "RGB line source starved";
+        case 6
+            name = "Capture FIFO overflow: camera data was dropped before HyperRAM write";
         otherwise
             name = "unspecified FPGA protocol error";
     end
