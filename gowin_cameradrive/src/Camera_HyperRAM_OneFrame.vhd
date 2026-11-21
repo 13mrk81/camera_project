@@ -28,8 +28,11 @@ entity Camera_HyperRAM_OneFrame is
         G_UART_INTER_BYTE_GAP_CYCLES : positive := 80 -- 10 us at 8 MHz
     );
     port (
-        -- 8 MHz board clock and global active-low reset.
+        -- 8 MHz board clock.
         clk8                : in  std_logic;
+
+        -- Tang Nano 4K KEY2: active-low global system reset.
+        key2_n_i            : in  std_logic;
 
         -- Tang Nano 4K KEY1: active-low on-board pushbutton trigger.
         trigger_n_i         : in  std_logic;
@@ -161,7 +164,15 @@ architecture rtl of Camera_HyperRAM_OneFrame is
     end component;
 
 
-    signal rst_n              : std_logic := '1';
+    -- Global reset: asynchronous assertion from KEY2, synchronous release to clk8.
+    signal rst_n              : std_logic := '0';
+    signal rst_meta           : std_logic := '0';
+
+    -- Reset releases synchronized independently into derived clock domains.
+    signal clk24_rst_meta     : std_logic := '0';
+    signal clk24_rst_n        : std_logic := '0';
+    signal cam_rst_meta       : std_logic := '0';
+    signal cam_rst_n          : std_logic := '0';
     --------------------------------------------------------------------------
     -- Clocks and HyperRAM IP interface.
     --------------------------------------------------------------------------
@@ -275,6 +286,11 @@ architecture rtl of Camera_HyperRAM_OneFrame is
     attribute async_reg of capture_error_meta_usr : signal is "true";
     attribute async_reg of capture_error_sync_usr : signal is "true";
     attribute async_reg of usr_rst_meta : signal is "true";
+    attribute async_reg of rst_meta : signal is "true";
+    attribute async_reg of clk24_rst_meta : signal is "true";
+    attribute async_reg of clk24_rst_n : signal is "true";
+    attribute async_reg of cam_rst_meta : signal is "true";
+    attribute async_reg of cam_rst_n : signal is "true";
     attribute async_reg of write_done_meta_8 : signal is "true";
     attribute async_reg of write_done_sync_8 : signal is "true";
     attribute async_reg of frame_error_meta_8 : signal is "true";
@@ -456,7 +472,18 @@ begin
     -- Clock generation: unchanged 8 MHz -> 24 MHz -> 96 MHz configuration.
     --------------------------------------------------------------------------
 
-    rst_n <= '1';
+    -- KEY2 is active-low. Assertion is asynchronous; release is synchronized
+    -- to the always-running 8 MHz board clock.
+    process(clk8, key2_n_i)
+    begin
+        if key2_n_i = '0' then
+            rst_meta <= '0';
+            rst_n    <= '0';
+        elsif rising_edge(clk8) then
+            rst_meta <= '1';
+            rst_n    <= rst_meta;
+        end if;
+    end process;
 
     u_pll_24 : Gowin_PLLVR_1
         port map (
@@ -471,9 +498,33 @@ begin
             clkin  => clk24
         );
 
+    -- Release reset synchronously in the 24 MHz domain.
     process(clk24, rst_n)
     begin
         if rst_n = '0' then
+            clk24_rst_meta <= '0';
+            clk24_rst_n    <= '0';
+        elsif rising_edge(clk24) then
+            clk24_rst_meta <= '1';
+            clk24_rst_n    <= clk24_rst_meta;
+        end if;
+    end process;
+
+    -- Release reset synchronously in the camera pixel-clock domain.
+    process(cam_pclk, rst_n)
+    begin
+        if rst_n = '0' then
+            cam_rst_meta <= '0';
+            cam_rst_n    <= '0';
+        elsif rising_edge(cam_pclk) then
+            cam_rst_meta <= '1';
+            cam_rst_n    <= cam_rst_meta;
+        end if;
+    end process;
+
+    process(clk24, clk24_rst_n)
+    begin
+        if clk24_rst_n = '0' then
             pll_lock_meta  <= '0';
             pll_lock_sync  <= '0';
             pll_lock_count <= 0;
@@ -492,7 +543,7 @@ begin
         end if;
     end process;
 
-    ip_rst_n <= rst_n and pll_stable;
+    ip_rst_n <= clk24_rst_n and pll_stable;
 
     -- HyperRAM user-clock reset: asynchronous assertion, synchronous release.
     process(usr_clk, ip_rst_n)
@@ -601,14 +652,14 @@ begin
         port map (
             src_clk => clk8, src_rst_n => rst_n,
             src_pulse_i => protocol_transfer_start,
-            dst_clk => clk24, dst_rst_n => rst_n,
+            dst_clk => clk24, dst_rst_n => clk24_rst_n,
             dst_pulse_o => camera_start_pulse
         );
 
     -- Host ACK/NACK events cross from protocol clk8 to HyperRAM usr_clk.
     u_line_ack_cdc : entity work.pulse_toggle_cdc
         port map (
-            src_clk => clk8, src_rst_n => ip_rst_n,
+            src_clk => clk8, src_rst_n => rst_n,
             src_pulse_i => protocol_line_ack,
             dst_clk => usr_clk, dst_rst_n => ip_rst_n,
             dst_pulse_o => line_ack_usr
@@ -678,7 +729,7 @@ begin
         port map (
             clk24               => clk24,
             clkcam              => cam_clk_i,
-            rst_n               => rst_n,
+            rst_n               => clk24_rst_n,
             rst_trigger         => camera_start_pulse,
             cam_sda             => cam_sda,
             cam_scl             => cam_scl,
@@ -708,7 +759,7 @@ begin
         )
         port map (
             cam_pclk          => cam_pclk,
-            rst_n             => rst_n,
+            rst_n             => cam_rst_n,
             cam_byte_i        => cam_byte_data,
             cam_byte_valid_i  => cam_byte_valid,
             cam_frame_done_i  => cam_frame_done,
@@ -727,7 +778,7 @@ begin
             G_ADDR_BITS => G_FIFO_ADDR_BITS
         )
         port map (
-            wr_rst_n   => rst_n,
+            wr_rst_n   => cam_rst_n,
             rd_rst_n   => usr_rst_n,
             wr_clk     => cam_pclk,
             wr_en_i    => cap_packed_valid,
@@ -744,9 +795,9 @@ begin
 
     -- async_fifo_32 deliberately rejects a write while full; make that loss
     -- visible as a sticky capture error instead of silently accepting it.
-    process(cam_pclk, rst_n)
+    process(cam_pclk, cam_rst_n)
     begin
-        if rst_n = '0' then
+        if cam_rst_n = '0' then
             cap_fifo_overflow_cam <= '0';
         elsif rising_edge(cam_pclk) then
             if (cap_packed_valid = '1') and (cap_fifo_full = '1') then
@@ -766,7 +817,7 @@ begin
         )
         port map (
             src_clk     => cam_pclk,
-            src_rst_n   => rst_n,
+            src_rst_n   => cam_rst_n,
             src_event_i => cap_capture_done,
             src_data_i  => capture_snapshot_src,
             dst_clk     => usr_clk,
@@ -1111,7 +1162,7 @@ begin
     u_stream_stats_cdc : entity work.stable_bus_event_cdc
         generic map (G_WIDTH => 176)
         port map (
-            src_clk => clk8, src_rst_n => ip_rst_n,
+            src_clk => clk8, src_rst_n => rst_n,
             src_event_i => serializer_done, src_data_i => stream_stats_src,
             dst_clk => usr_clk, dst_rst_n => ip_rst_n,
             dst_event_o => stream_stats_valid_usr, dst_data_o => stream_stats_usr
