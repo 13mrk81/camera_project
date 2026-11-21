@@ -1,4 +1,4 @@
-%% Receive-only synthetic RGB565 / HyperRAM RGB888 storage self-test
+%% Receive-only GC0308 camera / HyperRAM RGB888 frame receiver
 % The FPGA is triggered by the Tang Nano 4K onboard KEY1 pushbutton.
 % This script DOES NOT write any bytes to the UART.
 %
@@ -8,7 +8,7 @@
 %
 % Types:
 %   10 STAGE: [stage_code, detail]
-%       01 trigger accepted, 02 synthetic source ready, 03 frame stored
+%       01 trigger accepted, 02 camera configuration passed, 03 frame stored
 %   11 READY: [widthLo widthHi heightLo heightHi 03 01] (RGB888)
 %   20 LINE:  seq = zero-based row, payload = RGB triplets R,G,B
 %   30 DONE:  46-byte report: stream summary, capture/write/read-ingress CRCs,
@@ -87,7 +87,11 @@ while true
                     fprintf("[STAGE 1/3] FPGA accepted KEY1 trigger. Camera setup started.\n");
                 case 2
                     receiverState = "WAIT_FRAME_STORED";
-                    fprintf("[STAGE 2/3] Synthetic RGB565 source ready.\n");
+                    if detail == 1
+                        fprintf("[STAGE 2/3] GC0308 configuration PASS (RGB565 readback verified).\n");
+                    else
+                        fprintf(2, "[STAGE 2/3] Camera configuration status unexpected: detail=0x%02X.\n", detail);
+                    end
                 case 3
                     receiverState = "WAIT_READY";
                     fprintf("[STAGE 3/3] Frame captured and stored in HyperRAM.\n");
@@ -113,7 +117,6 @@ while true
                 error("RGB888 line length exceeds the protocol's 16-bit payload length.");
             end
 
-            storageReference = matlab_storage_selftest_reference(width, height);
             img = zeros(height, width, 3, "uint8");
             receivedRows = false(height, 1);
             nextExpectedRow = 0;
@@ -146,12 +149,10 @@ while true
                     nextExpectedRow, row);
             end
 
-            % Wire order is exactly R1,G1,B1,R2,G2,B2,..., left to right.
-            % reshape(3,width).' creates one RGB triplet per matrix row.
-            rgbTriplets = reshape(packet.payload(:), 3, width).';
-            img(row + 1, :, 1) = reshape(rgbTriplets(:, 1), 1, width);
-            img(row + 1, :, 2) = reshape(rgbTriplets(:, 2), 1, width);
-            img(row + 1, :, 3) = reshape(rgbTriplets(:, 3), 1, width);
+            % Wire order: R1,G1,B1,R2,G2,B2,... (left to right).
+            % Build width-by-3 RGB triplets, then map to MATLAB H-by-W-by-3.
+            rgbTriplets = reshape(uint8(packet.payload(:)), 3, width).';
+            img(row + 1, :, :) = reshape(rgbTriplets.', 1, width, 3);
             receivedRows(row + 1) = true;
             acceptedLines = acceptedLines + 1;
             nextExpectedRow = row + 1;
@@ -196,31 +197,9 @@ while true
                 "outputFifoOrSerializerCrcMismatch", ...
                     doneStats.readIngressCrc32 ~= doneStats.rawRgb565Crc32);
 
-            if frameReady
-                pixelMismatch = any(img ~= storageReference.rgb888, 3);
-                doneStats.patternMismatchPixels = nnz(pixelMismatch);
-                if doneStats.patternMismatchPixels > 0
-                    firstMismatch = find(reshape(pixelMismatch.', [], 1), 1, "first");
-                    doneStats.firstMismatchRow = floor((firstMismatch - 1) / width);
-                    doneStats.firstMismatchColumn = mod(firstMismatch - 1, width);
-                    doneStats.firstMismatchActualRGB = reshape( ...
-                        img(doneStats.firstMismatchRow + 1, doneStats.firstMismatchColumn + 1, :), 1, 3);
-                    doneStats.firstMismatchExpectedRGB = reshape( ...
-                        storageReference.rgb888(doneStats.firstMismatchRow + 1, ...
-                        doneStats.firstMismatchColumn + 1, :), 1, 3);
-                else
-                    doneStats.firstMismatchRow = -1;
-                    doneStats.firstMismatchColumn = -1;
-                    doneStats.firstMismatchActualRGB = uint8([]);
-                    doneStats.firstMismatchExpectedRGB = uint8([]);
-                end
-                doneStats.patternCrc32 = storageReference.expectedCaptureCrc32;
-            else
-                doneStats.patternMismatchPixels = Inf;
-                doneStats.firstMismatchRow = -1;
-                doneStats.firstMismatchColumn = -1;
-                doneStats.patternCrc32 = uint32(0);
-            end
+            doneStats.captureWriteCrcMatch = doneStats.captureCrc32 == doneStats.writeCrc32;
+            doneStats.writeReadCrcMatch = doneStats.writeCrc32 == doneStats.readIngressCrc32;
+            doneStats.readSerializerCrcMatch = doneStats.readIngressCrc32 == doneStats.rawRgb565Crc32;
 
             frameComplete = frameReady && ...
                 doneStats.height == height && ...
@@ -231,11 +210,9 @@ while true
                 doneStats.captureBytes == width * height * 2 && ...
                 doneStats.writeWords == width * height / 2 && ...
                 doneStats.readIngressWords == width * height / 2 && ...
-                doneStats.captureCrc32 == doneStats.patternCrc32 && ...
                 doneStats.captureCrc32 == doneStats.writeCrc32 && ...
                 doneStats.writeCrc32 == doneStats.readIngressCrc32 && ...
                 doneStats.readIngressCrc32 == doneStats.rawRgb565Crc32 && ...
-                doneStats.patternMismatchPixels == 0 && ...
                 doneStats.storageOkFlag && all(receivedRows);
 
             if frameComplete
@@ -247,8 +224,9 @@ while true
                 fprintf(2, "[DONE] Integrity mismatch: rows %d/%d, FPGA lines=%d, pixels=%d, bytes=%d.\n", ...
                     acceptedLines, height, doneStats.lines, doneStats.pixels, doneStats.uartBytes);
             end
-            fprintf("Pattern/capture CRC32: %08X / %08X\n", ...
-                doneStats.patternCrc32, doneStats.captureCrc32);
+            fprintf("Capture/write/read-ingress/serializer CRC32: %08X / %08X / %08X / %08X\n", ...
+                doneStats.captureCrc32, doneStats.writeCrc32, ...
+                doneStats.readIngressCrc32, doneStats.rawRgb565Crc32);
             fprintf("Write/read-ingress/serializer CRC32: %08X / %08X / %08X\n", ...
                 doneStats.writeCrc32, doneStats.readIngressCrc32, doneStats.rawRgb565Crc32);
             fprintf("Counts: source/capture bytes=%d/%d, write/read words=%d/%d\n", ...
@@ -256,13 +234,6 @@ while true
                 doneStats.writeWords, doneStats.readIngressWords);
             fprintf("Storage status flags=0x%04X; storage pass bit=%d\n", ...
                 doneStats.statusFlags, doneStats.storageOkFlag);
-            if doneStats.patternMismatchPixels > 0
-                fprintf(2, "First pattern mismatch at row=%d, column=%d; actual RGB=[%s], expected RGB=[%s]; bad pixels=%d.\n", ...
-                    doneStats.firstMismatchRow, doneStats.firstMismatchColumn, ...
-                    num2str(doneStats.firstMismatchActualRGB), ...
-                    num2str(doneStats.firstMismatchExpectedRGB), ...
-                    doneStats.patternMismatchPixels);
-            end
             break;
 
         case hex2dec("7F")  % ERROR
@@ -312,7 +283,7 @@ if ~isempty(img)
     save("uart_received_frame.mat", "img", "width", "height", ...
         "receivedRows", "frameComplete", "acceptedLines", ...
         "duplicateLines", "outOfOrderLines", "badCrcCandidates", ...
-        "discardedBytes", "doneStats", "storageReference", "gotError", ...
+        "discardedBytes", "doneStats", "gotError", ...
         "lastErrorCode", "lastErrorDetail");
     fprintf("Saved image and receive statistics to uart_received_frame.mat\n");
 else
