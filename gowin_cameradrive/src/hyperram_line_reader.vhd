@@ -170,9 +170,6 @@ begin
             line_complete_reg    <= '0';
             frame_done_reg       <= '0';
             error_reg            <= '0';
-            addr_check_error_reg <= '0';
-            ref_beat_count_reg   <= 0;
-            rd_addr_ref_reg      <= unsigned(G_BASE_ADDR);
             ingress_crc_reg      <= x"FFFFFFFF";
             ingress_word_count_reg <= (others => '0');
         elsif rising_edge(clk) then
