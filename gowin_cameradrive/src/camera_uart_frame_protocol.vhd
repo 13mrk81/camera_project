@@ -11,7 +11,7 @@ use ieee.numeric_std.all;
 -- stream + capture/write/read CRCs, byte/word counts, and status flags.
 -- DONE status bit 11 = WRITE address-reference mismatch; bit 12 = READ
 -- address-reference mismatch (both zero means the corresponding check passed).
--- 7F ERROR [error_code,detail].
+-- 7F ERROR [error_code,detail]; code 06 = CAPTURE_FIFO_OVERFLOW.
 --
 -- A line is internally acknowledged only after CRC_LO's stop bit completes.
 -- This is local flow control, not an ACK from MATLAB; no retransmission exists.
@@ -31,6 +31,7 @@ entity camera_uart_frame_protocol is
         camera_config_pass_i  : in  std_logic;
         frame_available_i     : in  std_logic;
         frame_error_i         : in  std_logic;
+        capture_fifo_overflow_i : in std_logic;
         readout_error_i       : in  std_logic;
         serializer_done_i     : in  std_logic;
         telemetry_ready_i     : in  std_logic;
@@ -276,7 +277,16 @@ begin
                     end if;
 
                 when C_WAIT_FRAME =>
-                    if frame_error_i = '1' then
+                    if capture_fifo_overflow_i = '1' then
+                        packet_kind_desc <= PKT_ERROR;
+                        packet_seq_desc <= (others => '0');
+                        packet_len_desc <= to_unsigned(2, 16);
+                        error_code_desc <= x"06"; -- CAPTURE_FIFO_OVERFLOW
+                        error_detail_desc <= x"01"; -- data word rejected while FIFO full
+                        gap_count <= 0;
+                        error_reg <= '1';
+                        ctrl_state <= C_ERROR_GAP;
+                    elsif frame_error_i = '1' then
                         packet_kind_desc <= PKT_ERROR;
                         packet_seq_desc <= (others => '0');
                         packet_len_desc <= to_unsigned(2, 16);
