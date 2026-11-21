@@ -20,8 +20,8 @@ entity Camera_HyperRAM_OneFrame is
         G_FRAME_WIDTH             : positive := 640;
         G_FRAME_HEIGHT            : positive := 480;
         G_FIFO_ADDR_BITS          : positive := 12;
-        G_OUTPUT_FIFO_ADDR_BITS   : positive := 10;
-        G_CMD_INTERVAL_CYCLES     : positive := 21;
+        G_OUTPUT_FIFO_ADDR_BITS   : positive := 9;
+        G_CMD_INTERVAL_CYCLES     : positive := 32;
         G_WRITE_BURST_INTERVAL_CYCLES : positive := 32;
         G_WRITE_READ_GAP_CYCLES   : positive := 63;
         G_READ_TIMEOUT_CYCLES     : positive := 100_000;
