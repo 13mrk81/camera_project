@@ -5,6 +5,27 @@
     <AoCore index="0" sample_clock="usr_clk" trig_type="0" storage_depth="1024" window_num="1" capture_amount="1024" implementation="0" trigger_pos="0" module_name="HyperRAM_Storage_SelfTest" force_trigger_by_falling_edge="false" capture_init_data_enabled="false">
         <SignalList>
             <Signal capture_enable="true">mem_cmd_en_i</Signal>
+            <Signal capture_enable="true">mem_cmd_i</Signal>
+            <Signal capture_enable="true">mem_addr_i</Signal>
+            <Signal capture_enable="true">mem_wr_data_i</Signal>
+            <Signal capture_enable="true">mem_rd_data_i</Signal>
+            <Signal capture_enable="true">mem_rd_valid_i</Signal>
+            <Signal capture_enable="true">write_state</Signal>
+            <Signal capture_enable="true">write_addr</Signal>
+            <Signal capture_enable="true">write_beat_index</Signal>
+            <Signal capture_enable="true">write_word_count_u32</Signal>
+            <Signal capture_enable="true">line_cmd_valid</Signal>
+            <Signal capture_enable="true">line_cmd_ready</Signal>
+            <Signal capture_enable="true">line_cmd_addr</Signal>
+            <Signal capture_enable="true">read_ip_addr</Signal>
+            <Signal capture_enable="true">read_ip_cmd</Signal>
+            <Signal capture_enable="true">read_ip_cmd_en</Signal>
+            <Signal capture_enable="true">read_data_usr</Signal>
+            <Signal capture_enable="true">read_data_valid_usr</Signal>
+            <Signal capture_enable="true">read_response_count</Signal>
+            <Signal capture_enable="true">readback_index_reg</Signal>
+            <Signal capture_enable="true">reader_error</Signal>
+            <Signal capture_enable="true">readout_start_sync_usr</Signal>
             <Signal capture_enable="true">test_source_start_pulse</Signal>
             <Signal capture_enable="true">test_source_error</Signal>
             <Signal capture_enable="true">test_source_byte_count</Signal>
