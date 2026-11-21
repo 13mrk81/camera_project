@@ -128,6 +128,7 @@ architecture rtl of Camera_HyperRAM_MemoryTest is
     signal cam_line_byte_count   : std_logic_vector(10 downto 0);
     signal camera_frame_event    : std_logic;
     signal camera_frame_seen     : std_logic := '0';
+    signal camera_start_seen     : std_logic := '0';
     signal camera_error_meta     : std_logic := '0';
     signal camera_error_sync     : std_logic := '0';
     signal camera_timeout_count  : natural range 0 to G_CAMERA_TIMEOUT_CYCLES := 0;
@@ -155,6 +156,8 @@ architecture rtl of Camera_HyperRAM_MemoryTest is
     signal test_error             : std_logic := '0';
 
     signal read_cmd_ready        : std_logic;
+    signal read_adapter_enable   : std_logic;
+    signal read_adapter_cmd_valid : std_logic;
     signal read_ip_addr          : std_logic_vector(21 downto 0);
     signal read_ip_cmd           : std_logic;
     signal read_ip_cmd_en        : std_logic;
@@ -172,6 +175,7 @@ architecture rtl of Camera_HyperRAM_MemoryTest is
     attribute syn_keep : integer;
     attribute syn_keep of test_state : signal is 1;
     attribute syn_keep of camera_frame_seen : signal is 1;
+    attribute syn_keep of camera_start_seen : signal is 1;
     attribute syn_keep of camera_error_sync : signal is 1;
     attribute syn_keep of write_addr : signal is 1;
     attribute syn_keep of read_addr : signal is 1;
@@ -357,6 +361,7 @@ begin
     begin
         if usr_rst_n = '0' then
             camera_frame_seen <= '0';
+            camera_start_seen <= '0';
             camera_error_meta <= '0';
             camera_error_sync <= '0';
         elsif rising_edge(usr_clk) then
@@ -365,8 +370,14 @@ begin
             if camera_frame_event = '1' then
                 camera_frame_seen <= '1';
             end if;
+            if test_start_event = '1' then
+                camera_start_seen <= '1';
+            end if;
         end if;
     end process;
+
+    read_adapter_enable <= '1' when (test_state = ST_READ_CMD or test_state = ST_READ_DATA) else '0';
+    read_adapter_cmd_valid <= '1' when test_state = ST_READ_CMD else '0';
 
     u_read_adapter : entity work.gowin_hyperram_read_adapter
         generic map (
@@ -376,8 +387,8 @@ begin
         port map (
             clk => usr_clk,
             rst_n => usr_rst_n,
-            enable_i => '1' when (test_state = ST_READ_CMD or test_state = ST_READ_DATA) else '0',
-            rd_cmd_valid_i => '1' when test_state = ST_READ_CMD else '0',
+            enable_i => read_adapter_enable,
+            rd_cmd_valid_i => read_adapter_cmd_valid,
             rd_cmd_ready_o => read_cmd_ready,
             rd_cmd_addr_i => std_logic_vector(read_addr),
             ip_addr_o => read_ip_addr,
@@ -426,15 +437,15 @@ begin
                         end if;
 
                     when ST_WAIT_CAMERA =>
-                        if test_start_event = '1' then
-                            camera_timeout_count <= 0;
-                        elsif camera_frame_seen = '1' then
+                        if camera_frame_seen = '1' then
                             test_state <= ST_WRITE_CMD;
-                        elsif camera_timeout_count = G_CAMERA_TIMEOUT_CYCLES - 1 then
-                            test_error <= '1';
-                            test_state <= ST_ERROR;
-                        elsif camera_timeout_count < G_CAMERA_TIMEOUT_CYCLES then
-                            camera_timeout_count <= camera_timeout_count + 1;
+                        elsif camera_start_seen = '1' then
+                            if camera_timeout_count = G_CAMERA_TIMEOUT_CYCLES - 1 then
+                                test_error <= '1';
+                                test_state <= ST_ERROR;
+                            else
+                                camera_timeout_count <= camera_timeout_count + 1;
+                            end if;
                         end if;
 
                     when ST_WRITE_CMD =>
@@ -452,6 +463,7 @@ begin
                                 settle_count <= 0;
                                 test_state <= ST_WRITE_SETTLE;
                             else
+                                write_word_index <= write_word_index + 1;
                                 write_addr <= write_addr + C_ADDR_STEP;
                                 gap_count <= 0;
                                 test_state <= ST_WRITE_GAP;
