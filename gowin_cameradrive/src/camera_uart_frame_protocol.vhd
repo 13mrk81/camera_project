@@ -8,7 +8,9 @@ use ieee.numeric_std.all;
 -- Sequence, length and payload integers are little-endian.
 -- Types: 10 STAGE [stage,detail]; 11 READY [width(2),height(2),03,01];
 -- 20 LINE [RGB888 R,G,B triplets, sequence=row]; 30 DONE [46-byte
--- stream + capture/write/read CRCs, byte/word counts, and status flags];
+-- stream + capture/write/read CRCs, byte/word counts, and status flags.
+-- DONE status bit 11 = WRITE address-reference mismatch; bit 12 = READ
+-- address-reference mismatch (both zero means the corresponding check passed).
 -- 7F ERROR [error_code,detail].
 --
 -- A line is internally acknowledged only after CRC_LO's stop bit completes.

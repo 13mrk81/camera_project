@@ -319,6 +319,12 @@ architecture rtl of Camera_HyperRAM_OneFrame is
     signal load_complete      : std_logic := '0';
     signal write_beat_index   : natural range 1 to C_BURST_WORDS - 1 := 1;
     signal write_addr         : unsigned(21 downto 0) := (others => '0');
+    -- Independent address reference advances from its own emitted-word counter.
+    signal write_addr_ref     : unsigned(21 downto 0) := (others => '0');
+    signal write_ref_word_count : natural range 0 to C_TOTAL_WORDS := 0;
+    signal write_ref_beat_count : natural range 0 to C_BURST_WORDS - 1 := 0;
+    signal write_addr_error_reg : std_logic := '0';
+    signal read_addr_error    : std_logic;
     signal write_word_count   : natural range 0 to C_TOTAL_WORDS := 0;
     signal write_crc_reg      : std_logic_vector(31 downto 0) := x"FFFFFFFF";
     signal write_done_reg     : std_logic := '0';
@@ -1067,7 +1073,8 @@ begin
             read_word_count_o      => readback_word_count_uart,
             pixel_count_o          => output_pixel_count_uart,
             uart_byte_count_o      => uart_byte_count_uart,
-            lines_sent_o           => lines_sent_uart
+            lines_sent_o           => lines_sent_uart,
+            addr_check_error_o     => read_addr_error
         );
 
     -- Begin prefetch when the protocol starts the first LINE packet. The
@@ -1192,8 +1199,8 @@ begin
             stream_done_i         => read_pipeline_done,
             uart_idle_i           => frame_reader_done,
             capture_error_i       => capture_error_sync_usr,
-            write_error_i         => write_error_reg,
-            stream_error_i        => stream_error,
+            write_error_i         => write_error_reg or write_addr_error_reg,
+            stream_error_i        => stream_error or read_addr_error,
             capture_crc_i         => capture_crc_usr,
             write_crc_i           => write_crc_reg,
             read_ingress_crc_i     => read_ingress_crc_usr,
@@ -1224,7 +1231,10 @@ begin
     -- The packer exposes a single source-byte counter, so both payload fields
     -- report that same measured source/capture byte total.
     telemetry_status_usr(10) <= '0';
-    telemetry_status_usr(12 downto 11) <= (others => '0');
+    -- DONE status bit 11: write-address reference mismatch (0 = PASS).
+    telemetry_status_usr(11) <= write_addr_error_reg;
+    -- DONE status bit 12: read-address reference mismatch (0 = PASS).
+    telemetry_status_usr(12) <= read_addr_error;
     telemetry_status_usr(13) <= system_ok;
     telemetry_status_usr(15 downto 14) <= (others => '0');
 
@@ -1262,8 +1272,8 @@ begin
     --------------------------------------------------------------------------
     -- Internal status/error aggregation. No debug/status top-level ports.
     --------------------------------------------------------------------------
-    top_frame_error <= capture_error_sync_usr or write_error_reg or
-                       reader_error or serializer_error_sync_usr or protocol_error_sync_usr;
+    top_frame_error <= capture_error_sync_usr or write_error_reg or write_addr_error_reg or
+                       reader_error or read_addr_error or serializer_error_sync_usr or protocol_error_sync_usr;
     top_error <= top_frame_error or integrity_error;
 
     --------------------------------------------------------------------------
@@ -1280,6 +1290,39 @@ begin
                (write_beat_index = C_BURST_WORDS - 1) and
                (write_word_count /= C_TOTAL_WORDS - 1) then
                 write_addr <= write_addr + C_ADDR_STEP;
+            end if;
+        end if;
+    end process;
+
+    -- Independent WRITE address checker. The reference uses its own word/beat
+    -- counters and does not use write_word_count, write_beat_index or write_addr.
+    process(usr_clk, ip_rst_n)
+    begin
+        if ip_rst_n = '0' then
+            write_addr_ref        <= (others => '0');
+            write_ref_word_count  <= 0;
+            write_ref_beat_count  <= 0;
+            write_addr_error_reg  <= '0';
+        elsif rising_edge(usr_clk) then
+            if write_addr /= write_addr_ref then
+                write_addr_error_reg <= '1';
+            end if;
+
+            -- W_WRITE_CMD emits word 0; each W_WRITE_DATA cycle emits one
+            -- subsequent word. Count these independently of the main counters.
+            if (write_state = W_WRITE_CMD) or (write_state = W_WRITE_DATA) then
+                if write_ref_word_count < C_TOTAL_WORDS then
+                    write_ref_word_count <= write_ref_word_count + 1;
+                end if;
+
+                if write_ref_beat_count = C_BURST_WORDS - 1 then
+                    write_ref_beat_count <= 0;
+                    if write_ref_word_count < C_TOTAL_WORDS - 1 then
+                        write_addr_ref <= write_addr_ref + C_ADDR_STEP;
+                    end if;
+                else
+                    write_ref_beat_count <= write_ref_beat_count + 1;
+                end if;
             end if;
         end if;
     end process;

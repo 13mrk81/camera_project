@@ -59,6 +59,7 @@ entity hyperram_line_readout is
         frame_stream_done_o    : out std_logic;
         serializer_done_o      : out std_logic;
         reader_error_o         : out std_logic;
+        addr_check_error_o     : out std_logic;
         serializer_error_o     : out std_logic;
         line_index_o           : out unsigned(15 downto 0);
         line_word_count_o      : out unsigned(15 downto 0);
@@ -86,6 +87,7 @@ architecture rtl of hyperram_line_readout is
     signal line_consumed    : std_logic;
     signal line_ready      : std_logic;
     signal reader_error    : std_logic;
+    signal addr_check_error : std_logic;
     signal serializer_error: std_logic;
     signal stream_done     : std_logic;
     signal serializer_done : std_logic;
@@ -141,6 +143,7 @@ begin
             line_complete_o     => line_complete_o,
             frame_stream_done_o => stream_done,
             error_o             => reader_error,
+            addr_check_error_o  => addr_check_error,
             line_index_o        => line_index_o,
             line_word_count_o   => line_word_count_o,
             read_ingress_crc_o  => read_ingress_crc_o,
@@ -189,6 +192,7 @@ begin
     frame_stream_done_o <= stream_done;
     serializer_done_o   <= serializer_done;
     reader_error_o      <= reader_error;
+    addr_check_error_o  <= addr_check_error;
     serializer_error_o  <= serializer_error;
     fifo_write_level_o  <= fifo_wr_level;
 end architecture;

@@ -51,6 +51,7 @@ entity hyperram_line_reader is
         line_complete_o        : out std_logic;
         frame_stream_done_o    : out std_logic;
         error_o                : out std_logic;
+        addr_check_error_o     : out std_logic;
         line_index_o           : out unsigned(15 downto 0);
         line_word_count_o      : out unsigned(15 downto 0);
         read_ingress_crc_o     : out std_logic_vector(31 downto 0);
@@ -75,6 +76,9 @@ architecture rtl of hyperram_line_reader is
     signal state : state_t := ST_WAIT_FRAME;
 
     signal rd_addr_reg          : unsigned(G_ADDR_WIDTH - 1 downto 0) := (others => '0');
+    signal rd_addr_ref_reg      : unsigned(G_ADDR_WIDTH - 1 downto 0) := unsigned(G_BASE_ADDR);
+    signal ref_beat_count_reg   : natural range 0 to G_BURST_WORDS - 1 := 0;
+    signal addr_check_error_reg : std_logic := '0';
     signal line_index_reg       : natural range 0 to G_FRAME_HEIGHT - 1 := 0;
     signal line_word_count_reg  : natural range 0 to C_WORDS_PER_LINE := 0;
     signal burst_index_reg      : natural range 0 to C_BURSTS_PER_LINE - 1 := 0;
@@ -145,6 +149,7 @@ begin
     line_complete_o <= line_complete_reg;
     frame_stream_done_o <= frame_done_reg;
     error_o         <= error_reg;
+    addr_check_error_o <= addr_check_error_reg;
     line_index_o    <= to_unsigned(line_index_reg, line_index_o'length);
     line_word_count_o <= to_unsigned(line_word_count_reg, line_word_count_o'length);
     read_ingress_crc_o <= ingress_crc_reg;
@@ -165,6 +170,9 @@ begin
             line_complete_reg    <= '0';
             frame_done_reg       <= '0';
             error_reg            <= '0';
+            addr_check_error_reg <= '0';
+            ref_beat_count_reg   <= 0;
+            rd_addr_ref_reg      <= unsigned(G_BASE_ADDR);
             ingress_crc_reg      <= x"FFFFFFFF";
             ingress_word_count_reg <= (others => '0');
         elsif rising_edge(clk) then
@@ -303,6 +311,37 @@ begin
                 rd_addr_reg <= rd_addr_reg +
                     to_unsigned(G_BURST_ADDR_STRIDE, G_ADDR_WIDTH);
 
+            end if;
+        end if;
+    end process;
+
+    -- Independent READ address checker. Its beat counter is separate from
+    -- beat_count_reg, and the reference address is never derived from rd_addr_reg.
+    process(clk, rst_n)
+    begin
+        if rst_n = '0' then
+            rd_addr_ref_reg      <= unsigned(G_BASE_ADDR);
+            ref_beat_count_reg   <= 0;
+            addr_check_error_reg <= '0';
+        elsif rising_edge(clk) then
+            if rd_addr_reg /= rd_addr_ref_reg then
+                addr_check_error_reg <= '1';
+            end if;
+
+            if (state = ST_WAIT_LINE_ACK) and (line_retry_i = '1') then
+                rd_addr_ref_reg <= unsigned(G_BASE_ADDR) +
+                    to_unsigned(line_index_reg * C_BURSTS_PER_LINE * G_BURST_ADDR_STRIDE,
+                                G_ADDR_WIDTH);
+                ref_beat_count_reg <= 0;
+            elsif (state = ST_WAIT_BURST_DATA) and
+                  (rd_data_valid_i = '1') and (fifo_wr_full_i = '0') then
+                if ref_beat_count_reg = G_BURST_WORDS - 1 then
+                    ref_beat_count_reg <= 0;
+                    rd_addr_ref_reg <= rd_addr_ref_reg +
+                        to_unsigned(G_BURST_ADDR_STRIDE, G_ADDR_WIDTH);
+                else
+                    ref_beat_count_reg <= ref_beat_count_reg + 1;
+                end if;
             end if;
         end if;
     end process;
