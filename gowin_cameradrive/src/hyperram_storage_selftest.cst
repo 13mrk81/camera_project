@@ -21,6 +21,10 @@ IO_PORT "uart_tx_o" IO_TYPE=LVCMOS33 PULL_MODE=NONE;
 IO_LOC  "trigger_n_i" 14;
 IO_PORT "trigger_n_i" IO_TYPE=LVCMOS18 PULL_MODE=NONE;
 
+// Tang Nano 4K KEY2/S2, active-low global reset (FPGA pin 15, 1.8 V bank).
+IO_LOC  "key2_n_i" 15;
+IO_PORT "key2_n_i" IO_TYPE=LVCMOS18 PULL_MODE=NONE;
+
 
 // ------------------------------------------------------------
 // ------------------------------------------------------------
