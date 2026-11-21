@@ -19,9 +19,10 @@ entity Camera_HyperRAM_OneFrame is
     generic (
         G_FRAME_WIDTH             : positive := 640;
         G_FRAME_HEIGHT            : positive := 480;
-        G_FIFO_ADDR_BITS          : positive := 11;
-        G_OUTPUT_FIFO_ADDR_BITS   : positive := 9;
+        G_FIFO_ADDR_BITS          : positive := 12;
+        G_OUTPUT_FIFO_ADDR_BITS   : positive := 10;
         G_CMD_INTERVAL_CYCLES     : positive := 21;
+        G_WRITE_BURST_INTERVAL_CYCLES : positive := 32;
         G_WRITE_READ_GAP_CYCLES   : positive := 63;
         G_READ_TIMEOUT_CYCLES     : positive := 100_000;
         G_UART_PACKET_GAP_CYCLES   : positive := 160_000; -- 20 ms at 8 MHz
@@ -74,7 +75,7 @@ architecture rtl of Camera_HyperRAM_OneFrame is
     constant C_ADDR_STEP             : unsigned(21 downto 0) := to_unsigned(16, 22);
     constant C_PLL_STABLE_CYCLES     : positive := 48_000; -- 2 ms at 24 MHz
     constant C_TRIGGER_DEBOUNCE_CYCLES : positive := 160_000; -- 20 ms at 8 MHz
-    constant C_MIN_GAP_CYCLES        : positive := G_CMD_INTERVAL_CYCLES - C_BURST_WORDS;
+    constant C_MIN_GAP_CYCLES        : positive := G_WRITE_BURST_INTERVAL_CYCLES - C_BURST_WORDS;
 
     type burst_buffer_t is array (0 to C_BURST_WORDS - 1) of std_logic_vector(31 downto 0);
 
@@ -467,8 +468,11 @@ begin
     assert C_TOTAL_WORDS <= 524287
         report "Frame word count must fit the 19-bit debug counters"
         severity failure;
-    assert G_CMD_INTERVAL_CYCLES > C_BURST_WORDS
-        report "G_CMD_INTERVAL_CYCLES must be greater than the 8-beat burst length"
+    assert G_CMD_INTERVAL_CYCLES > 0
+        report "G_CMD_INTERVAL_CYCLES must be greater than zero"
+        severity failure;
+    assert G_WRITE_BURST_INTERVAL_CYCLES > C_BURST_WORDS
+        report "G_WRITE_BURST_INTERVAL_CYCLES must be greater than the 8-beat burst length"
         severity failure;
     assert G_WRITE_READ_GAP_CYCLES > 0
         report "G_WRITE_READ_GAP_CYCLES must be greater than zero"
