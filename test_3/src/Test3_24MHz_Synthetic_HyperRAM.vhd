@@ -133,38 +133,6 @@ architecture rtl of Test3_24MHz_Synthetic_HyperRAM is
         );
     end component;
 
-    component camera_interface is
-        generic (
-            G_CLK_FREQ_HZ       : positive := 24_000_000;
-            G_I2C_DEVICE_ADDR   : std_logic_vector(6 downto 0) := "0100001";
-            G_RESET_WAIT_MS     : positive := 80;
-            G_POR_RESET_MS      : positive := 1;
-            G_FRAME_WIDTH       : positive := 640;
-            G_FRAME_HEIGHT      : positive := 480
-        );
-        port (
-            clk24               : in  std_logic;
-            clkcam              : out std_logic;
-            rst_n               : in  std_logic;
-            rst_trigger         : in  std_logic;
-            cam_sda             : inout std_logic;
-            cam_scl             : inout std_logic;
-            cam_pclk            : in  std_logic;
-            cam_vsync           : in  std_logic;
-            cam_hsync           : in  std_logic;
-            cam_pix_data        : in  std_logic_vector(7 downto 0);
-            frame_byte_o        : out std_logic_vector(7 downto 0);
-            frame_byte_valid_o  : out std_logic;
-            frame_done_o        : out std_logic;
-            frame_error_o       : out std_logic;
-            config_done_o       : out std_logic;
-            config_pass_o       : out std_logic;
-            line_count_o        : out std_logic_vector(9 downto 0);
-            line_byte_count_o   : out std_logic_vector(10 downto 0)
-        );
-    end component;
-
-
     -- Global reset: asynchronous assertion from KEY2, synchronous release to clk8.
     signal rst_n              : std_logic := '0';
     signal rst_meta           : std_logic := '0';
@@ -172,8 +140,6 @@ architecture rtl of Test3_24MHz_Synthetic_HyperRAM is
     -- Reset releases synchronized independently into derived clock domains.
     signal clk24_rst_meta     : std_logic := '0';
     signal clk24_rst_n        : std_logic := '0';
-    signal cam_rst_meta       : std_logic := '0';
-    signal cam_rst_n          : std_logic := '0';
     --------------------------------------------------------------------------
     -- Clocks and HyperRAM IP interface.
     --------------------------------------------------------------------------
@@ -242,21 +208,14 @@ architecture rtl of Test3_24MHz_Synthetic_HyperRAM is
     signal protocol_error_meta_usr   : std_logic := '0';
     signal protocol_error_sync_usr   : std_logic := '0';
 
-    signal cam_clk_i          : std_logic;
-    signal cam_byte_data      : std_logic_vector(7 downto 0);
-    signal cam_byte_valid     : std_logic;
-    signal cam_frame_done     : std_logic;
-    signal cam_frame_error    : std_logic;
     signal cam_config_done    : std_logic;
     signal cam_config_pass    : std_logic;
-    signal cam_line_count     : std_logic_vector(9 downto 0);
-    signal cam_line_byte_count: std_logic_vector(10 downto 0);
     
-    -- Test 3: synthetic payload follows the REAL camera byte-valid cadence.
-    signal test2_byte_data       : std_logic_vector(7 downto 0);
-    signal test2_byte_valid      : std_logic;
-    signal test2_frame_done      : std_logic;
-    signal test2_frame_error     : std_logic;
+    -- Test 3 synthetic byte stream in the independent 24 MHz domain.
+    signal test3_byte_data       : std_logic_vector(7 downto 0);
+    signal test3_byte_valid      : std_logic;
+    signal test3_frame_done      : std_logic;
+    signal test3_frame_error     : std_logic;
 
 
     --------------------------------------------------------------------------
@@ -299,8 +258,6 @@ architecture rtl of Test3_24MHz_Synthetic_HyperRAM is
     attribute async_reg of rst_meta : signal is "true";
     attribute async_reg of clk24_rst_meta : signal is "true";
     attribute async_reg of clk24_rst_n : signal is "true";
-    attribute async_reg of cam_rst_meta : signal is "true";
-    attribute async_reg of cam_rst_n : signal is "true";
     attribute async_reg of write_done_meta_8 : signal is "true";
     attribute async_reg of write_done_sync_8 : signal is "true";
     attribute async_reg of frame_error_meta_8 : signal is "true";
@@ -753,10 +710,10 @@ begin
             clk24             => clk24,
             rst_n             => clk24_rst_n,
             start_i           => camera_start_pulse,
-            synthetic_byte_o  => test2_byte_data,
-            synthetic_valid_o => test2_byte_valid,
-            frame_done_o      => test2_frame_done,
-            frame_error_o     => test2_frame_error
+            synthetic_byte_o  => test3_byte_data,
+            synthetic_valid_o => test3_byte_valid,
+            frame_done_o      => test3_frame_done,
+            frame_error_o     => test3_frame_error
         );
 
 
@@ -771,10 +728,10 @@ begin
         port map (
             cam_pclk          => clk24,
             rst_n             => clk24_rst_n,
-            cam_byte_i        => test2_byte_data,
-            cam_byte_valid_i  => test2_byte_valid,
-            cam_frame_done_i  => test2_frame_done,
-            cam_frame_error_i => test2_frame_error,
+            cam_byte_i        => test3_byte_data,
+            cam_byte_valid_i  => test3_byte_valid,
+            cam_frame_done_i  => test3_frame_done,
+            cam_frame_error_i => test3_frame_error,
             packed_word_o     => cap_packed_word,
             packed_valid_o    => cap_packed_valid,
             capture_done_o    => cap_capture_done,
