@@ -51,7 +51,7 @@ Real GC0308
 - The packer, FIFO #1, HyperRAM Writer, HyperRAM IP, Reader, FIFO #2, UART
   serializer, packet protocol, and host receiver are reused without RTL changes.
 
-## Expected counts for 640x480 RGB565
+## Expected counts and deterministic capture CRC for 640x480 RGB565
 
 - Camera-qualified bytes: 614,400
 - Packed 32-bit words: 153,600
@@ -59,6 +59,7 @@ Real GC0308
 - HyperRAM bursts at 8 words/burst: 19,200
 - Words per line: 320
 - Bursts per line: 40
+- Expected capture CRC32 for the exact synthetic byte formula above: `0x81BD9BFE` (MSB-first CRC-32/04C11DB7, initial `0xFFFFFFFF`, no final XOR).
 
 The source byte count is expected to equal the camera controller's qualified
 byte count. The packer must report exactly 614,400 bytes and 153,600 words.
@@ -83,7 +84,7 @@ names are unchanged.
 2. Program the Test 2 bitstream.
 3. Wait for camera SCCB initialization to complete.
 4. Press KEY1 once to trigger the one-shot capture, as in the production design.
-5. Receive the UART frame using the corrected host receiver.
+5. Receive the UART frame using the corrected host receiver from the separate audit package (the host script is not duplicated in this Test 2 project directory).
 6. Compare all reported counts, status flags, and CRCs.
 
 Do not disconnect the camera or substitute a free-running synthetic clock:
