@@ -235,8 +235,13 @@ function report = test2_receive_uart(port)
     report.statusFlagsClear = statusClear;
     report.elapsedSeconds = toc(started);
 
-    imwrite(rgb, "test2_capture.png");
     save("test2_report.mat", "report", "rgb", "raw565");
+    if exist("imwrite", "file") == 2
+        imwrite(rgb, "test2_capture.png");
+        fprintf("Saved test2_capture.png\\n");
+    else
+        warning("imwrite is unavailable; image is preserved in test2_report.mat.");
+    end
 
     fprintf("\n========== TEST 2 RESULT ==========\n");
     fprintf("Packets received             : %d\n", packetCount);
@@ -258,9 +263,13 @@ function report = test2_receive_uart(port)
     else
         fprintf("RESULT: FAIL — inspect the first differing CRC, counters, and status bits.\n");
     end
-    figure("Name", "Test 2 synthetic HyperRAM readback");
-    imshow(rgb);
-    title("Test 2 — RGB888 reconstructed from HyperRAM readback");
+    if exist("imshow", "file") == 2
+        figure("Name", "Test 2 synthetic HyperRAM readback");
+        imshow(rgb);
+        title("Test 2 — RGB888 reconstructed from HyperRAM readback");
+    else
+        fprintf("imshow unavailable; inspect variable rgb or test2_report.mat.\\n");
+    end
 end
 
 function value = read_u32_le(p, first)
