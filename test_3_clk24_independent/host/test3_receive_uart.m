@@ -1,5 +1,5 @@
 function report = test3_receive_uart(port)
-%TEST2_RECEIVE_UART Receive and validate the Test 3 GC0308/HyperRAM stream.
+%TEST3_RECEIVE_UART Receive and validate the Test 3 synthetic/HyperRAM stream.
 %
 % Usage:
 %   report = test3_receive_uart("COM5");       % Windows
