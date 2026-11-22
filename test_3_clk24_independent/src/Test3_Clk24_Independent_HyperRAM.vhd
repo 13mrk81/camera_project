@@ -2,7 +2,7 @@ library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 
--- One-shot GC0308 -> RGB565 HyperRAM capture and one-way RGB888 UART stream.
+-- One-shot internal 24 MHz synthetic RGB565 -> HyperRAM capture and UART stream.
 -- An on-board active-low pushbutton triggers capture; MATLAB is receive-only.
 --
 -- Memory format (640x480 defaults):
@@ -40,7 +40,7 @@ entity Test3_Clk24_Independent_HyperRAM is
         -- FPGA -> MATLAB UART TX only; no host-to-FPGA UART data.
         uart_tx_o           : out std_logic;
 
-        -- GC0308 connections.
+        -- Legacy camera connector pins (unused by Test 3).
         cam_clk             : out std_logic;
         cam_sda             : inout std_logic;
         cam_scl             : inout std_logic;
@@ -92,7 +92,7 @@ architecture rtl of Test3_Clk24_Independent_HyperRAM is
     );
 
     --------------------------------------------------------------------------
-    -- Component declarations for generated Gowin IP and unchanged camera IP.
+    -- Component declarations for generated Gowin PLL and HyperRAM IP.
     --------------------------------------------------------------------------
     component Gowin_PLLVR_1 is
         port (
@@ -141,7 +141,6 @@ architecture rtl of Test3_Clk24_Independent_HyperRAM is
     -- Reset releases synchronized independently into derived clock domains.
     signal clk24_rst_meta     : std_logic := '0';
     signal clk24_rst_n        : std_logic := '0';
-    signal clk24_capture_rst_meta       : std_logic := '0';
     signal clk24_capture_rst_n          : std_logic := '0';
     --------------------------------------------------------------------------
     -- Clocks and HyperRAM IP interface.
