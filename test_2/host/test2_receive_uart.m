@@ -222,7 +222,11 @@ function report = test2_receive_uart(port)
                (done.readIngressCRC == done.readbackCRC) && ...
                (hostReadbackCRC == done.readbackCRC);
     expectedMatch = (done.captureCRC == expectedCaptureCRC);
-    statusClear = (done.statusFlags == 0);
+    % RTL status bit 13 is SYSTEM_OK and is expected to be 1 on success.
+    % Bits 0..12 are error/mismatch flags; bits 14..15 are reserved.
+    statusValid = bitget(done.statusFlags, 14) == 1 && ...
+                  bitand(done.statusFlags, uint16(hex2dec('1FFF'))) == 0 && ...
+                  bitand(done.statusFlags, uint16(hex2dec('C000'))) == 0;
 
     report = done;
     report.packetCount = packetCount;
@@ -232,7 +236,8 @@ function report = test2_receive_uart(port)
     report.allLinesReceived = all(lineSeen);
     report.crcChainMatch = crcMatch;
     report.expectedCaptureCRCMatched = expectedMatch;
-    report.statusFlagsClear = statusClear;
+    report.statusFlagsValid = statusValid;
+    report.pass = crcMatch && expectedMatch && statusValid && badPacketCRC == 0;
     report.elapsedSeconds = toc(started);
 
     save("test2_report.mat", "report", "rgb", "raw565");
@@ -258,7 +263,7 @@ function report = test2_receive_uart(port)
     fprintf("Status flags clear           : %s\n", string(statusClear));
     fprintf("Elapsed                      : %.1f s\n", report.elapsedSeconds);
 
-    if crcMatch && expectedMatch && statusClear && badPacketCRC == 0
+    if report.pass
         fprintf("RESULT: PASS — synthetic payload survived the capture/write/read/host path.\n");
     else
         fprintf("RESULT: FAIL — inspect the first differing CRC, counters, and status bits.\n");
