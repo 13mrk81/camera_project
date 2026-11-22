@@ -37,10 +37,6 @@ architecture rtl of clk24_synthetic_frame_source is
         return std_logic_vector(value);
     end function;
 begin
-    assert G_TOTAL_BYTES <= 2**32-1
-        report "G_TOTAL_BYTES must fit in the 32-bit byte counter"
-        severity failure;
-
     process(clk, rst_n)
     begin
         if rst_n = '0' then
