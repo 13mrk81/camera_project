@@ -114,10 +114,10 @@ against the FPGA readback CRC and expected synthetic capture CRC.
 On completion it writes `test2_capture.png` and `test2_report.mat` to the
 current MATLAB directory and displays the reconstructed image.
 
-The script requires MATLAB's `serialport` API (MATLAB R2019b or newer) and
-Image Processing Toolbox for `imshow`. If Image Processing Toolbox is not
-installed, comment out the final `figure/imshow/title` lines; PNG saving uses
-`imwrite`.
+The receiver requires MATLAB's `serialport` API (MATLAB R2019b or newer).
+Image display and PNG export are performed when `imshow` and `imwrite` are
+available; otherwise the reconstructed image and report are still saved in
+`test2_report.mat`.
 
 The expected CRC comparison uses the RTL's MSB-first CRC-32 convention
 (polynomial `0x04C11DB7`, initial `0xFFFFFFFF`, no final XOR). The receiver
