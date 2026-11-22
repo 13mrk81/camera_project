@@ -205,7 +205,7 @@ function report = test2_receive_uart(port)
         raw565(y,1:2:end) = uint8(bitshift(pix, -8));
         raw565(y,2:2:end) = uint8(bitand(pix, uint16(255)));
     end
-    hostReadbackCRC = crc32_msb(raw565(:));
+    hostReadbackCRC = crc32_msb(reshape(raw565.', [], 1));
 
     % Validate DONE telemetry.
     assert(done.height == height, "DONE height mismatch.");
