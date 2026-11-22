@@ -90,6 +90,40 @@ names are unchanged.
 Do not disconnect the camera or substitute a free-running synthetic clock:
 real camera PCLK/VSYNC/HREF are essential to this experiment.
 
+
+## MATLAB host receiver
+
+The MATLAB receiver is included in this directory:
+
+`host/test2_receive_uart.m`
+
+Run it from MATLAB with the serial-port name:
+
+```matlab
+report = test2_receive_uart("/dev/ttyUSB0"); % Linux example
+% report = test2_receive_uart("COM5");       % Windows example
+```
+
+If called without an argument, the script lists available serial ports and
+asks for a selection. It opens the port at 115200 baud, 8-N-1, receives the
+FPGA-to-PC packet stream, validates CRC-16/CCITT-FALSE on every packet,
+checks all 480 line packets and the 46-byte DONE telemetry, reconstructs the
+RGB565 byte stream from received RGB888 pixels, and compares the host CRC
+against the FPGA readback CRC and expected synthetic capture CRC.
+
+On completion it writes `test2_capture.png` and `test2_report.mat` to the
+current MATLAB directory and displays the reconstructed image.
+
+The script requires MATLAB's `serialport` API (MATLAB R2019b or newer) and
+Image Processing Toolbox for `imshow`. If Image Processing Toolbox is not
+installed, comment out the final `figure/imshow/title` lines; PNG saving uses
+`imwrite`.
+
+The expected CRC comparison uses the RTL's MSB-first CRC-32 convention
+(polynomial `0x04C11DB7`, initial `0xFFFFFFFF`, no final XOR). The receiver
+has been added and source-reviewed against the current RTL packet definition,
+but has not yet been executed against a live FPGA UART capture.
+
 ## Interpretation
 
 - **Test 2 passes (all counts and CRCs agree):** real camera timing and the
