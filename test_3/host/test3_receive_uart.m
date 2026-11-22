@@ -54,7 +54,7 @@ function report = test3_receive_uart(port)
     errorSeen = false;
     done = struct();
     started = tic;
-    overallTimeout_s = 240;
+    overallTimeout_s = 600; % Allow up to 10 minutes for the full UART dump.
 
     fprintf("Waiting for FPGA packets. Trigger the capture with KEY1 if needed.\n");
 
@@ -248,7 +248,7 @@ function report = test3_receive_uart(port)
         warning("imwrite is unavailable; image is preserved in test3_report.mat.");
     end
 
-    fprintf("\n========== TEST 2 RESULT ==========\n");
+    fprintf("\n========== TEST 3 RESULT ==========\n");
     fprintf("Packets received             : %d\n", packetCount);
     fprintf("Bad packet CRC16             : %d\n", badPacketCRC);
     fprintf("Capture CRC32                : 0x%08X\n", done.captureCRC);
@@ -260,7 +260,7 @@ function report = test3_receive_uart(port)
     fprintf("Status flags                 : 0x%04X\n", done.statusFlags);
     fprintf("CRC chain consistent         : %s\n", string(crcMatch));
     fprintf("Expected capture CRC matched : %s\n", string(expectedMatch));
-    fprintf("Status flags clear           : %s\n", string(statusClear));
+    fprintf("Status flags clear           : %s\n", string(statusValid));
     fprintf("Elapsed                      : %.1f s\n", report.elapsedSeconds);
 
     if report.pass
