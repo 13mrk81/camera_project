@@ -40,7 +40,7 @@ entity Test3_Clk24_HyperRAM_OneFrame is
         -- FPGA -> MATLAB UART TX only; no host-to-FPGA UART data.
         uart_tx_o           : out std_logic;
 
-        -- GC0308 connections.
+        -- Legacy camera connector pins; unused by Test 3.
         cam_clk             : out std_logic;
         cam_sda             : inout std_logic;
         cam_scl             : inout std_logic;
