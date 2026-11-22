@@ -779,7 +779,7 @@ begin
         )
         port map (
             src_clk     => clk24,
-            src_rst_n   => cam_rst_n,
+            src_rst_n   => clk24_rst_n,
             src_event_i => cap_capture_done,
             src_data_i  => capture_snapshot_src,
             dst_clk     => usr_clk,
