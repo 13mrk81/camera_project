@@ -109,7 +109,10 @@ asks for a selection. It opens the port at 115200 baud, 8-N-1, receives the
 FPGA-to-PC packet stream, validates CRC-16/CCITT-FALSE on every packet,
 checks all 480 line packets and the 46-byte DONE telemetry, reconstructs the
 RGB565 byte stream from received RGB888 pixels, and compares the host CRC
-against the FPGA readback CRC and expected synthetic capture CRC.
+against the FPGA readback CRC and expected synthetic capture CRC. The DONE
+status check expects bit 13 (SYSTEM_OK) to be set, bits 0–12 to be clear, and
+reserved bits 14–15 to be zero; a successful status word is therefore 0x2000,
+not 0x0000.
 
 On completion it writes `test2_capture.png` and `test2_report.mat` to the
 current MATLAB directory and displays the reconstructed image.
