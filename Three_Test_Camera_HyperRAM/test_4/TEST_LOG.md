@@ -66,3 +66,10 @@ Notes / console log file:
 - Real VSYNC/HREF timing, capture FIFO CDC, existing HyperRAM writer/readback, and UART packet protocol are retained.
 - Expected 640x480 capture CRC32: `0x8152206C` (CRC-32/04C11DB7, MSB-first, init FFFFFFFF, no final XOR).
 - Source preparation only; no Gowin build or board execution has been performed in this session.
+
+### 2026-11-24 — Related Test 5 CDC-only result
+
+- Physical-board run passed for the 32-byte synthetic payload `CAM_PCLK_FIFO_TO_24M_UART_TEST5!`.
+- Payload CRC16 received/calculated: `0xAAE6`; CRC valid = true; payload valid = true.
+- This confirms that the tested `cam_pclk`-clocked FIFO write side and 24 MHz read/UART path transferred this short synthetic payload correctly.
+- This is **not** a HyperRAM test and does not prove full-frame camera byte capture, RGB565 packing, HyperRAM writes, or HyperRAM readback.
