@@ -41,12 +41,15 @@ architecture rtl of test3_pattern_camera_pclk_source is
         word_index := shift_right(index, 2);
         word_value := x"A5000000" xor std_logic_vector(word_index);
 
-        case index(1 downto 0) is
-            when "00"   => return word_value(31 downto 24);
-            when "01"   => return word_value(23 downto 16);
-            when "10"   => return word_value(15 downto 8);
-            when others => return word_value(7 downto 0);
-        end case;
+        if index(1 downto 0) = "00" then
+            return word_value(31 downto 24);
+        elsif index(1 downto 0) = "01" then
+            return word_value(23 downto 16);
+        elsif index(1 downto 0) = "10" then
+            return word_value(15 downto 8);
+        else
+            return word_value(7 downto 0);
+        end if;
     end function;
 begin
     assert G_DELAY_CYCLES >= 1
