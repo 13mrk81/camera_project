@@ -266,7 +266,7 @@ function report = testA_receive_uart(port)
     save("testA_report.mat", "report", "rgb", "raw565");
     if exist("imwrite", "file") == 2
         imwrite(rgb, "testA_capture.png");
-        fprintf("Saved testA_capture.png\\n");
+        fprintf("Saved testA_capture.png\n");
     else
         warning("imwrite is unavailable; image is preserved in testA_report.mat.");
     end
@@ -279,7 +279,7 @@ function report = testA_receive_uart(port)
     fprintf("Read-ingress CRC32           : 0x%08X\n", done.readIngressCRC);
     fprintf("FPGA readback CRC32          : 0x%08X\n", done.readbackCRC);
     fprintf("Host reconstructed CRC32     : 0x%08X\n", hostReadbackCRC);
-    fprintf("Expected synthetic CRC32     : 0x%08X\n", expectedCaptureCRC);
+    fprintf("Expected word-index CRC32     : 0x%08X\n", expectedCaptureCRC);
     fprintf("Status flags                 : 0x%04X\n", done.statusFlags);
     fprintf("CRC chain consistent         : %s\n", string(crcMatch));
     fprintf("Expected capture CRC matched : %s\n", string(expectedMatch));
@@ -296,7 +296,7 @@ function report = testA_receive_uart(port)
         imshow(rgb);
         title("Test A — RGB888 reconstructed from HyperRAM readback");
     else
-        fprintf("imshow unavailable; inspect variable rgb or testA_report.mat.\\n");
+        fprintf("imshow unavailable; inspect variable rgb or testA_report.mat.\n");
     end
 end
 
