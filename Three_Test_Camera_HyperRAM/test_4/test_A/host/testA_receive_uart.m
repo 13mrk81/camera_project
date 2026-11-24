@@ -47,6 +47,7 @@ function report = testA_receive_uart(port)
     rx = uint8([]);
     rgb = zeros(height, width, 3, "uint8");
     lineSeen = false(height, 1);
+    duplicateLines = 0;
     packetCount = 0;
     badPacketCRC = 0;
     readySeen = false;
@@ -150,6 +151,7 @@ function report = testA_receive_uart(port)
                         continue;
                     end
                     if lineSeen(seq+1)
+                        duplicateLines = duplicateLines + 1;
                         warning("Duplicate LINE %d; replacing previous row.", seq);
                     end
                     row = reshape(payload, 3, width).';
@@ -205,7 +207,24 @@ function report = testA_receive_uart(port)
         raw565(y,1:2:end) = uint8(bitshift(pix, -8));
         raw565(y,2:2:end) = uint8(bitand(pix, uint16(255)));
     end
-    hostReadbackCRC = crc32_msb(reshape(raw565.', [], 1));
+    rawBytes = reshape(raw565.', [], 1);
+    hostReadbackCRC = crc32_msb(rawBytes);
+
+    % Compare every reconstructed 32-bit word against word[n] = A5000000 XOR n.
+    receivedWords = bitshift(uint32(rawBytes(1:4:end)), 24) + ...
+                    bitshift(uint32(rawBytes(2:4:end)), 16) + ...
+                    bitshift(uint32(rawBytes(3:4:end)), 8) + ...
+                    uint32(rawBytes(4:4:end));
+    wordIndices = uint32((0:double(expectedWords)-1).');
+    expectedWordValues = bitxor(repmat(uint32(hex2dec('A5000000')), ...
+                                  double(expectedWords), 1), wordIndices);
+    wordMismatchIndices = find(receivedWords ~= expectedWordValues);
+    wordMismatchCount = numel(wordMismatchIndices);
+    if isempty(wordMismatchIndices)
+        firstMismatchWord = NaN;
+    else
+        firstMismatchWord = wordMismatchIndices(1) - 1; % zero-based
+    end
 
     % Validate DONE telemetry.
     assert(done.height == height, "DONE height mismatch.");
@@ -234,10 +253,14 @@ function report = testA_receive_uart(port)
     report.hostReadbackCRC = hostReadbackCRC;
     report.expectedCaptureCRC = expectedCaptureCRC;
     report.allLinesReceived = all(lineSeen);
+    report.duplicateLines = duplicateLines;
+    report.wordMismatchCount = wordMismatchCount;
+    report.firstMismatchWord = firstMismatchWord;
     report.crcChainMatch = crcMatch;
     report.expectedCaptureCRCMatched = expectedMatch;
     report.statusFlagsValid = statusValid;
-    report.pass = crcMatch && expectedMatch && statusValid && badPacketCRC == 0;
+    report.pass = crcMatch && expectedMatch && statusValid && ...
+                  badPacketCRC == 0 && duplicateLines == 0 && wordMismatchCount == 0;
     report.elapsedSeconds = toc(started);
 
     save("testA_report.mat", "report", "rgb", "raw565");
@@ -248,7 +271,7 @@ function report = testA_receive_uart(port)
         warning("imwrite is unavailable; image is preserved in testA_report.mat.");
     end
 
-    fprintf("\n========== TEST 2 RESULT ==========\n");
+    fprintf("\n========== TEST A RESULT ==========\n");
     fprintf("Packets received             : %d\n", packetCount);
     fprintf("Bad packet CRC16             : %d\n", badPacketCRC);
     fprintf("Capture CRC32                : 0x%08X\n", done.captureCRC);
@@ -264,7 +287,7 @@ function report = testA_receive_uart(port)
     fprintf("Elapsed                      : %.1f s\n", report.elapsedSeconds);
 
     if report.pass
-        fprintf("RESULT: PASS — synthetic payload survived the capture/write/read/host path.\n");
+        fprintf("RESULT: PASS — word-index payload survived the capture/write/read/host path.\n");
     else
         fprintf("RESULT: FAIL — inspect the first differing CRC, counters, and status bits.\n");
     end
