@@ -38,7 +38,7 @@ Exact 32-byte ASCII string:
 
 `CAM_PCLK_FIFO_TO_24M_UART_TEST5!`
 
-The string is divided into eight 32-bit words and written one word per accepted `cam_pclk) edge while the FIFO is not full.
+The string is divided into eight 32-bit words and written one word per accepted `cam_pclk` edge while the FIFO is not full.
 
 ## Packet protocol
 
