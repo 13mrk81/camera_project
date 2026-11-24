@@ -6,6 +6,7 @@ entity Test5_CameraPclk_Fifo_Uart is
     port (
         clk8       : in  std_logic;
         key2_n_i   : in  std_logic;
+        trigger_n_i : in  std_logic;
         uart_tx_o  : out std_logic;
         cam_clk    : out std_logic;
         cam_sda    : inout std_logic;
@@ -53,8 +54,9 @@ architecture rtl of Test5_CameraPclk_Fifo_Uart is
     end component;
 
     constant C_FIFO_WORDS : positive := 8;
+    constant C_TRIGGER_DEBOUNCE_CYCLES : positive := 160_000; -- 20 ms at 8 MHz
     type payload_t is array (0 to C_FIFO_WORDS - 1) of std_logic_vector(31 downto 0);
-    type wr_state_t is (WR_WAIT_FRAME, WR_FILL);
+    type wr_state_t is (WR_WAIT_FRAME, WR_FILL, WR_DONE);
     type rd_state_t is (RD_IDLE, RD_WAIT_DATA);
     type tx_state_t is (
         TX_IDLE, TX_SOF0, TX_SOF1, TX_TYPE, TX_SEQ_LO, TX_SEQ_HI,
@@ -95,6 +97,10 @@ architecture rtl of Test5_CameraPclk_Fifo_Uart is
 
     signal rst_n       : std_logic := '0';
     signal rst_meta    : std_logic := '0';
+    signal trigger_meta : std_logic := '1';
+    signal trigger_sync : std_logic := '1';
+    signal trigger_count : natural range 0 to C_TRIGGER_DEBOUNCE_CYCLES := 0;
+    signal camera_trigger_req : std_logic := '0';
     signal clk24       : std_logic;
     signal clk24_rst_meta : std_logic := '0';
     signal clk24_rst_n : std_logic := '0';
@@ -150,6 +156,33 @@ begin
     u_pll_24 : Gowin_PLLVR_1
         port map (clkout => clk24, clkin => clk8);
 
+    -- KEY1 is an active-low, debounced one-shot trigger for camera setup.
+    -- The request remains high until reset; camera_interface detects its rising edge.
+    process(clk8, rst_n)
+    begin
+        if rst_n = '0' then
+            trigger_meta <= '1';
+            trigger_sync <= '1';
+            trigger_count <= 0;
+            camera_trigger_req <= '0';
+        elsif rising_edge(clk8) then
+            trigger_meta <= trigger_n_i;
+            trigger_sync <= trigger_meta;
+
+            if camera_trigger_req = '0' then
+                if trigger_sync = '0' then
+                    if trigger_count = C_TRIGGER_DEBOUNCE_CYCLES - 1 then
+                        camera_trigger_req <= '1';
+                    else
+                        trigger_count <= trigger_count + 1;
+                    end if;
+                else
+                    trigger_count <= 0;
+                end if;
+            end if;
+        end if;
+    end process;
+
     process(clk24, rst_n)
     begin
         if rst_n = '0' then
@@ -178,7 +211,7 @@ begin
             clk24              => clk24,
             clkcam             => cam_clk_i,
             rst_n              => clk24_rst_n,
-            rst_trigger        => '1',
+            rst_trigger        => camera_trigger_req,
             cam_sda            => cam_sda,
             cam_scl            => cam_scl,
             cam_pclk           => cam_pclk,
@@ -268,7 +301,7 @@ begin
                 if fifo_wr_full = '0' then
                     if wr_word_index = C_FIFO_WORDS - 1 then
                         wr_word_index <= 0;
-                        wr_state <= WR_WAIT_FRAME;
+                        wr_state <= WR_DONE;
                     else
                         wr_word_index <= wr_word_index + 1;
                     end if;
