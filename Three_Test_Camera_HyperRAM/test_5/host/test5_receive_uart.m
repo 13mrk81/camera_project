@@ -24,7 +24,7 @@ function report = test5_receive_uart(port)
     started = tic;
     timeout_s = 90;
     report = struct();
-    fprintf("Listening on %s at 115200 baud. Waiting for camera frame/line event...\n", string(port));
+    fprintf("Listening on %s at 115200 baud. Waiting for KEY1 trigger, camera configuration, then first frame/line event...\n", string(port));
 
     while toc(started) < timeout_s
         n = sp.NumBytesAvailable;
@@ -88,7 +88,7 @@ function report = test5_receive_uart(port)
         end
     end
 
-    error("Timeout: no valid Test 5 packet received within %.0f seconds. Check camera configuration, PCLK, VSYNC/HREF, FIFO, and UART.", timeout_s);
+    error("Timeout: no valid Test 5 packet received within %.0f seconds. Press KEY1 and check camera configuration, PCLK, VSYNC/HREF, FIFO, and UART.", timeout_s);
 end
 
 function crc = crc16_ccitt_false(bytes)
