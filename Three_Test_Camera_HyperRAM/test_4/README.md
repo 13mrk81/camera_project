@@ -62,3 +62,15 @@ Open `TEST4_CAMERA_TIMING_TEST3_PATTERN.gprj` in Gowin EDA. Keep this directory 
 ## Validation status
 
 This project is assembled from the existing Test 2 camera-timing implementation and the exact deterministic pattern formula used by Test 3. No Gowin compile, synthesis, place-and-route, timing closure, bitstream generation, or physical-board test has been run in this session. In particular, verify the generated project paths and PCLK timing in Gowin before programming the board.
+
+## Test execution history and Test A
+
+All attempts and measured outcomes under this directory are recorded append-only in [TEST_LOG.md](TEST_LOG.md).
+
+### Test A — deterministic word-index frame
+
+Open `test_A/TEST_A_CAMERA_SYNC_HYPERRAM.gprj`. Test A keeps the real GC0308 PCLK/VSYNC/HREF timing and reuses the existing Test 4 HyperRAM capture/readback/UART path, but substitutes a word-index pattern whose packed words are `0xA5000000 XOR word_index`.
+
+The camera-side source advances only on camera-qualified valid-byte events in `cam_pclk`. The expected full-frame CRC32 is `0x8152206C`. MATLAB receiver: `test_A/host/testA_receive_uart.m`.
+
+Test A is source-prepared only until a successful Gowin build and physical-board run are entered in `TEST_LOG.md`. Do not treat source creation or a calculated expected CRC as hardware validation.
