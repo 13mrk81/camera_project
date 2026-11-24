@@ -13,6 +13,9 @@ Open `test_2/TEST2_CAMERA_SYNTH_HYPERRAM.gprj`. GC0308 remains connected and sup
 ## Test 3 — Independent 24 MHz synthetic source
 Open `test_3/TEST3_24MHZ_SYNTH_HYPERRAM.gprj`. The synthetic byte generator, RGB565 packer, and capture FIFO write port use the PLL-derived 24 MHz clock; HyperRAM user-side logic remains on the generated IP user clock.
 
+## Test 4 — Test 3 pattern with real camera timing
+Open `test_4/TEST4_CAMERA_TIMING_TEST3_PATTERN.gprj`. It preserves the real GC0308 PCLK/VSYNC/HREF capture timing and the production HyperRAM/UART path, while generating the Test 3 deterministic byte pattern in the camera PCLK domain. The byte index advances only on camera-qualified valid-byte events. See `test_4/README.md` for the exact architecture and validation limitations.
+
 ## Additional Test 3 snapshots
 - `test_3_24mhz_independent/`
 - `test_3_clk24_independent/`
