@@ -230,8 +230,8 @@ begin
 
     cam_clk <= cam_clk_i;
 
-    -- Write one fixed diagnostic payload per frame, at the first active HREF
-    -- rising edge after active-high VSYNC rises.
+    -- Write one fixed diagnostic payload once, at the first active HREF
+    -- rising edge after active-high VSYNC rises following successful configuration.
     fifo_wr_en <= '1' when (wr_state = WR_FILL) and (fifo_wr_full = '0') else '0';
 
     u_output_fifo : entity work.async_fifo_32
