@@ -79,14 +79,15 @@ The image is an intentionally synthetic pattern, not a photograph. The important
 
 A PASS requires all of the following:
 
-- all 480 LINE packets received exactly once;
+- all 480 LINE packets received exactly once (the MATLAB receiver rejects missing and duplicate lines);
+- all 153,600 reconstructed 32-bit words match `0xA5000000 XOR word_index` exactly;
 - no packet CRC16 errors;
 - DONE reports 614,400 source/capture bytes and 153,600 write/read-ingress words;
 - capture, writer, read-ingress, FPGA readback, and MATLAB reconstructed CRC32 values all agree;
 - capture CRC32 equals `0x8152206C`;
 - no error/mismatch status bits are asserted and SYSTEM_OK is set.
 
-A matching CRC alone is not treated as proof of every individual word. The host also checks packet order, line count, payload lengths, and full-frame expected CRC.
+A matching CRC alone is not treated as proof of every individual word. The host checks every reconstructed 32-bit word, packet CRC16, line sequence/count, payload lengths, and full-frame expected CRC.
 
 ## Validation status
 
