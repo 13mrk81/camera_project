@@ -1,0 +1,115 @@
+GowinSynthesis start
+Running parser ...
+Analyzing VHDL file '/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/src/uart_tx.vhd'
+Analyzing entity 'uart_tx'("/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/src/uart_tx.vhd":8)
+Analyzing architecture 'rtl'("/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/src/uart_tx.vhd":24)
+Analyzing VHDL file '/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/src/camera_uart_frame_protocol.vhd'
+Analyzing entity 'camera_uart_frame_protocol'("/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/src/camera_uart_frame_protocol.vhd":16)
+Analyzing architecture 'rtl'("/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/src/camera_uart_frame_protocol.vhd":63)
+Analyzing VHDL file '/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/src/pulse_toggle_cdc.vhd'
+Analyzing entity 'pulse_toggle_cdc'("/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/src/pulse_toggle_cdc.vhd":7)
+Analyzing architecture 'rtl'("/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/src/pulse_toggle_cdc.vhd":18)
+Analyzing VHDL file '/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/src/rgb565_frame_packer.vhd'
+Analyzing entity 'rgb565_frame_packer'("/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/src/rgb565_frame_packer.vhd":11)
+Analyzing architecture 'rtl'("/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/src/rgb565_frame_packer.vhd":34)
+Analyzing VHDL file '/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/src/async_fifo_32.vhd'
+Analyzing entity 'async_fifo_32'("/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/src/async_fifo_32.vhd":8)
+Analyzing architecture 'rtl'("/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/src/async_fifo_32.vhd":30)
+Analyzing VHDL file '/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/src/stable_bus_event_cdc.vhd'
+Analyzing entity 'stable_bus_event_cdc'("/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/src/stable_bus_event_cdc.vhd":9)
+Analyzing architecture 'rtl'("/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/src/stable_bus_event_cdc.vhd":26)
+Analyzing VHDL file '/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/src/gowin_hyperram_read_adapter.vhd'
+Analyzing entity 'gowin_hyperram_read_adapter'("/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/src/gowin_hyperram_read_adapter.vhd":16)
+Analyzing architecture 'rtl'("/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/src/gowin_hyperram_read_adapter.vhd":42)
+Analyzing VHDL file '/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/src/hyperram_line_reader.vhd'
+Analyzing entity 'hyperram_line_reader'("/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/src/hyperram_line_reader.vhd":13)
+Analyzing architecture 'rtl'("/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/src/hyperram_line_reader.vhd":62)
+Analyzing VHDL file '/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/src/rgb565_line_serializer.vhd'
+Analyzing entity 'rgb565_line_serializer'("/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/src/rgb565_line_serializer.vhd":8)
+Analyzing architecture 'rtl'("/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/src/rgb565_line_serializer.vhd":49)
+Analyzing VHDL file '/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/src/hyperram_line_readout.vhd'
+Analyzing entity 'hyperram_line_readout'("/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/src/hyperram_line_readout.vhd":14)
+Analyzing architecture 'rtl'("/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/src/hyperram_line_readout.vhd":77)
+Analyzing VHDL file '/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/src/frame_integrity_checker.vhd'
+Analyzing entity 'frame_integrity_checker'("/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/src/frame_integrity_checker.vhd":8)
+Analyzing architecture 'rtl'("/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/src/frame_integrity_checker.vhd":41)
+Analyzing VHDL file '/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/src/Camera_HyperRAM_OneFrame.vhd'
+Analyzing entity 'camera_hyperram_oneframe'("/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/src/Camera_HyperRAM_OneFrame.vhd":18)
+Analyzing architecture 'rtl'("/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/src/Camera_HyperRAM_OneFrame.vhd":58)
+Analyzing VHDL file '/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/src/camera_interface.vhd'
+Analyzing entity 'camera_interface'("/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/src/camera_interface.vhd":18)
+Analyzing architecture 'rtl'("/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/src/camera_interface.vhd":55)
+Analyzing VHDL file '/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/src/gowin_pllvr/gowin_pllvr.vhd'
+Analyzing entity 'gowin_pllvr'("/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/src/gowin_pllvr/gowin_pllvr.vhd":12)
+Analyzing architecture 'behavioral'("/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/src/gowin_pllvr/gowin_pllvr.vhd":20)
+Analyzing VHDL file '/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/src/gowin_pllvr/gowin_pllvr_1.vhd'
+Analyzing entity 'gowin_pllvr_1'("/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/src/gowin_pllvr/gowin_pllvr_1.vhd":12)
+Analyzing architecture 'behavioral'("/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/src/gowin_pllvr/gowin_pllvr_1.vhd":19)
+Analyzing VHDL file '/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/src/hyperram_memory_interface/hyperram_memory_interface.vhd'
+Analyzing entity 'matched_rvld_fifo'("/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/src/hyperram_memory_interface/hyperram_memory_interface.vhd":3701)
+Analyzing architecture 'beh'("/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/src/hyperram_memory_interface/hyperram_memory_interface.vhd":3701)
+Analyzing entity '\~hpram_lane.HyperRAM_Memory_Interface_Top\'("/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/src/hyperram_memory_interface/hyperram_memory_interface.vhd":3701)
+Analyzing architecture 'beh'("/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/src/hyperram_memory_interface/hyperram_memory_interface.vhd":3701)
+Analyzing entity '\~hpram_wd.HyperRAM_Memory_Interface_Top\'("/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/src/hyperram_memory_interface/hyperram_memory_interface.vhd":3701)
+Analyzing architecture 'beh'("/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/src/hyperram_memory_interface/hyperram_memory_interface.vhd":3701)
+Analyzing entity '\~hpram_init.HyperRAM_Memory_Interface_Top\'("/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/src/hyperram_memory_interface/hyperram_memory_interface.vhd":3701)
+Analyzing architecture 'beh'("/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/src/hyperram_memory_interface/hyperram_memory_interface.vhd":3701)
+Analyzing entity '\~hpram_sync.HyperRAM_Memory_Interface_Top\'("/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/src/hyperram_memory_interface/hyperram_memory_interface.vhd":3701)
+Analyzing architecture 'beh'("/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/src/hyperram_memory_interface/hyperram_memory_interface.vhd":3701)
+Analyzing entity '\~hpram_top.HyperRAM_Memory_Interface_Top\'("/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/src/hyperram_memory_interface/hyperram_memory_interface.vhd":3701)
+Analyzing architecture 'beh'("/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/src/hyperram_memory_interface/hyperram_memory_interface.vhd":3701)
+Analyzing entity 'hyperram_memory_interface_top'("/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/src/hyperram_memory_interface/hyperram_memory_interface.vhd":3701)
+Analyzing architecture 'beh'("/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/src/hyperram_memory_interface/hyperram_memory_interface.vhd":3701)
+Analyzing VHDL file '/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/src/i2c_master_nack.vhd'
+Analyzing entity 'i2c_master_nack'("/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/src/i2c_master_nack.vhd":5)
+Analyzing architecture 'rtl'("/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/src/i2c_master_nack.vhd":41)
+Processing 'Camera_HyperRAM_OneFrame(rtl)'("/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/src/Camera_HyperRAM_OneFrame.vhd":18)
+Processing 'Gowin_PLLVR_1(Behavioral)'("/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/src/gowin_pllvr/gowin_pllvr_1.vhd":12)
+Processing 'Gowin_PLLVR(Behavioral)'("/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/src/gowin_pllvr/gowin_pllvr.vhd":12)
+Processing 'uart_tx(rtl)'("/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/src/uart_tx.vhd":8)
+Processing 'camera_uart_frame_protocol(rtl)'("/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/src/camera_uart_frame_protocol.vhd":16)
+'others' clause is never selected("/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/src/camera_uart_frame_protocol.vhd":487)
+Processing 'pulse_toggle_cdc(rtl)'("/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/src/pulse_toggle_cdc.vhd":7)
+Processing 'camera_interface(rtl)'("/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/src/camera_interface.vhd":18)
+Processing 'i2c_master_nack(rtl)'("/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/src/i2c_master_nack.vhd":5)
+'others' clause is never selected("/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/src/camera_interface.vhd":610)
+'others' clause is never selected("/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/src/camera_interface.vhd":796)
+Processing 'rgb565_frame_packer(rtl)'("/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/src/rgb565_frame_packer.vhd":11)
+'others' clause is never selected("/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/src/rgb565_frame_packer.vhd":129)
+Processing 'async_fifo_32(g_addr_bits=11)(rtl)'("/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/src/async_fifo_32.vhd":8)
+Extracting RAM for identifier 'mem'("/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/src/async_fifo_32.vhd":34)
+Processing 'stable_bus_event_cdc(g_width=96)(rtl)'("/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/src/stable_bus_event_cdc.vhd":9)
+'others' clause is never selected("/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/src/Camera_HyperRAM_OneFrame.vhd":935)
+Processing 'gowin_hyperram_read_adapter(rtl)'("/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/src/gowin_hyperram_read_adapter.vhd":16)
+Processing 'hyperram_line_readout(rtl)'("/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/src/hyperram_line_readout.vhd":14)
+Processing 'async_fifo_32(rtl)'("/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/src/async_fifo_32.vhd":8)
+Extracting RAM for identifier 'mem'("/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/src/async_fifo_32.vhd":34)
+Processing 'hyperram_line_reader(rtl)'("/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/src/hyperram_line_reader.vhd":13)
+'others' clause is never selected("/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/src/hyperram_line_reader.vhd":282)
+Processing 'rgb565_line_serializer(rtl)'("/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/src/rgb565_line_serializer.vhd":8)
+'others' clause is never selected("/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/src/rgb565_line_serializer.vhd":333)
+Processing '**(**)'("/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/src/hyperram_memory_interface/hyperram_memory_interface.vhd":3701)
+Processing 'stable_bus_event_cdc(g_width=176)(rtl)'("/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/src/stable_bus_event_cdc.vhd":9)
+Processing 'frame_integrity_checker(rtl)'("/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/src/frame_integrity_checker.vhd":8)
+Processing 'stable_bus_event_cdc(g_width=240)(rtl)'("/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/src/stable_bus_event_cdc.vhd":9)
+WARN  (EX4160) : Latch inferred for net 'write_addr[3]'("/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/src/Camera_HyperRAM_OneFrame.vhd":1234)
+NOTE  (EX0101) : Current top module is "Camera_HyperRAM_OneFrame"
+[5%] Running netlist conversion ...
+Running device independent optimization ...
+[10%] Optimizing Phase 0 completed
+[15%] Optimizing Phase 1 completed
+[25%] Optimizing Phase 2 completed
+Running inference ...
+[30%] Inferring Phase 0 completed
+[40%] Inferring Phase 1 completed
+[50%] Inferring Phase 2 completed
+[55%] Inferring Phase 3 completed
+Running technical mapping ...
+[60%] Tech-Mapping Phase 0 completed
+[65%] Tech-Mapping Phase 1 completed
+[75%] Tech-Mapping Phase 2 completed
+[80%] Tech-Mapping Phase 3 completed
+[90%] Tech-Mapping Phase 4 completed
+[95%] Generate netlist file "/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/impl/gwsynthesis/HYPER_RAM_CONTROL.vg" completed
+[100%] Generate report file "/home/mrk/camera_ram_uart/camera_project/gowin_cameradrive/impl/gwsynthesis/HYPER_RAM_CONTROL_syn.rpt.html" completed
+GowinSynthesis finish
