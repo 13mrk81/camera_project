@@ -1,0 +1,21 @@
+// Tang Nano 4K — Test 5: camera PCLK -> async FIFO -> 24 MHz UART
+// Top module: Test5_CameraPclk_Fifo_Uart
+
+IO_LOC  "clk8" 35;
+IO_PORT "clk8" IO_TYPE=LVCMOS33 PULL_MODE=NONE;
+IO_LOC  "uart_tx_o" 32;
+IO_PORT "uart_tx_o" IO_TYPE=LVCMOS33 PULL_MODE=NONE;
+IO_LOC  "key2_n_i" 15;
+IO_PORT "key2_n_i" IO_TYPE=LVCMOS18 PULL_MODE=NONE;
+IO_LOC  "cam_clk" 33;
+IO_PORT "cam_clk" IO_TYPE=LVCMOS33 DRIVE=8;
+IO_LOC  "cam_scl" 44;
+IO_PORT "cam_scl" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8;
+IO_LOC  "cam_sda" 46;
+IO_PORT "cam_sda" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8;
+IO_LOC  "cam_vsync" 43;
+IO_PORT "cam_vsync" IO_TYPE=LVCMOS33 PULL_MODE=NONE;
+IO_LOC  "cam_hsync" 42;
+IO_PORT "cam_hsync" IO_TYPE=LVCMOS33 PULL_MODE=NONE;
+IO_LOC  "cam_pclk" 41;
+IO_PORT "cam_pclk" IO_TYPE=LVCMOS33 PULL_MODE=NONE;
