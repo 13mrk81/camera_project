@@ -1,7 +1,7 @@
 
-function report = test3_receive_uart(port)
+function report = testA2_receive_uart(port)
 %TEST3_RECEIVE_UART
-% Receive and validate Test 3 synthetic HyperRAM readback.
+% Receive and validate Test A_2 synthetic HyperRAM readback.
 %
 % Synthetic pattern:
 %   word[n] = 0xA5000000 XOR n
@@ -88,14 +88,14 @@ function report = test3_receive_uart(port)
     readySeen = false;
     doneSeen = false;
     errorSeen = false;
+    cameraConfigOKSeen = false;
 
     done = struct();
 
     started = tic;
     overallTimeout_s = 600;
 
-    fprintf("Waiting for FPGA packets.\n");
-    fprintf("Trigger capture using KEY1 if necessary.\n");
+    fprintf("Waiting for automatic GC0308 configuration and first-HSYNC capture.\n");
 
     %% Packet reception and parsing
 
@@ -185,6 +185,12 @@ function report = test3_receive_uart(port)
                     if numel(payload) >= 2
                         fprintf("Stage: code=0x%02X detail=0x%02X\n", ...
                             payload(1), payload(2));
+
+                        if payload(1) == hex2dec('02') && ...
+                           payload(2) == hex2dec('01')
+                            cameraConfigOKSeen = true;
+                            fprintf("CAMERA_CONFIG_OK: GC0308 RGB565 readback verified.\n");
+                        end
                     end
 
                 case hex2dec('11') % READY
@@ -407,6 +413,7 @@ function report = test3_receive_uart(port)
     report = done;
 
     report.packetCount = packetCount;
+    report.cameraConfigOK = cameraConfigOKSeen;
     report.badPacketCRC = badPacketCRC;
 
     report.hostReadbackCRC = hostReadbackCRC;
@@ -427,6 +434,7 @@ function report = test3_receive_uart(port)
     report.statusFlagsValid = statusValid;
 
     report.pass = ...
+        cameraConfigOKSeen && ...
         crcMatch && ...
         expectedCRCMatch && ...
         patternMatch && ...
@@ -437,12 +445,12 @@ function report = test3_receive_uart(port)
 
     %% Save results
 
-    save("test3_report.mat", ...
+    save("testA2_report.mat", ...
         "report", "rgb", "raw565", "rawBytes", "expectedPattern");
 
     if exist("imwrite", "file") == 2
-        imwrite(rgb, "test3_capture.png");
-        fprintf("Saved test3_capture.png\n");
+        imwrite(rgb, "testA2_capture.png");
+        fprintf("Saved testA2_capture.png\n");
     end
 
     %% Print report
@@ -450,6 +458,7 @@ function report = test3_receive_uart(port)
     fprintf("\n========== TEST 3 RESULT ==========\n");
 
     fprintf("Packets received             : %d\n", packetCount);
+    fprintf("Camera configuration OK      : %s\n", string(cameraConfigOKSeen));
     fprintf("Bad packet CRC16             : %d\n", badPacketCRC);
 
     fprintf("Capture CRC32                : 0x%08X\n", done.captureCRC);
@@ -498,7 +507,7 @@ function report = test3_receive_uart(port)
     end
 
     if exist("imshow", "file") == 2
-        figure("Name", "Test 3 Synthetic HyperRAM Readback");
+        figure("Name", "Test A_2 Synthetic HyperRAM Readback");
         imshow(rgb);
         title("Synthetic Word-index Pattern — RGB888 Readback");
     end

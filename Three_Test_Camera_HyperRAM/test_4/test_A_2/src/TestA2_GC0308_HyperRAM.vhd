@@ -15,7 +15,7 @@ use ieee.numeric_std.all;
 -- The address unit and command/data timing remain properties of the generated
 -- Gowin IP and must be confirmed against its generated example/documentation.
 
-entity Test3_24MHz_Synthetic_HyperRAM is
+entity TestA2_GC0308_HyperRAM is
     generic (
         G_FRAME_WIDTH             : positive := 640;
         G_FRAME_HEIGHT            : positive := 480;
@@ -25,8 +25,8 @@ entity Test3_24MHz_Synthetic_HyperRAM is
         G_WRITE_BURST_INTERVAL_CYCLES : positive := 21;
         G_WRITE_READ_GAP_CYCLES   : positive := 63;
         G_READ_TIMEOUT_CYCLES     : positive := 100_000;
-        G_UART_PACKET_GAP_CYCLES   : positive := 160_000; -- 20 ms at 8 MHz
-        G_UART_INTER_BYTE_GAP_CYCLES : positive := 80 -- 10 us at 8 MHz
+        G_UART_PACKET_GAP_CYCLES   : positive := 480_000; -- 20 ms at 24 MHz
+        G_UART_INTER_BYTE_GAP_CYCLES : positive := 240 -- 10 us at 24 MHz
     );
     port (
         -- 8 MHz board clock.
@@ -35,8 +35,6 @@ entity Test3_24MHz_Synthetic_HyperRAM is
         -- Tang Nano 4K KEY2: active-low global system reset.
         key2_n_i            : in  std_logic;
 
-        -- Tang Nano 4K KEY1: active-low on-board pushbutton trigger.
-        trigger_n_i         : in  std_logic;
         -- FPGA -> MATLAB UART TX only; no host-to-FPGA UART data.
         uart_tx_o           : out std_logic;
 
@@ -44,10 +42,7 @@ entity Test3_24MHz_Synthetic_HyperRAM is
         cam_clk             : out std_logic;
         cam_sda             : inout std_logic;
         cam_scl             : inout std_logic;
-        cam_pclk            : in  std_logic;
-        cam_vsync           : in  std_logic;
         cam_hsync           : in  std_logic;
-        cam_pix_data        : in  std_logic_vector(7 downto 0);
 
         -- HyperRAM physical interface (same generated IP configuration).
         O_hpram_ck          : out std_logic_vector(0 downto 0);
@@ -59,7 +54,7 @@ entity Test3_24MHz_Synthetic_HyperRAM is
     );
 end entity;
 
-architecture rtl of Test3_24MHz_Synthetic_HyperRAM is
+architecture rtl of TestA2_GC0308_HyperRAM is
     --------------------------------------------------------------------------
     -- Constants and types.
     --------------------------------------------------------------------------
@@ -74,7 +69,6 @@ architecture rtl of Test3_24MHz_Synthetic_HyperRAM is
     constant C_TOTAL_BURSTS          : positive := C_TOTAL_WORDS / C_BURST_WORDS;
     constant C_ADDR_STEP             : unsigned(21 downto 0) := to_unsigned(16, 22);
     constant C_PLL_STABLE_CYCLES     : positive := 48_000; -- 2 ms at 24 MHz
-    constant C_TRIGGER_DEBOUNCE_CYCLES : positive := 160_000; -- 20 ms at 8 MHz
     constant C_MIN_GAP_CYCLES        : positive := G_WRITE_BURST_INTERVAL_CYCLES - C_BURST_WORDS;
 
     type burst_buffer_t is array (0 to C_BURST_WORDS - 1) of std_logic_vector(31 downto 0);
@@ -133,7 +127,7 @@ architecture rtl of Test3_24MHz_Synthetic_HyperRAM is
         );
     end component;
 
-    -- Global reset: asynchronous assertion from KEY2, synchronous release to clk8.
+    -- Global reset: asynchronous assertion from KEY2, synchronous release to clk24.
     signal rst_n              : std_logic := '0';
     signal rst_meta           : std_logic := '0';
 
@@ -167,16 +161,10 @@ architecture rtl of Test3_24MHz_Synthetic_HyperRAM is
     --------------------------------------------------------------------------
     -- Debounced KEY1 trigger, one-way UART TX protocol and CDC status levels.
     --------------------------------------------------------------------------
-    signal camera_start_pulse : std_logic;
-    signal protocol_transfer_start : std_logic;
+    signal hsync_start_pulse  : std_logic := '0';
     signal protocol_line_start : std_logic;
     signal protocol_line_index : std_logic_vector(15 downto 0);
 
-    signal trigger_meta       : std_logic := '1';
-    signal trigger_sync       : std_logic := '1';
-    signal trigger_stable     : std_logic := '1';
-    signal trigger_pulse      : std_logic := '0';
-    signal trigger_count      : natural range 0 to C_TRIGGER_DEBOUNCE_CYCLES := 0;
 
     signal protocol_tx_data   : std_logic_vector(7 downto 0);
     signal protocol_tx_valid  : std_logic;
@@ -188,20 +176,20 @@ architecture rtl of Test3_24MHz_Synthetic_HyperRAM is
     signal protocol_line_ack  : std_logic;
     signal line_ack_usr       : std_logic;
 
-    signal write_done_meta_8  : std_logic := '0';
-    signal write_done_sync_8  : std_logic := '0';
-    signal frame_error_meta_8 : std_logic := '0';
-    signal frame_error_sync_8: std_logic := '0';
-    signal cap_fifo_overflow_meta_8 : std_logic := '0';
-    signal cap_fifo_overflow_sync_8 : std_logic := '0';
+    signal write_done_meta_24  : std_logic := '0';
+    signal write_done_sync_24  : std_logic := '0';
+    signal frame_error_meta_24 : std_logic := '0';
+    signal frame_error_sync_24: std_logic := '0';
+    signal cap_fifo_overflow_meta_24 : std_logic := '0';
+    signal cap_fifo_overflow_sync_24 : std_logic := '0';
 
-    signal cam_config_done_meta_8 : std_logic := '0';
-    signal cam_config_done_sync_8 : std_logic := '0';
-    signal cam_config_pass_meta_8 : std_logic := '0';
-    signal cam_config_pass_sync_8 : std_logic := '0';
-    signal reader_error_meta_8    : std_logic := '0';
-    signal reader_error_sync_8    : std_logic := '0';
-    signal readout_error_8        : std_logic;
+    signal cam_config_done_meta_24 : std_logic := '0';
+    signal cam_config_done_sync_24 : std_logic := '0';
+    signal cam_config_pass_meta_24 : std_logic := '0';
+    signal cam_config_pass_sync_24 : std_logic := '0';
+    signal reader_error_meta_24    : std_logic := '0';
+    signal reader_error_sync_24    : std_logic := '0';
+    signal readout_error_24        : std_logic;
 
     signal serializer_error_meta_usr : std_logic := '0';
     signal serializer_error_sync_usr : std_logic := '0';
@@ -210,12 +198,18 @@ architecture rtl of Test3_24MHz_Synthetic_HyperRAM is
 
     signal cam_config_done    : std_logic;
     signal cam_config_pass    : std_logic;
+    signal camera_cfg_start_pulse : std_logic := '0';
+    signal camera_cfg_start_sent  : std_logic := '0';
+    signal cam_hsync_meta          : std_logic := '0';
+    signal cam_hsync_sync          : std_logic := '0';
+    signal cam_hsync_prev          : std_logic := '0';
+    signal hsync_triggered         : std_logic := '0';
     
-    -- Test 3 synthetic byte stream in the independent 24 MHz domain.
-    signal test3_byte_data       : std_logic_vector(7 downto 0);
-    signal test3_byte_valid      : std_logic;
-    signal test3_frame_done      : std_logic;
-    signal test3_frame_error     : std_logic;
+    -- Test A_2 synthetic byte stream in the independent 24 MHz domain.
+    signal testA2_byte_data       : std_logic_vector(7 downto 0);
+    signal testA2_byte_valid      : std_logic;
+    signal testA2_frame_done      : std_logic;
+    signal testA2_frame_error     : std_logic;
 
 
     --------------------------------------------------------------------------
@@ -258,24 +252,22 @@ architecture rtl of Test3_24MHz_Synthetic_HyperRAM is
     attribute async_reg of rst_meta : signal is "true";
     attribute async_reg of clk24_rst_meta : signal is "true";
     attribute async_reg of clk24_rst_n : signal is "true";
-    attribute async_reg of write_done_meta_8 : signal is "true";
-    attribute async_reg of write_done_sync_8 : signal is "true";
-    attribute async_reg of frame_error_meta_8 : signal is "true";
-    attribute async_reg of frame_error_sync_8 : signal is "true";
-    attribute async_reg of cap_fifo_overflow_meta_8 : signal is "true";
-    attribute async_reg of cap_fifo_overflow_sync_8 : signal is "true";
+    attribute async_reg of write_done_meta_24 : signal is "true";
+    attribute async_reg of write_done_sync_24 : signal is "true";
+    attribute async_reg of frame_error_meta_24 : signal is "true";
+    attribute async_reg of frame_error_sync_24 : signal is "true";
+    attribute async_reg of cap_fifo_overflow_meta_24 : signal is "true";
+    attribute async_reg of cap_fifo_overflow_sync_24 : signal is "true";
     attribute async_reg of serializer_error_meta_usr : signal is "true";
     attribute async_reg of serializer_error_sync_usr : signal is "true";
     attribute async_reg of protocol_error_meta_usr : signal is "true";
     attribute async_reg of protocol_error_sync_usr : signal is "true";
-    attribute async_reg of trigger_meta : signal is "true";
-    attribute async_reg of trigger_sync : signal is "true";
-    attribute async_reg of cam_config_done_meta_8 : signal is "true";
-    attribute async_reg of cam_config_done_sync_8 : signal is "true";
-    attribute async_reg of cam_config_pass_meta_8 : signal is "true";
-    attribute async_reg of cam_config_pass_sync_8 : signal is "true";
-    attribute async_reg of reader_error_meta_8 : signal is "true";
-    attribute async_reg of reader_error_sync_8 : signal is "true";
+    attribute async_reg of cam_config_done_meta_24 : signal is "true";
+    attribute async_reg of cam_config_done_sync_24 : signal is "true";
+    attribute async_reg of cam_config_pass_meta_24 : signal is "true";
+    attribute async_reg of cam_config_pass_sync_24 : signal is "true";
+    attribute async_reg of reader_error_meta_24 : signal is "true";
+    attribute async_reg of reader_error_sync_24 : signal is "true";
 
     --------------------------------------------------------------------------
     -- 24 MHz capture FIFO -> HyperRAM write engine.
@@ -303,7 +295,7 @@ architecture rtl of Test3_24MHz_Synthetic_HyperRAM is
     --------------------------------------------------------------------------
     -- Read adapter and line-by-line readout subsystem.
     --------------------------------------------------------------------------
-    signal readout_start_reg      : std_logic := '0'; -- clk8 domain, sticky
+    signal readout_start_reg      : std_logic := '0'; -- clk24 domain, sticky
     signal readout_start_meta_usr : std_logic := '0';
     signal readout_start_sync_usr : std_logic := '0';
     attribute async_reg of readout_start_meta_usr : signal is "true";
@@ -352,19 +344,19 @@ architecture rtl of Test3_24MHz_Synthetic_HyperRAM is
     signal stream_stats_usr       : std_logic_vector(175 downto 0);
     signal stream_stats_valid_usr : std_logic;
 
-    -- Final integrity telemetry crosses back to clk8 before the DONE packet.
+    -- Final integrity telemetry crosses back to clk24 before the DONE packet.
     signal telemetry_snapshot_src : std_logic_vector(239 downto 0);
-    signal telemetry_snapshot_8   : std_logic_vector(239 downto 0);
-    signal telemetry_valid_8      : std_logic;
+    signal telemetry_snapshot_24   : std_logic_vector(239 downto 0);
+    signal telemetry_valid_24      : std_logic;
     signal telemetry_status_usr   : std_logic_vector(15 downto 0);
-    signal telemetry_capture_crc_8 : std_logic_vector(31 downto 0);
-    signal telemetry_write_crc_8 : std_logic_vector(31 downto 0);
-    signal telemetry_read_ingress_crc_8 : std_logic_vector(31 downto 0);
-    signal telemetry_source_bytes_8 : unsigned(31 downto 0);
-    signal telemetry_capture_bytes_8 : unsigned(31 downto 0);
-    signal telemetry_write_words_8 : unsigned(31 downto 0);
-    signal telemetry_read_words_8 : unsigned(31 downto 0);
-    signal telemetry_status_8 : std_logic_vector(15 downto 0);
+    signal telemetry_capture_crc_24 : std_logic_vector(31 downto 0);
+    signal telemetry_write_crc_24 : std_logic_vector(31 downto 0);
+    signal telemetry_read_ingress_crc_24 : std_logic_vector(31 downto 0);
+    signal telemetry_source_bytes_24 : unsigned(31 downto 0);
+    signal telemetry_capture_bytes_24 : unsigned(31 downto 0);
+    signal telemetry_write_words_24 : unsigned(31 downto 0);
+    signal telemetry_read_words_24 : unsigned(31 downto 0);
+    signal telemetry_status_24 : std_logic_vector(15 downto 0);
     signal readback_crc           : std_logic_vector(31 downto 0);
     signal readback_raw_bytes     : unsigned(31 downto 0);
     signal readback_word_count    : unsigned(31 downto 0);
@@ -452,12 +444,12 @@ begin
 
     -- KEY2 is active-low. Assertion is asynchronous; release is synchronized
     -- to the always-running 8 MHz board clock.
-    process(clk8, key2_n_i)
+    process(clk24, key2_n_i)
     begin
         if key2_n_i = '0' then
             rst_meta <= '0';
             rst_n    <= '0';
-        elsif rising_edge(clk8) then
+        elsif rising_edge(clk24) then
             rst_meta <= '1';
             rst_n    <= rst_meta;
         end if;
@@ -524,47 +516,16 @@ begin
     end process;
 
     --------------------------------------------------------------------------
-    -- KEY1 active-low trigger: synchronize, debounce for 20 ms, and emit one
-    -- clk8 pulse on a stable high-to-low transition.
-    --------------------------------------------------------------------------
-    process(clk8, rst_n)
-    begin
-        if rst_n = '0' then
-            trigger_meta   <= '1';
-            trigger_sync   <= '1';
-            trigger_stable <= '1';
-            trigger_count  <= 0;
-            trigger_pulse  <= '0';
-        elsif rising_edge(clk8) then
-            trigger_meta  <= trigger_n_i;
-            trigger_sync  <= trigger_meta;
-            trigger_pulse <= '0';
-
-            if trigger_sync = trigger_stable then
-                trigger_count <= 0;
-            elsif trigger_count = C_TRIGGER_DEBOUNCE_CYCLES - 1 then
-                trigger_stable <= trigger_sync;
-                trigger_count <= 0;
-                if (trigger_stable = '1') and (trigger_sync = '0') then
-                    trigger_pulse <= '1';
-                end if;
-            else
-                trigger_count <= trigger_count + 1;
-            end if;
-        end if;
-    end process;
-
-    --------------------------------------------------------------------------
     -- One-way UART TX physical layer and staged camera stream protocol.
     --------------------------------------------------------------------------
     u_uart_tx : entity work.uart_tx
         generic map (
-            G_CLK_FREQ_HZ           => 8_000_000,
+            G_CLK_FREQ_HZ           => 24_000_000,
             G_BAUD_RATE             => 115_200,
             G_INTER_BYTE_GAP_CYCLES => G_UART_INTER_BYTE_GAP_CYCLES
         )
         port map (
-            clk => clk8, rst_n => rst_n, data_i => protocol_tx_data,
+            clk => clk24, rst_n => rst_n, data_i => protocol_tx_data,
             data_valid_i => protocol_tx_valid, data_ready_o => protocol_tx_ready,
             serial_tx_o => uart_tx_o
         );
@@ -574,28 +535,28 @@ begin
             G_FRAME_WIDTH           => G_FRAME_WIDTH,
             G_FRAME_HEIGHT          => G_FRAME_HEIGHT,
             G_PACKET_GAP_CYCLES     => G_UART_PACKET_GAP_CYCLES,
-            G_SOURCE_TIMEOUT_CYCLES => 32_000_000,
-            G_FRAME_TIMEOUT_CYCLES  => 120_000_000
+            G_SOURCE_TIMEOUT_CYCLES => 96_000_000,
+            G_FRAME_TIMEOUT_CYCLES  => 360_000_000
         )
         port map (
-            clk => clk8, rst_n => rst_n,
-            trigger_i => trigger_pulse,
-            camera_config_done_i => cam_config_done_sync_8,
-            camera_config_pass_i => cam_config_pass_sync_8,
-            frame_available_i => write_done_sync_8,
-            frame_error_i => frame_error_sync_8,
-            capture_fifo_overflow_i => cap_fifo_overflow_sync_8,
-            readout_error_i => readout_error_8,
+            clk => clk24, rst_n => rst_n,
+            trigger_i => camera_cfg_start_pulse,
+            camera_config_done_i => cam_config_done_sync_24,
+            camera_config_pass_i => cam_config_pass_sync_24,
+            frame_available_i => write_done_sync_24,
+            frame_error_i => frame_error_sync_24,
+            capture_fifo_overflow_i => cap_fifo_overflow_sync_24,
+            readout_error_i => readout_error_24,
             serializer_done_i => serializer_done,
-            telemetry_ready_i => telemetry_valid_8,
-            capture_crc_i => telemetry_capture_crc_8,
-            write_crc_i => telemetry_write_crc_8,
-            read_ingress_crc_i => telemetry_read_ingress_crc_8,
-            source_byte_count_i => telemetry_source_bytes_8,
-            capture_byte_count_i => telemetry_capture_bytes_8,
-            write_word_count_i => telemetry_write_words_8,
-            read_ingress_word_count_i => telemetry_read_words_8,
-            status_flags_i => telemetry_status_8,
+            telemetry_ready_i => telemetry_valid_24,
+            capture_crc_i => telemetry_capture_crc_24,
+            write_crc_i => telemetry_write_crc_24,
+            read_ingress_crc_i => telemetry_read_ingress_crc_24,
+            source_byte_count_i => telemetry_source_bytes_24,
+            capture_byte_count_i => telemetry_capture_bytes_24,
+            write_word_count_i => telemetry_write_words_24,
+            read_ingress_word_count_i => telemetry_read_words_24,
+            status_flags_i => telemetry_status_24,
             readback_crc_i => readback_crc_uart,
             pixel_count_i => output_pixel_count_uart,
             uart_byte_count_i => uart_byte_count_uart,
@@ -608,67 +569,58 @@ begin
             src_data_i => uart_tx_data,
             src_valid_i => uart_tx_valid,
             src_ready_o => protocol_src_ready,
-            transfer_start_o => protocol_transfer_start,
+            transfer_start_o => open,
             line_ack_o => protocol_line_ack,
             busy_o => protocol_busy, done_o => protocol_done,
             error_o => protocol_error
         );
 
-    -- Debounced KEY1 event crosses into the independent 24 MHz data domain.
-    u_camera_start_cdc : entity work.pulse_toggle_cdc
-        port map (
-            src_clk => clk8, src_rst_n => rst_n,
-            src_pulse_i => protocol_transfer_start,
-            dst_clk => clk24, dst_rst_n => clk24_rst_n,
-            dst_pulse_o => camera_start_pulse
-        );
-
-    -- Host ACK/NACK events cross from protocol clk8 to HyperRAM usr_clk.
+    -- Host ACK/NACK events cross from protocol clk24 to HyperRAM usr_clk.
     u_line_ack_cdc : entity work.pulse_toggle_cdc
         port map (
-            src_clk => clk8, src_rst_n => rst_n,
+            src_clk => clk24, src_rst_n => rst_n,
             src_pulse_i => protocol_line_ack,
             dst_clk => usr_clk, dst_rst_n => usr_rst_n,
             dst_pulse_o => line_ack_usr
         );
 
-    -- Synchronize sticky status levels into clk8 from clk24 and usr_clk.
-    process(clk8, rst_n)
+    -- Synchronize sticky status levels into clk24 from clk24 and usr_clk.
+    process(clk24, rst_n)
     begin
         if rst_n = '0' then
-            write_done_meta_8 <= '0';
-            write_done_sync_8 <= '0';
-            frame_error_meta_8 <= '0';
-            frame_error_sync_8 <= '0';
-            cap_fifo_overflow_meta_8 <= '0';
-            cap_fifo_overflow_sync_8 <= '0';
-            cam_config_done_meta_8 <= '0';
-            cam_config_done_sync_8 <= '0';
-            cam_config_pass_meta_8 <= '0';
-            cam_config_pass_sync_8 <= '0';
-            reader_error_meta_8 <= '0';
-            reader_error_sync_8 <= '0';
-        elsif rising_edge(clk8) then
-            write_done_meta_8 <= write_done_reg;
-            write_done_sync_8 <= write_done_meta_8;
-            frame_error_meta_8 <= capture_error_sync_usr or write_error_reg;
-            frame_error_sync_8 <= frame_error_meta_8;
-            cap_fifo_overflow_meta_8 <= cap_fifo_overflow_cam;
-            cap_fifo_overflow_sync_8 <= cap_fifo_overflow_meta_8;
+            write_done_meta_24 <= '0';
+            write_done_sync_24 <= '0';
+            frame_error_meta_24 <= '0';
+            frame_error_sync_24 <= '0';
+            cap_fifo_overflow_meta_24 <= '0';
+            cap_fifo_overflow_sync_24 <= '0';
+            cam_config_done_meta_24 <= '0';
+            cam_config_done_sync_24 <= '0';
+            cam_config_pass_meta_24 <= '0';
+            cam_config_pass_sync_24 <= '0';
+            reader_error_meta_24 <= '0';
+            reader_error_sync_24 <= '0';
+        elsif rising_edge(clk24) then
+            write_done_meta_24 <= write_done_reg;
+            write_done_sync_24 <= write_done_meta_24;
+            frame_error_meta_24 <= capture_error_sync_usr or write_error_reg;
+            frame_error_sync_24 <= frame_error_meta_24;
+            cap_fifo_overflow_meta_24 <= cap_fifo_overflow_cam;
+            cap_fifo_overflow_sync_24 <= cap_fifo_overflow_meta_24;
 
-            cam_config_done_meta_8 <= cam_config_done;
-            cam_config_done_sync_8 <= cam_config_done_meta_8;
-            cam_config_pass_meta_8 <= cam_config_pass;
-            cam_config_pass_sync_8 <= cam_config_pass_meta_8;
+            cam_config_done_meta_24 <= cam_config_done;
+            cam_config_done_sync_24 <= cam_config_done_meta_24;
+            cam_config_pass_meta_24 <= cam_config_pass;
+            cam_config_pass_sync_24 <= cam_config_pass_meta_24;
 
-            reader_error_meta_8 <= reader_error;
-            reader_error_sync_8 <= reader_error_meta_8;
+            reader_error_meta_24 <= reader_error;
+            reader_error_sync_24 <= reader_error_meta_24;
         end if;
     end process;
 
-    readout_error_8 <= reader_error_sync_8 or serializer_error;
+    readout_error_24 <= reader_error_sync_24 or serializer_error;
 
-    -- Serializer error is a clk8-domain status; synchronize it for the
+    -- Serializer error is a clk24-domain status; synchronize it for the
     -- HyperRAM-domain integrity checker.
     process(usr_clk, usr_rst_n)
     begin
@@ -693,15 +645,95 @@ begin
     end process;
 
     --------------------------------------------------------------------------
-    -- Test 3: camera-independent synthetic source.
+    -- GC0308 SCCB configuration and verified RGB565 mode.
+    -- The camera_interface FSM checks chip ID, write ACK/NACK, stable mode
+    -- registers 0x25/0x26/0x28, and Page 0 register 0x24 == 0xA6 (RGB565).
+    -- Its DVP capture side is parked: local PCLK=clk24, VSYNC inactive,
+    -- pixel data zero. Sensor PCLK/VSYNC/DVP data are not datapath inputs.
+    --------------------------------------------------------------------------
+    cam_clk <= clk24;
+
+    process(clk24, clk24_rst_n)
+    begin
+        if clk24_rst_n = '0' then
+            camera_cfg_start_pulse <= '0';
+            camera_cfg_start_sent  <= '0';
+        elsif rising_edge(clk24) then
+            camera_cfg_start_pulse <= '0';
+            if (pll_stable = '1') and (camera_cfg_start_sent = '0') then
+                camera_cfg_start_pulse <= '1';
+                camera_cfg_start_sent  <= '1';
+            end if;
+        end if;
+    end process;
+
+    u_gc0308_config : entity work.camera_interface
+        generic map (
+            G_CLK_FREQ_HZ     => 24_000_000,
+            G_I2C_DEVICE_ADDR => "0100001",
+            G_RESET_WAIT_MS   => 80,
+            G_POR_RESET_MS    => 1,
+            G_FRAME_WIDTH     => G_FRAME_WIDTH,
+            G_FRAME_HEIGHT    => G_FRAME_HEIGHT
+        )
+        port map (
+            clk24              => clk24,
+            clkcam             => open,
+            rst_n              => clk24_rst_n,
+            rst_trigger        => camera_cfg_start_pulse,
+            cam_sda            => cam_sda,
+            cam_scl            => cam_scl,
+            cam_pclk           => clk24,
+            cam_vsync          => '0',
+            cam_hsync          => cam_hsync,
+            cam_pix_data       => (others => '0'),
+            frame_byte_o       => open,
+            frame_byte_valid_o => open,
+            frame_done_o       => open,
+            frame_error_o      => open,
+            config_done_o      => cam_config_done,
+            config_pass_o      => cam_config_pass,
+            line_count_o       => open,
+            line_byte_count_o  => open
+        );
+
+    --------------------------------------------------------------------------
+    -- First-HSYNC one-shot trigger. Register 0x26 is verified as 0x03,
+    -- therefore HSYNC is active high. Only a rising edge after config_pass
+    -- emits one 24 MHz pulse; subsequent HSYNC edges are ignored.
+    --------------------------------------------------------------------------
+    process(clk24, clk24_rst_n)
+    begin
+        if clk24_rst_n = '0' then
+            cam_hsync_meta   <= '0';
+            cam_hsync_sync   <= '0';
+            cam_hsync_prev   <= '0';
+            hsync_triggered  <= '0';
+            hsync_start_pulse <= '0';
+        elsif rising_edge(clk24) then
+            cam_hsync_meta <= cam_hsync;
+            cam_hsync_sync <= cam_hsync_meta;
+            cam_hsync_prev <= cam_hsync_sync;
+            hsync_start_pulse <= '0';
+
+            if (cam_config_done = '1') and
+               (cam_config_pass = '1') and
+               (hsync_triggered = '0') then
+                if (cam_hsync_sync = '1') and (cam_hsync_prev = '0') then
+                    hsync_start_pulse <= '1';
+                    hsync_triggered <= '1';
+                end if;
+            end if;
+        end if;
+    end process;
+
+    --------------------------------------------------------------------------
+    -- Test A_2: camera-independent synthetic source.
     -- The existing PLL generates clk24 from the 8 MHz board oscillator.
     -- No camera PCLK/VSYNC/HREF/DVP signal participates in this data path.
     --------------------------------------------------------------------------
-    cam_clk <= '0';
-    cam_config_done <= pll_stable;
-    cam_config_pass <= pll_stable;
 
-    u_test3_synthetic_source : entity work.test3_synthetic_frame_source
+    u_testA2_synthetic_source : entity work.testA2_synthetic_frame_source
         generic map (
             G_FRAME_WIDTH  => G_FRAME_WIDTH,
             G_FRAME_HEIGHT => G_FRAME_HEIGHT
@@ -709,11 +741,11 @@ begin
         port map (
             clk24             => clk24,
             rst_n             => clk24_rst_n,
-            start_i           => camera_start_pulse,
-            synthetic_byte_o  => test3_byte_data,
-            synthetic_valid_o => test3_byte_valid,
-            frame_done_o      => test3_frame_done,
-            frame_error_o     => test3_frame_error
+            start_i           => hsync_start_pulse,
+            synthetic_byte_o  => testA2_byte_data,
+            synthetic_valid_o => testA2_byte_valid,
+            frame_done_o      => testA2_frame_done,
+            frame_error_o     => testA2_frame_error
         );
 
 
@@ -728,10 +760,10 @@ begin
         port map (
             cam_pclk          => clk24,
             rst_n             => clk24_rst_n,
-            cam_byte_i        => test3_byte_data,
-            cam_byte_valid_i  => test3_byte_valid,
-            cam_frame_done_i  => test3_frame_done,
-            cam_frame_error_i => test3_frame_error,
+            cam_byte_i        => testA2_byte_data,
+            cam_byte_valid_i  => testA2_byte_valid,
+            cam_frame_done_i  => testA2_frame_done,
+            cam_frame_error_i => testA2_frame_error,
             packed_word_o     => cap_packed_word,
             packed_valid_o    => cap_packed_valid,
             capture_done_o    => cap_capture_done,
@@ -959,7 +991,7 @@ begin
 
     --------------------------------------------------------------------------
     -- HyperRAM read adapter, line reader, output FIFO #2 and RGB serializer.
-    -- Serializer byte stream is consumed by the clk8 UART protocol engine.
+    -- Serializer byte stream is consumed by the clk24 UART protocol engine.
     --------------------------------------------------------------------------
     u_hyperram_read_adapter : entity work.gowin_hyperram_read_adapter
         generic map (
@@ -995,7 +1027,7 @@ begin
         )
         port map (
             mem_clk                => usr_clk,
-            uart_clk               => clk8,
+            uart_clk               => clk24,
             mem_rst_n              => usr_rst_n,
             uart_rst_n             => rst_n,
             frame_written_i        => readout_start_sync_usr,
@@ -1041,11 +1073,11 @@ begin
 
     -- Begin prefetch when the protocol starts the first LINE packet. The
     -- synchronized level remains asserted for every row in this one-shot frame.
-    process(clk8, rst_n)
+    process(clk24, rst_n)
     begin
         if rst_n = '0' then
             readout_start_reg <= '0';
-        elsif rising_edge(clk8) then
+        elsif rising_edge(clk24) then
             if protocol_line_start = '1' then
                 readout_start_reg <= '1';
             end if;
@@ -1131,7 +1163,7 @@ begin
     u_stream_stats_cdc : entity work.stable_bus_event_cdc
         generic map (G_WIDTH => 176)
         port map (
-            src_clk => clk8, src_rst_n => rst_n,
+            src_clk => clk24, src_rst_n => rst_n,
             src_event_i => serializer_done, src_data_i => stream_stats_src,
             dst_clk => usr_clk, dst_rst_n => usr_rst_n,
             dst_event_o => stream_stats_valid_usr, dst_data_o => stream_stats_usr
@@ -1216,20 +1248,20 @@ begin
             src_rst_n   => usr_rst_n,
             src_event_i => integrity_done,
             src_data_i  => telemetry_snapshot_src,
-            dst_clk     => clk8,
+            dst_clk     => clk24,
             dst_rst_n   => rst_n,
-            dst_event_o => telemetry_valid_8,
-            dst_data_o  => telemetry_snapshot_8
+            dst_event_o => telemetry_valid_24,
+            dst_data_o  => telemetry_snapshot_24
         );
 
-    telemetry_capture_crc_8       <= telemetry_snapshot_8(239 downto 208);
-    telemetry_write_crc_8          <= telemetry_snapshot_8(207 downto 176);
-    telemetry_read_ingress_crc_8   <= telemetry_snapshot_8(175 downto 144);
-    telemetry_source_bytes_8       <= unsigned(telemetry_snapshot_8(143 downto 112));
-    telemetry_capture_bytes_8      <= unsigned(telemetry_snapshot_8(111 downto 80));
-    telemetry_write_words_8        <= unsigned(telemetry_snapshot_8(79 downto 48));
-    telemetry_read_words_8         <= unsigned(telemetry_snapshot_8(47 downto 16));
-    telemetry_status_8             <= telemetry_snapshot_8(15 downto 0);
+    telemetry_capture_crc_24       <= telemetry_snapshot_24(239 downto 208);
+    telemetry_write_crc_24          <= telemetry_snapshot_24(207 downto 176);
+    telemetry_read_ingress_crc_24   <= telemetry_snapshot_24(175 downto 144);
+    telemetry_source_bytes_24       <= unsigned(telemetry_snapshot_24(143 downto 112));
+    telemetry_capture_bytes_24      <= unsigned(telemetry_snapshot_24(111 downto 80));
+    telemetry_write_words_24        <= unsigned(telemetry_snapshot_24(79 downto 48));
+    telemetry_read_words_24         <= unsigned(telemetry_snapshot_24(47 downto 16));
+    telemetry_status_24             <= telemetry_snapshot_24(15 downto 0);
 
     --------------------------------------------------------------------------
     -- Internal status/error aggregation. No debug/status top-level ports.
