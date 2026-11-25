@@ -55,25 +55,34 @@ end entity;
 architecture rtl of camera_interface is
 
     component i2c_master_nack is
+        generic (
+            G_CLK_FREQ_HZ : positive := 24_000_000;
+            G_I2C_FREQ_HZ : positive := 100_000
+        );
         port (
-            clk       : in    std_logic;
-            rst_n     : in    std_logic;
-            start     : in    std_logic;
-            rw        : in    std_logic;
-            dev_addr  : in    std_logic_vector(6 downto 0);
-            reg_addr  : in    std_logic_vector(7 downto 0);
-            wr_data   : in    std_logic_vector(7 downto 0);
-            rd_data   : out   std_logic_vector(7 downto 0);
-            ack_out   : out   std_logic;
-            nack_seen : out   std_logic;
-            busy      : out   std_logic;
-            done      : out   std_logic;
-            dbg_rx    : out   std_logic_vector(7 downto 0);
-            dbg_shift : out   std_logic_vector(7 downto 0);
-            dbg_phase : out   std_logic_vector(1 downto 0);
-            dbg_seq   : out   std_logic_vector(1 downto 0);
-            scl       : inout std_logic;
-            sda       : inout std_logic
+            clk         : in    std_logic;
+            rst_n       : in    std_logic;
+            start       : in    std_logic;
+            rw          : in    std_logic;
+            dev_addr    : in    std_logic_vector(6 downto 0);
+            reg_addr    : in    std_logic_vector(7 downto 0);
+            wr_data     : in    std_logic_vector(7 downto 0);
+            rd_data     : out   std_logic_vector(7 downto 0);
+            ack_out     : out   std_logic;
+            nack_seen   : out   std_logic;
+            ack_count   : out   std_logic_vector(1 downto 0);
+            busy        : out   std_logic;
+            done        : out   std_logic;
+            dbg_rx      : out   std_logic_vector(7 downto 0);
+            dbg_shift   : out   std_logic_vector(7 downto 0);
+            dbg_phase   : out   std_logic_vector(1 downto 0);
+            dbg_seq     : out   std_logic_vector(1 downto 0);
+            dbg_state   : out   std_logic_vector(3 downto 0);
+            dbg_sda_in  : out   std_logic;
+            dbg_scl_low : out   std_logic;
+            dbg_sda_low : out   std_logic;
+            scl         : inout std_logic;
+            sda         : inout std_logic
         );
     end component;
 
@@ -333,6 +342,10 @@ begin
     line_byte_count_o  <= std_logic_vector(line_byte_count_sig);
 
     u_i2c_master : i2c_master_nack
+        generic map (
+            G_CLK_FREQ_HZ => G_CLK_FREQ_HZ,
+            G_I2C_FREQ_HZ => 100_000
+        )
         port map (
             clk       => clk24,
             rst_n     => i2c_rst_n,
@@ -344,12 +357,17 @@ begin
             rd_data   => i2c_rdata_sig,
             ack_out   => ack_out_sig,
             nack_seen => nack_seen_sig,
+            ack_count => open,
             busy      => busy_sig,
             done      => done_sig,
             dbg_rx    => dbg_rx_sig,
             dbg_shift => dbg_shift_sig,
             dbg_phase => dbg_phase_sig,
             dbg_seq   => dbg_seq_sig,
+            dbg_state => open,
+            dbg_sda_in => open,
+            dbg_scl_low => open,
+            dbg_sda_low => open,
             scl       => cam_scl,
             sda       => cam_sda
         );
