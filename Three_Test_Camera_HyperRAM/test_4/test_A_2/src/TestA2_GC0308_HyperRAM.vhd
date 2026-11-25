@@ -203,6 +203,7 @@ architecture rtl of TestA2_GC0308_HyperRAM is
     signal cam_hsync_meta          : std_logic := '0';
     signal cam_hsync_sync          : std_logic := '0';
     signal cam_hsync_prev          : std_logic := '0';
+    signal hsync_armed              : std_logic := '0';
     signal hsync_triggered         : std_logic := '0';
     
     -- Test A_2 synthetic byte stream in the independent 24 MHz domain.
@@ -705,24 +706,37 @@ begin
     process(clk24, clk24_rst_n)
     begin
         if clk24_rst_n = '0' then
-            cam_hsync_meta   <= '0';
-            cam_hsync_sync   <= '0';
-            cam_hsync_prev   <= '0';
-            hsync_triggered  <= '0';
+            cam_hsync_meta    <= '0';
+            cam_hsync_sync    <= '0';
+            cam_hsync_prev    <= '0';
+            hsync_armed       <= '0';
+            hsync_triggered   <= '0';
             hsync_start_pulse <= '0';
         elsif rising_edge(clk24) then
             cam_hsync_meta <= cam_hsync;
             cam_hsync_sync <= cam_hsync_meta;
-            cam_hsync_prev <= cam_hsync_sync;
             hsync_start_pulse <= '0';
 
-            if (cam_config_done = '1') and
-               (cam_config_pass = '1') and
-               (hsync_triggered = '0') then
-                if (cam_hsync_sync = '1') and (cam_hsync_prev = '0') then
-                    hsync_start_pulse <= '1';
-                    hsync_triggered <= '1';
+            if (cam_config_done = '1') and (cam_config_pass = '1') then
+                if hsync_armed = '0' then
+                    -- Establish an inactive-level baseline after configuration.
+                    -- If HSYNC is already active, wait for it to return low;
+                    -- the next active-high edge is then unambiguously post-config.
+                    cam_hsync_prev <= cam_hsync_sync;
+                    if cam_hsync_sync = '0' then
+                        hsync_armed <= '1';
+                    end if;
+                else
+                    cam_hsync_prev <= cam_hsync_sync;
+                    if (hsync_triggered = '0') and
+                       (cam_hsync_sync = '1') and (cam_hsync_prev = '0') then
+                        hsync_start_pulse <= '1';
+                        hsync_triggered <= '1';
+                    end if;
                 end if;
+            else
+                cam_hsync_prev <= cam_hsync_sync;
+                hsync_armed <= '0';
             end if;
         end if;
     end process;
