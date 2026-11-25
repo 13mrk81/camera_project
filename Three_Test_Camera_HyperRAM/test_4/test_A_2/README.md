@@ -32,10 +32,12 @@ does not enable the synthetic generator.
 ## First-HSYNC one-shot
 
 After successful configuration, the physical HSYNC input is synchronized
-through two flip-flops into 24 MHz. Its first active-high rising edge emits
-one single-cycle start pulse. A latch prevents later HSYNC edges from
-restarting the generator. The configured polarity is verified by register
-0x26 = 0x03.
+through two flip-flops into 24 MHz. The detector first establishes an inactive
+(low) baseline; if HSYNC is already active at configuration completion, it
+waits for the next inactive interval. The first subsequent active-high rising
+edge emits one single-cycle start pulse. A latch prevents later HSYNC edges
+from restarting the generator. The configured polarity is verified by
+register 0x26 = 0x03.
 
 ## Data path
 

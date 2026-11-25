@@ -444,7 +444,7 @@ begin
     --------------------------------------------------------------------------
 
     -- KEY2 is active-low. Assertion is asynchronous; release is synchronized
-    -- to the always-running 8 MHz board clock.
+    -- to the generated 24 MHz system clock.
     process(clk24, key2_n_i)
     begin
         if key2_n_i = '0' then
@@ -585,7 +585,8 @@ begin
             dst_pulse_o => line_ack_usr
         );
 
-    -- Synchronize sticky status levels into clk24 from clk24 and usr_clk.
+    -- Bring HyperRAM-domain completion/error levels into the 24 MHz domain;
+    -- camera configuration status is already native to clk24.
     process(clk24, rst_n)
     begin
         if rst_n = '0' then
@@ -700,8 +701,8 @@ begin
 
     --------------------------------------------------------------------------
     -- First-HSYNC one-shot trigger. Register 0x26 is verified as 0x03,
-    -- therefore HSYNC is active high. Only a rising edge after config_pass
-    -- emits one 24 MHz pulse; subsequent HSYNC edges are ignored.
+    -- therefore HSYNC is active high. After config_pass, wait for an inactive
+    -- HSYNC baseline, then accept its first rising edge exactly once.
     --------------------------------------------------------------------------
     process(clk24, clk24_rst_n)
     begin

@@ -1,6 +1,6 @@
 
 function report = testA2_receive_uart(port)
-%TEST3_RECEIVE_UART
+%TESTA2_RECEIVE_UART
 % Receive and validate Test A_2 synthetic HyperRAM readback.
 %
 % Synthetic pattern:
