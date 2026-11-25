@@ -1,22 +1,85 @@
-// Tang Nano 4K — Test A_2 — GC0308 configuration + first-HSYNC synthetic test.
-// Top module: TestA2_GC0308_HyperRAM
+// ============================================================
+// Tang Nano 4K - Test 3 - Real Camera Timing + Synthetic Payload
+// Top module: Test3_24MHz_Synthetic_HyperRAM
+// ============================================================
+
+
+// ------------------------------------------------------------
+// System inputs
+// ------------------------------------------------------------
+
 IO_LOC  "clk8" 35;
 IO_PORT "clk8" IO_TYPE=LVCMOS33 PULL_MODE=NONE;
 
+
+// One-way UART: FPGA TX -> USB-UART adapter RX (adapter TX is not connected).
 IO_LOC  "uart_tx_o" 32;
 IO_PORT "uart_tx_o" IO_TYPE=LVCMOS33 PULL_MODE=NONE;
 
-// Tang Nano 4K KEY2/S2, active-low global reset.
+// Tang Nano 4K onboard KEY1/S1, active-low, FPGA pin 14 (1.8 V bank).
+// The board already provides the pull-up; the debounced press triggers capture.
+IO_LOC  "trigger_n_i" 14;
+IO_PORT "trigger_n_i" IO_TYPE=LVCMOS18 PULL_MODE=NONE;
+
+// Tang Nano 4K KEY2/S2, active-low global reset (FPGA pin 15, 1.8 V bank).
 IO_LOC  "key2_n_i" 15;
 IO_PORT "key2_n_i" IO_TYPE=LVCMOS18 PULL_MODE=NONE;
 
-// GC0308 connector: MCLK, SCCB and HSYNC only.
-// Sensor PCLK, VSYNC and D[7:0] are intentionally absent from this design.
+
+// ------------------------------------------------------------
+// Camera connector pins retained for compatible board pinout; unused in Test 3
+// ------------------------------------------------------------
+
+// Unused camera master-clock pin (held low)
 IO_LOC  "cam_clk" 33;
 IO_PORT "cam_clk" IO_TYPE=LVCMOS33 DRIVE=8;
+
+// I2C clock
 IO_LOC  "cam_scl" 44;
 IO_PORT "cam_scl" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8;
+
+// I2C data
 IO_LOC  "cam_sda" 46;
 IO_PORT "cam_sda" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8;
+
+// Camera synchronization and pixel clock
+IO_LOC  "cam_vsync" 43;
+IO_PORT "cam_vsync" IO_TYPE=LVCMOS33 PULL_MODE=NONE;
+
 IO_LOC  "cam_hsync" 42;
 IO_PORT "cam_hsync" IO_TYPE=LVCMOS33 PULL_MODE=NONE;
+
+IO_LOC  "cam_pclk" 41;
+IO_PORT "cam_pclk" IO_TYPE=LVCMOS33 PULL_MODE=NONE;
+
+
+// ------------------------------------------------------------
+// Camera pixel data bus
+// ------------------------------------------------------------
+
+IO_LOC  "cam_pix_data[0]" 22;
+IO_PORT "cam_pix_data[0]" IO_TYPE=LVCMOS18 PULL_MODE=NONE;
+
+IO_LOC  "cam_pix_data[1]" 21;
+IO_PORT "cam_pix_data[1]" IO_TYPE=LVCMOS18 PULL_MODE=NONE;
+
+IO_LOC  "cam_pix_data[2]" 17;
+IO_PORT "cam_pix_data[2]" IO_TYPE=LVCMOS18 PULL_MODE=NONE;
+
+IO_LOC  "cam_pix_data[3]" 19;
+IO_PORT "cam_pix_data[3]" IO_TYPE=LVCMOS18 PULL_MODE=NONE;
+
+IO_LOC  "cam_pix_data[4]" 20;
+IO_PORT "cam_pix_data[4]" IO_TYPE=LVCMOS18 PULL_MODE=NONE;
+
+IO_LOC  "cam_pix_data[5]" 18;
+IO_PORT "cam_pix_data[5]" IO_TYPE=LVCMOS18 PULL_MODE=NONE;
+
+IO_LOC  "cam_pix_data[6]" 16;
+IO_PORT "cam_pix_data[6]" IO_TYPE=LVCMOS18 PULL_MODE=NONE;
+
+IO_LOC  "cam_pix_data[7]" 23;
+IO_PORT "cam_pix_data[7]" IO_TYPE=LVCMOS18 PULL_MODE=NONE;
+
+// Test 3 note: cam_pix_data pins remain constrained but are not consumed as payload.
+// Real cam_pclk/cam_vsync/cam_hsync continue to control byte qualification.

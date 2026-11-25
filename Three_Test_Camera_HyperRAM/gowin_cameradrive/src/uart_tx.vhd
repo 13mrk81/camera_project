@@ -7,7 +7,7 @@ use ieee.numeric_std.all;
 -- are both high. data_ready_o is high only while the transmitter is idle.
 entity uart_tx is
     generic (
-        G_CLK_FREQ_HZ            : positive := 8_000_000;
+        G_CLK_FREQ_HZ            : positive := 24_000_000;
         G_BAUD_RATE              : positive := 115_200;
         G_INTER_BYTE_GAP_CYCLES  : positive := 80
     );

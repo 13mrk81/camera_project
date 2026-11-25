@@ -3,7 +3,7 @@ use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 
 -- ============================================================================
--- Module : testA2_synthetic_frame_source
+-- Module : test3_synthetic_frame_source
 --
 -- Purpose:
 --   Generate a deterministic synthetic RGB565 byte stream using clk24.
@@ -23,7 +23,7 @@ use ieee.numeric_std.all;
 -- The pattern preserves the logical word index for HyperRAM readback analysis.
 -- ============================================================================
 
-entity testA2_synthetic_frame_source is
+entity test3_synthetic_frame_source is
     generic (
         G_FRAME_WIDTH  : positive := 640;
         G_FRAME_HEIGHT : positive := 480
@@ -38,10 +38,10 @@ entity testA2_synthetic_frame_source is
         frame_done_o      : out std_logic;
         frame_error_o     : out std_logic
     );
-end entity testA2_synthetic_frame_source;
+end entity test3_synthetic_frame_source;
 
 
-architecture rtl of testA2_synthetic_frame_source is
+architecture rtl of test3_synthetic_frame_source is
 
     --------------------------------------------------------------------------
     -- Frame geometry
